@@ -2526,7 +2526,7 @@ function AdminEstatutosTab({client}){
     try{
       // Upload to Supabase Storage to avoid Vercel 4MB body limit
       const path=`${client.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
-      const {error:uploadError}=await supabase.storage.from("estatutos").upload(path,file,{contentType:"application/pdf"});
+      const {error:uploadError}=await supabase.storage.from("Estatutos").upload(path,file,{contentType:"application/pdf"});
       if(uploadError)throw new Error("Error al subir: "+uploadError.message);
 
       const response=await fetch("/api/analizar-estatutos",{

@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   try {
     // Download PDF from Supabase Storage
     const { data: fileData, error: dlError } = await supabase.storage
-      .from("estatutos")
+      .from("Estatutos")
       .download(storagePath);
 
     if (dlError) return res.status(400).json({ error: "No se pudo descargar el archivo: " + dlError.message });
@@ -108,7 +108,7 @@ Responde ÚNICAMENTE en JSON sin texto adicional ni backticks markdown:
     await supabase.from("analisis_estatutos").insert(newAnalisis);
 
     // Clean up storage
-    await supabase.storage.from("estatutos").remove([storagePath]);
+    await supabase.storage.from("Estatutos").remove([storagePath]);
 
     return res.status(200).json({ ok: true, analisis: newAnalisis });
   } catch (error) {
