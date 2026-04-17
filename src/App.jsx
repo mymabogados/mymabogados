@@ -1,14 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
 const FORMSPREE = "https://formspree.io/f/xeevalwl";
-const GOLD = "#C9A84C";
-const CREAM = "#F5F2ED";
-const BLACK = "#1a1a1a";
-const GRAY = "#888880";
-const BORDER = "#E2DDD6";
-const WHITE = "#FFFFFF";
+const GOLD = "#A8C89A";
+const CREAM = "#F2F4F0";
+const BLACK = "#4A5C45";
+const GRAY = "#7A9070";
+const BORDER = "#DDE4D8";
+const WHITE = "#FAFCF8";
+const MUSGO = "#4A5C45";
+const MUSGO_DARK = "#3C4E38";
+const MUSGO_TEXT = "#F0F4EE";
+const CONTENT_BG = "#F2F4F0";
+const CARD_BG = "#FAFCF8";
+const TEXT_DARK = "#1E2B1A";
+const TEXT_MED = "#7A9070";
 
 const STATUS_COLORS = {
   vigente:"#5A8A3C",vencido:"#C0392B","por renovar":"#C9A84C",
@@ -49,7 +56,7 @@ const ASUNTOS_ORDEN = [
   "Aprobación de la gestión del ejercicio",
   "Modificación de estatutos sociales",
   "Aumento o reducción de capital social",
-  "Revocación y/u otorgamiento de poderes",
+  "Revocación y／u otorgamiento de poderes",
   "Aprobación de fusión o escisión",
   "Distribución de dividendos",
   "Aprobación de presupuesto anual",
@@ -160,42 +167,42 @@ function generatePDF(client,areas,documents,pendingDocs){
     doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx",margin,292);
     doc.text(`Página ${i} de ${pc}`,pageW-margin,292,{align:"right"});
   }
-  doc.save(`MM_Inmunidadprotegida._${client.id}_${new Date().toISOString().slice(0,10)}.pdf`);
+  var dt=new Date().toISOString().slice(0,10);doc.save("MM_Inmunidadprotegida._"+client.id+"_"+dt+".pdf");
 }
 
 const s={
-  wrap:{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"},
-  card:{background:WHITE,border:`1px solid ${BORDER}`,borderRadius:4,padding:"1rem 1.25rem",marginBottom:8},
-  btn:{background:"none",border:`1px solid ${BORDER}`,borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",color:BLACK,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
-  btnPrimary:{background:BLACK,color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  wrap:{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,minHeight:"100vh",display:"flex",flexDirection:"column"},
+  card:{background:CARD_BG,border:"1px solid "+BORDER,borderRadius:4,padding:"1rem 1.25rem",marginBottom:8},
+  btn:{background:"none",border:"1px solid "+BORDER,borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",color:BLACK,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  btnPrimary:{background:MUSGO,color:MUSGO_TEXT,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
   btnGold:{background:GOLD,color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
   btnGreen:{background:"#5A8A3C",color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
   btnSm:{padding:"4px 10px",fontSize:11},
-  btnDanger:{border:`1px solid #fca5a5`,color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"},
-  input:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:WHITE,fontFamily:"system-ui, sans-serif"},
-  textarea:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:WHITE,fontFamily:"system-ui, sans-serif",resize:"vertical"},
-  select:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"8px 10px",fontSize:13,background:WHITE,cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui, sans-serif"},
+  btnDanger:{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"},
+  input:{width:"100%",border:"1px solid "+BORDER,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:CARD_BG,fontFamily:"system-ui, sans-serif"},
+  textarea:{width:"100%",border:"1px solid "+BORDER,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:WHITE,fontFamily:"system-ui, sans-serif",resize:"vertical"},
+  select:{width:"100%",border:"1px solid "+BORDER,borderRadius:2,padding:"8px 10px",fontSize:13,background:CARD_BG,cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui, sans-serif"},
   label:{fontSize:10,fontWeight:400,color:GRAY,letterSpacing:".1em",textTransform:"uppercase",display:"block",marginBottom:8,marginTop:20,fontFamily:"system-ui, sans-serif"},
   muted:{fontSize:12,color:GRAY,fontFamily:"system-ui, sans-serif"},
-  tab:active=>({padding:"10px 16px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:active?BLACK:GRAY,borderBottom:active?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}),
-  tabs:{display:"flex",borderBottom:`1px solid ${BORDER}`,marginBottom:20,gap:0,overflowX:"auto"},
+  tab:active=>({padding:"10px 16px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:active?BLACK:GRAY,borderBottom:active?"2px solid "+GOLD:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}),
+  tabs:{display:"flex",borderBottom:"1px solid "+BORDER,marginBottom:20,gap:0,overflowX:"auto"},
   dot:status=>({width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[status]||"#aaa",flexShrink:0,display:"inline-block"}),
   badge:status=>{
     const map={vigente:["#f0fdf4","#166534"],vencido:["#fef2f2","#991b1b"],"por renovar":["#fffbeb","#92400e"],pendiente:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"],red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"]};
     const [bg,color]=map[status]||["#f3f4f6","#374151"];
     return{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,background:bg,color,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"};
   },
-  scoreCard:{background:WHITE,border:`1px solid ${BORDER}`,borderRadius:4,padding:".75rem .8rem",textAlign:"center",flex:1},
-  row:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:`1px solid ${BORDER}`},
+  scoreCard:{background:CARD_BG,border:"1px solid "+BORDER,borderRadius:4,padding:".75rem .8rem",textAlign:"center",flex:1},
+  row:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid "+BORDER},
   flex:(gap=8)=>({display:"flex",gap,alignItems:"center"}),
   col:(gap=8)=>({display:"flex",flexDirection:"column",gap}),
-  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:CREAM,padding:"1rem"},
-  loginBox:{background:WHITE,border:`1px solid ${BORDER}`,padding:"2.5rem 2rem",width:"min(480px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"0 8px 40px rgba(26,26,26,.08)"},
+  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:CONTENT_BG,padding:"1rem"},
+  loginBox:{background:CARD_BG,border:"1px solid "+BORDER,padding:"2.5rem 2rem",width:"min(480px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"0 8px 40px rgba(74,92,69,.1)"},
 };
 
 function Badge({status,label}){return <span style={s.badge(status)}>{label||status}</span>;}
 function ScoreCard({label,value,color}){
-  return <div style={s.scoreCard}><div style={{fontSize:26,fontWeight:400,color,fontFamily:"'Georgia', serif"}}>{value}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>{label}</div></div>;
+  return <div style={s.scoreCard}><div style={{fontSize:26,fontWeight:400,color,fontFamily:"Georgia, serif"}}>{value}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>{label}</div></div>;
 }
 function Spinner(){return <div style={{textAlign:"center",padding:"3rem",color:GRAY,fontSize:12,letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>Cargando...</div>;}
 
@@ -219,17 +226,17 @@ function DiagnosticoForm({client,onComplete}){
       <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Millán & Martínez Abogados</div>
-          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>Diagnóstico de Inmunidad</div>
-          <div style={{fontSize:22,fontFamily:"'Georgia', serif",fontStyle:"italic",color:GOLD}}>protegida.</div>
+          <div style={{fontSize:22,fontFamily:"Georgia, serif"}}>Diagnóstico de Inmunidad</div>
+          <div style={{fontSize:22,fontFamily:"Georgia, serif",fontStyle:"italic",color:GOLD}}>protegida.</div>
           <div style={{...s.muted,marginTop:8}}>{client.name}</div>
         </div>
-        <div style={{background:BORDER,borderRadius:2,height:3,marginBottom:8}}><div style={{background:GOLD,height:3,borderRadius:2,width:`${progress}%`,transition:"width .3s"}}/></div>
+        <div style={{background:BORDER,borderRadius:2,height:3,marginBottom:8}}><div style={{background:GOLD,height:3,borderRadius:2,width:progress+"%" ,transition:"width .3s"}}/></div>
         <div style={{...s.flex(),justifyContent:"space-between",marginBottom:32}}>
           <span style={{...s.muted,fontSize:11}}>{areaLabels[q.area]}</span>
           <span style={{...s.muted,fontSize:11}}>Pregunta {step+1} de {DIAGNOSTICO.length}</span>
         </div>
         <div style={{...s.card,padding:"2rem"}}>
-          <div style={{fontSize:17,fontFamily:"'Georgia', serif",marginBottom:24,lineHeight:1.5}}>{q.question}</div>
+          <div style={{fontSize:17,fontFamily:"Georgia, serif",marginBottom:24,lineHeight:1.5}}>{q.question}</div>
           <div style={s.col(10)}>
             {q.options.map((opt,i)=>(
               <button key={i} style={{...s.btn,textAlign:"left",textTransform:"none",letterSpacing:"normal",fontSize:13,padding:"12px 16px",borderColor:answers[q.id]===i?BLACK:BORDER,background:answers[q.id]===i?BLACK:"none",color:answers[q.id]===i?WHITE:BLACK}} onClick={()=>next(i)} disabled={submitting}>{opt}</button>
@@ -250,18 +257,18 @@ function DiagnosticoResult({areas,onContinue}){
       <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Ya tenemos tu diagnóstico</div>
-          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>La salud corporativa de tu empresa</div>
-          <div style={{fontSize:64,fontFamily:"'Georgia', serif",color:scoreColor,margin:"16px 0"}}>{score}</div>
+          <div style={{fontSize:22,fontFamily:"Georgia, serif"}}>La salud corporativa de tu empresa</div>
+          <div style={{fontSize:64,fontFamily:"Georgia, serif",color:scoreColor,margin:"16px 0"}}>{score}</div>
           <div style={s.muted}>Tu despacho lo revisará y te dirá exactamente qué hacer primero.</div>
         </div>
-        <div style={s.col(8)}>{areas.filter(a=>a.id!=="a6").map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div></div><Badge status={a.status}/></div></div>)}</div>
+        <div style={s.col(8)}>{areas.filter(a=>a.id!=="a6").map(a=><div key={a.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[a.status]}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{a.name}</div></div><Badge status={a.status}/></div></div>)}</div>
         <div style={{textAlign:"center",marginTop:24}}><button style={s.btnPrimary} onClick={onContinue}>Ver mi empresa →</button></div>
       </div>
     </div>
   );
 }
 
-// SOLICITUD DE ASAMBLEA — formulario simplificado
+// SOLICITUD DE ASAMBLEA - formulario simplificado
 function SolicitudAsambleaModal({client,onClose,onSaved}){
   const [form,setForm]=useState({tipo:"Ordinaria Anual",fecha:"",lugar:"",presidente:"",secretario:"",escrutador:"",delegados:"",orden:[],notas:""});
   const [socios,setSocios]=useState([{nombre:"",participacion:""}]);
@@ -275,14 +282,14 @@ function SolicitudAsambleaModal({client,onClose,onSaved}){
     const data={id:"asm"+Date.now(),client_id:client.id,...form,socios:JSON.stringify(socios),orden:JSON.stringify(form.orden),status:"solicitada",created_at:new Date().toISOString()};
     await supabase.from("asambleas").insert(data);
     // Email al despacho
-    const sociosTxt=socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"—"}%)`).join(", ");
-    const ordenTxt=form.orden.join(", ")||"—";
+    const sociosTxt=socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"-"}%)`).join(", ");
+    const ordenTxt=form.orden.join(", ")||"-";
     try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({
       empresa:client.name,contacto:client.contact,tipo:form.tipo,fecha:form.fecha,
-      lugar:form.lugar||"—",presidente:form.presidente||"—",secretario:form.secretario||"—",
-      escrutador:form.escrutador||"—",delegados:form.delegados||"—",
-      socios:sociosTxt||"—",orden:ordenTxt,notas:form.notas||"—",
-      _subject:`Solicitud de Asamblea: ${form.tipo} — ${client.name}`
+      lugar:form.lugar||"-",presidente:form.presidente||"-",secretario:form.secretario||"-",
+      escrutador:form.escrutador||"-",delegados:form.delegados||"-",
+      socios:sociosTxt||"-",orden:ordenTxt,notas:form.notas||"-",
+      _subject:`Solicitud de Asamblea: ${form.tipo} - ${client.name}`
     })});}catch(e){}
     setSending(false);setSent(true);onSaved(data);
     setTimeout(()=>{setSent(false);onClose();},1500);
@@ -290,11 +297,11 @@ function SolicitudAsambleaModal({client,onClose,onSaved}){
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,overflowY:"auto"}} onClick={onClose}>
-      <div style={{background:WHITE,padding:"2rem",width:"min(580px,95vw)",maxHeight:"90vh",overflowY:"auto",border:`1px solid ${BORDER}`,margin:"1rem"}} onClick={e=>e.stopPropagation()}>
-        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"'Georgia', serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>El despacho la procesará y subirá el acta a tu panel.</div></div>
+      <div style={{background:WHITE,padding:"2rem",width:"min(580px,95vw)",maxHeight:"90vh",overflowY:"auto",border:"1px solid "+BORDER,margin:"1rem"}} onClick={e=>e.stopPropagation()}>
+        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"Georgia, serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>El despacho la procesará y subirá el acta a tu panel.</div></div>
         :<>
           <span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/>
-          <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Necesito una asamblea</div>
+          <div style={{fontSize:16,fontFamily:"Georgia, serif",marginBottom:4}}>Necesito una asamblea</div>
           <div style={{...s.muted,marginBottom:20}}>Dinos qué necesitas y preparamos todo. El acta llega a tu panel cuando esté lista.</div>
 
           <span style={s.label}>Tipo de asamblea</span>
@@ -390,13 +397,13 @@ function AsambleasTab({client,isAdmin=false}){
         const orden=a.orden?JSON.parse(a.orden):[];
         const isPublished=a.status==="publicada";
         return(
-          <div key={a.id} style={{...s.card,borderLeft:`3px solid ${isPublished?STATUS_COLORS.green:GOLD}`}}>
+          <div key={a.id} style={{...s.card,borderLeft:"3px solid "+isPublished?STATUS_COLORS.green:GOLD}}>
             <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div>
-                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.tipo}</div>
+                <div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{a.tipo}</div>
                 <div style={s.muted}>{a.fecha}{a.lugar?" · "+a.lugar:""}</div>
                 {a.presidente&&<div style={{...s.muted,marginTop:2}}>Presidente: {a.presidente}{a.secretario?" · Secretario: "+a.secretario:""}</div>}
-                {socios.filter(s=>s.nombre).length>0&&<div style={{...s.muted,marginTop:2}}>{socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"—"}%)`).join(", ")}</div>}
+                {socios.filter(s=>s.nombre).length>0&&<div style={{...s.muted,marginTop:2}}>{socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"-"}%)`).join(", ")}</div>}
                 {orden.length>0&&<div style={{...s.muted,marginTop:2,fontSize:11}}>{orden.length} punto{orden.length!==1?"s":""} en el orden del día</div>}
               </div>
               <Badge status={statusBadge[a.status]||"amber"} label={statusLabel[a.status]||a.status}/>
@@ -440,13 +447,13 @@ function ContratosClientTab({client}){
       <span style={s.label}>Mis contratos</span>
       {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos registrados aún</div>
       :contratos.map(c=>{
-        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date())/(1000*60*60*24)):null;
+        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date()) / (1000*60*60*24)):null;
         const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
         return(
-          <div key={c.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[st]}`}}>
+          <div key={c.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[st]}}>
             <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}>
               <div>
-                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{c.nombre}</div>
+                <div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{c.nombre}</div>
                 <div style={s.muted}>{c.contraparte}{c.tipo?" · "+c.tipo:""}{c.monto?" · "+c.monto:""}</div>
                 {c.vencimiento&&<div style={{...s.muted,marginTop:2}}>Vence: {new Date(c.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
               </div>
@@ -504,13 +511,13 @@ function AdminContratosTab({client}){
       </div>}
       {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos</div>
       :contratos.map(c=>{
-        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date())/(1000*60*60*24)):null;
+        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date()) / (1000*60*60*24)):null;
         const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
         return(
-          <div key={c.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[st]}`}}>
+          <div key={c.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[st]}}>
             <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}>
               <div>
-                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{c.nombre}</div>
+                <div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{c.nombre}</div>
                 <div style={s.muted}>{c.contraparte}{c.tipo?" · "+c.tipo:""}{c.monto?" · "+c.monto:""}</div>
                 {c.vencimiento&&<div style={{...s.muted,marginTop:2}}>Vence: {new Date(c.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
               </div>
@@ -609,7 +616,7 @@ function HistorialClientTab({client}){
               {i<historial.length-1&&<div style={{width:1,flex:1,background:"#E2DDD6",marginTop:4}}/>}
             </div>
             <div style={{background:"#FFFFFF",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",flex:1,marginBottom:0}}>
-              <div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{h.area_name}</div>
+              <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{h.area_name}</div>
               <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
                 <span style={{...{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"},...(()=>{const m={red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"]};const [bg,color]=m[h.status_anterior]||["#f3f4f6","#374151"];return{background:bg,color,opacity:.7};})()}}>{sLabel[h.status_anterior]||h.status_anterior}</span>
                 <span style={{fontSize:11,color:"#888880"}}>→</span>
@@ -739,10 +746,10 @@ function AdminPagosTab({client}){
         <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Agregar</button>
       </div>}
       {pagos.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin registros de pago</div>
-      :pagos.map(p=><div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"center",gap:12,borderLeft:`3px solid ${p.status==="pagado"?"#5A8A3C":"#C0392B"}`}}>
+      :pagos.map(p=><div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"center",gap:12,borderLeft:"3px solid "+p.status==="pagado"?"#5A8A3C":"#C0392B"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontFamily:"'Georgia',serif"}}>{p.mes}</div>
-          <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>{p.monto||"—"}{p.nota?" · "+p.nota:""}</div>
+          <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>{p.monto||"-"}{p.nota?" · "+p.nota:""}</div>
         </div>
         <button style={{background:p.status==="pagado"?"#5A8A3C":"none",color:p.status==="pagado"?"#fff":"#C0392B",border:p.status==="pagado"?"none":"1px solid #fca5a5",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>toggleStatus(p.id,p.status)}>{p.status==="pagado"?"✓ Pagado":"Pendiente"}</button>
         <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"}} onClick={()=>del(p.id)}>×</button>
@@ -792,7 +799,7 @@ function AdminTareasTab({client,admin}){
         <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Agregar tarea</button>
       </div>}
       {tareas.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin tareas registradas</div>
-      :tareas.map(t=><div key={t.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"flex-start",gap:12,opacity:t.status==="completada"?.6:1,borderLeft:`3px solid ${t.status==="completada"?"#5A8A3C":"#C9A84C"}`}}>
+      :tareas.map(t=><div key={t.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"flex-start",gap:12,opacity:t.status==="completada"?.6:1,borderLeft:"3px solid "+t.status==="completada"?"#5A8A3C":"#C9A84C"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontFamily:"'Georgia',serif",textDecoration:t.status==="completada"?"line-through":"none"}}>{t.titulo}</div>
           {t.descripcion&&<div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{t.descripcion}</div>}
@@ -960,7 +967,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" placeholder="Fecha de la escritura" value={form.fecha_escritura||""} onChange={e=>setForm({...form,fecha_escritura:e.target.value})}/>
             </div>
             <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder="¿Para qué está autorizado? (ej. Poder General, Poder para cuentas bancarias)" value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
-            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Alcance del poder — instituciones y registros vinculados</div>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Alcance del poder - instituciones y registros vinculados</div>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {Object.entries(ALCANCE_PODER).map(([cat,items])=>(
                 <div key={cat}>
@@ -1012,7 +1019,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
         </div>
 
         {cfg.campos_extra&&cfg.campos_extra.length>0&&<>
-          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16}}>Datos de industria — {INDUSTRIA_LABELS[client.industria]||"General"}</div>
+          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16}}>Datos de industria - {INDUSTRIA_LABELS[client.industria]||"General"}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {cfg.campos_extra.map(campo=>(
               <div key={campo.id}>
@@ -1053,7 +1060,7 @@ function UsoPoderesModal({persona,client,onClose}){
     const u={id:"uso"+Date.now(),persona_id:persona.id,client_id:client.id,...form,created_at:new Date().toISOString()};
     await supabase.from("uso_poderes").insert(u);
     // Notify admins via notificaciones table (client_id=null means for all admins)
-    const msg=`${persona.nombre} usó poder: ${form.tipo_acto}${form.descripcion?" — "+form.descripcion:""}`;
+    const msg=`${persona.nombre} usó poder: ${form.tipo_acto}${form.descripcion?"  -  "+form.descripcion:""}`;
     // Store as notificacion for the client (despacho lo ve en solicitudes)
     await supabase.from("notificaciones").insert({
       id:"notif"+Date.now(),
@@ -1190,7 +1197,7 @@ const ALCANCE_PODER = {
     "IEPS / facturación especial",
     "Portal de la Secretaría de Economía (SE)",
     "Registro en SIEM",
-    "Trámites ante SE (permisos de importación/exportación)",
+    "Trámites ante SE (permisos de importación / exportación)",
     "Trámites ante IMPI (marcas, patentes)",
   ],
   "IMSS / Laboral": [
@@ -1310,7 +1317,7 @@ function ConstanciasModal({persona, onClose}){
         {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
         :constancias.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin constancias registradas aún</div>
         :constancias.map(c=>(
-          <div key={c.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"12px 14px",marginBottom:8,borderLeft:`3px solid ${c.status==="activo"?"#5A8A3C":c.status==="en trámite"?"#C9A84C":"#C0392B"}`}}>
+          <div key={c.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"12px 14px",marginBottom:8,borderLeft:"3px solid "+c.status==="activo"?"#5A8A3C":c.status==="en trámite"?"#C9A84C":"#C0392B"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#1a1a1a"}}>{c.institucion}</div>
@@ -1351,7 +1358,7 @@ function UsosPoderesInline({personaId}){
         <div style={{width:5,height:5,borderRadius:"50%",background:"#C9A84C",flexShrink:0,marginTop:4}}/>
         <div>
           <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{u.tipo_acto}</span>
-          {u.descripcion&&<span style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}> — {u.descripcion}</span>}
+          {u.descripcion&&<span style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}> - {u.descripcion}</span>}
           {u.fecha&&<span style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}> · {new Date(u.fecha).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</span>}
         </div>
       </div>)}
@@ -1370,7 +1377,7 @@ function ConstanciasInline({personaId}){
     <div style={{marginTop:6,borderTop:"1px solid #F5F2ED",paddingTop:6}}>
       <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Acreditado ante</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-        {items.map((c,i)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fff",border:`1px solid ${sColor[c.status]||"#E2DDD6"}`,color:sColor[c.status]||"#888880",fontFamily:"system-ui,sans-serif"}}>{c.institucion}</span>)}
+        {items.map((c,i)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fff",border:"1px solid "+sColor[c.status]||"#E2DDD6",color:sColor[c.status]||"#888880",fontFamily:"system-ui,sans-serif"}}>{c.institucion}</span>)}
       </div>
     </div>
   );
@@ -1441,7 +1448,7 @@ function PersonasTab({client,isAdmin=false}){
       {/* List */}
       {filtered.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin {filter==="todos"?"personas registradas":filter+"s registrados"}</div>
       :filtered.map(p=>(
-        <div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,borderLeft:`3px solid ${p.status==="activo"?"#5A8A3C":"#E2DDD6"}`}}>
+        <div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,borderLeft:"3px solid "+p.status==="activo"?"#5A8A3C":"#E2DDD6"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
@@ -1545,7 +1552,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "pep_" + p.id,
       tipo: "pep",
       nivel: "red",
-      titulo: `Representante con cargo público sin declarar — ${p.nombre}`,
+      titulo: `Representante con cargo público sin declarar - ${p.nombre}`,
       detalle: "Uno de tus representantes tiene o tuvo un cargo público y no está documentado. Esto puede afectar tus operaciones bancarias.",
       accion: "Completar perfil",
       tab: "personas",
@@ -1560,7 +1567,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "origen_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `¿De dónde vienen los recursos? — ${p.nombre}`,
+        titulo: `¿De dónde vienen los recursos? - ${p.nombre}`,
         detalle: "Tu industria requiere documentar el origen de los recursos de tus socios y representantes. Sin esto, los bancos pueden cuestionarte.",
         accion: "Completar perfil",
         tab: "personas",
@@ -1642,7 +1649,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_vencido_" + c.id,
       tipo: "contrato",
       nivel: "red",
-      titulo: `Contrato vencido y sin renovar — ${c.nombre}`,
+      titulo: `Contrato vencido y sin renovar - ${c.nombre}`,
       detalle: `Venció el ${new Date(c.vencimiento).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
       accion: "Ver contratos",
       tab: "contratos",
@@ -1656,7 +1663,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_pronto_" + c.id,
       tipo: "contrato",
       nivel: dias <= 7 ? "red" : "amber",
-      titulo: `Contrato próximo a vencer — ${c.nombre}`,
+      titulo: `Contrato próximo a vencer - ${c.nombre}`,
       detalle: `Vence en ${dias} día${dias !== 1 ? "s" : ""}`,
       accion: "Ver contratos",
       tab: "contratos",
@@ -1670,7 +1677,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "area_red_" + a.id,
       tipo: "semaforo",
       nivel: "amber",
-      titulo: `El despacho aún no ha explicado este riesgo — ${a.name}`,
+      titulo: `El despacho aún no ha explicado este riesgo - ${a.name}`,
       detalle: "Tu despacho detectó un problema aquí pero aún no ha agregado una explicación. Solicítala.",
       accion: "Agregar nota",
       tab: "panel",
@@ -1689,7 +1696,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "sin_usos_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `Poder sin actividad registrada — ${p.nombre}`,
+        titulo: `Poder sin actividad registrada - ${p.nombre}`,
         detalle: "Este representante tiene poderes activos pero no hay registro de que los haya usado. Verifica si sigue siendo necesario.",
         accion: "Ver apoderado",
         tab: "personas",
@@ -1701,8 +1708,8 @@ async function calcComplianceAlerts(clientId, industria) {
           id: "uso_antiguo_" + p.id,
           tipo: "compliance",
           nivel: "amber",
-          titulo: `Poder sin uso reciente — ${p.nombre}`,
-          detalle: `Último uso registrado: ${ultimo.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}`,
+          titulo: `Poder sin uso reciente - ${p.nombre}`,
+      detalle: `Último uso: ${ultimo.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}`,
           accion: "Ver apoderado",
           tab: "personas",
         });
@@ -1710,7 +1717,7 @@ async function calcComplianceAlerts(clientId, industria) {
     }
   });
 
-  // 9. LFPIORPI — inmobiliaria/financiero sin declaración de origen en TODOS
+  // 9. LFPIORPI - inmobiliaria/financiero sin declaración de origen en TODOS
   if (["inmobiliaria", "financiero"].includes(industria)) {
     const sinOrigen = ps.filter(p => !p.origen_recursos).length;
     if (sinOrigen > 0 && ps.length > 0) {
@@ -1733,7 +1740,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "alcance_sat_" + p.id,
       tipo: "regulatorio",
       nivel: "amber",
-      titulo: `Representante ante el SAT sin RFC registrado — ${p.nombre}`,
+      titulo: `Representante ante el SAT sin RFC registrado - ${p.nombre}`,
       detalle: "Este representante hace trámites fiscales pero no tenemos su RFC. Es un riesgo ante cualquier revisión del SAT.",
       accion: "Completar perfil",
       tab: "personas",
@@ -1748,7 +1755,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "alcance_fin_" + p.id,
         tipo: "kyc",
         nivel: "red",
-        titulo: `Representante bancario sin documentos — ${p.nombre}`,
+        titulo: `Representante bancario sin documentos - ${p.nombre}`,
         detalle: "Este representante puede operar cuentas bancarias pero no ha entregado su identificación. Tu banco puede bloquearte.",
         accion: "Ver KYC",
         tab: "personas",
@@ -1764,7 +1771,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id:"const_rev_"+c.id,
       tipo:"regulatorio",
       nivel:"amber",
-      titulo:`Representación revocada — ${c.institucion}`,
+      titulo:`Representación revocada - ${c.institucion}`,
       detalle:`${persona?.nombre||"Apoderado"} ya no tiene representación activa ante ${c.institucion}`,
       accion:"Ver constancias",
       tab:"personas",
@@ -1796,11 +1803,11 @@ function CompliancePanel({client, onNavigate}){
     <div>
       {/* Summary */}
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:`3px solid ${red.length>0?"#C0392B":"#5A8A3C"}`}}>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:"3px solid "+red.length>0?"#C0392B":"#5A8A3C"}}>
           <div style={{fontSize:24,fontWeight:400,color:red.length>0?"#C0392B":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{red.length}</div>
           <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Críticas</div>
         </div>
-        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:`3px solid ${amber.length>0?"#C9A84C":"#5A8A3C"}`}}>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:"3px solid "+amber.length>0?"#C9A84C":"#5A8A3C"}}>
           <div style={{fontSize:24,fontWeight:400,color:amber.length>0?"#C9A84C":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{amber.length}</div>
           <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Atención</div>
         </div>
@@ -1864,9 +1871,9 @@ function AdminNotifBell(){
     const cMap=Object.fromEntries((allClients.data||[]).map(c=>[c.id,c.name]));
     const pMap=Object.fromEntries((allPersonas.data||[]).map(p=>[p.id,p.nombre]));
     const items=[];
-    (reqs.data||[]).forEach(r=>items.push({id:"req_"+r.id,tipo:"solicitud",icon:"✉️",texto:`${cMap[r.client_id]||r.client_id} — ${r.label}`,sub:r.notes||"",fecha:r.date,client_id:r.client_id}));
-    (usos.data||[]).forEach(u=>items.push({id:"uso_"+u.id,tipo:"poder",icon:"📋",texto:`${cMap[u.client_id]||u.client_id} — Uso de poder: ${u.tipo_acto}`,sub:pMap[u.persona_id]||"",fecha:new Date(u.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:u.client_id}));
-    (diags.data||[]).filter(n=>n.tipo!=="poder").forEach(n=>items.push({id:"notif_"+n.id,tipo:n.tipo,icon:"🔔",texto:`${cMap[n.client_id]||n.client_id} — ${n.mensaje}`,sub:"",fecha:new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:n.client_id}));
+    (reqs.data||[]).forEach(r=>items.push({id:"req_"+r.id,tipo:"solicitud",icon:"✉️",texto:`${cMap[r.client_id]||r.client_id} - ${r.label}`,sub:r.notes||"",fecha:r.date,client_id:r.client_id}));
+    (usos.data||[]).forEach(u=>items.push({id:"uso_"+u.id,tipo:"poder",icon:"📋",texto:`${cMap[u.client_id]||u.client_id} - Uso de poder: ${u.tipo_acto}`,sub:pMap[u.persona_id]||"",fecha:new Date(u.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:u.client_id}));
+    (diags.data||[]).filter(n=>n.tipo!=="poder").forEach(n=>items.push({id:"notif_"+n.id,tipo:n.tipo,icon:"🔔",texto:`${cMap[n.client_id]||n.client_id} - ${n.mensaje}`,sub:"",fecha:new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:n.client_id}));
     items.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
     setNotifs(items);setLoading(false);
   }
@@ -1955,7 +1962,7 @@ const AUTORIDADES = {
       {id:"folio_actualizacion",label:"Última modificación registrada",tipo:"date"},
       {id:"representante_se",label:"Representante ante SE",tipo:"text"},
       {id:"siem_registro",label:"Registro SIEM",tipo:"text"},
-      {id:"notas_se",label:"Notas adicionales SE/RPPyC",tipo:"textarea"},
+      {id:"notas_se",label:"Notas adicionales SE - RPPyC",tipo:"textarea"},
     ]
   },
   INFONAVIT: {
@@ -2021,7 +2028,7 @@ function PerfilRegulatorioTab({client,isAdmin=false}){
       else if(r.condicion==="desactualizado"&&val){const d=new Date(val);const dos=new Date(hoy);dos.setFullYear(hoy.getFullYear()-2);triggered=d<dos;}
       else if(r.condicion==="inactivo"){triggered=!val||val==="Inactivo"||val==="Revocado"||val==="No existe";}
       if(triggered){
-        const dias=val&&(r.condicion==="vencido"||r.condicion==="por_vencer_30")?Math.ceil((new Date(val)-hoy)/(1000*60*60*24)):null;
+        const dias=val&&(r.condicion==="vencido"||r.condicion==="por_vencer_30")?Math.ceil((new Date(val)-hoy) / (1000*60*60*24)):null;
         const detalle=dias!==null?(dias<0?"Venció hace "+Math.abs(dias)+" días":"Vence en "+dias+" días"):r.descripcion;
         alerts.push({...r,detalle});
       }
@@ -2151,18 +2158,18 @@ const CONSECUENCIAS_MAP = {
     nivel: "red",
     plazo: "Inmediato al vencer",
     accion_correctiva: "Renovar CSD ante el SAT antes del vencimiento",
-    fundamento: "Art. 17-D CFF — el SAT puede dejar sin efectos los certificados",
+    fundamento: "Art. 17-D CFF  -  el SAT puede dejar sin efectos los certificados",
     icon: "🚫",
   },
   efirma_vencida: {
     autoridad: "SAT",
     riesgo: "e.firma (FIEL) vencida",
-    consecuencia: "Sin e.firma no puedes firmar nada ante el gobierno — declaraciones, contratos notariales, ni representar a tu empresa.",
+    consecuencia: "Sin e.firma no puedes firmar nada ante el gobierno  -  declaraciones, contratos notariales, ni representar a tu empresa.",
     impacto: "CRÍTICO",
     nivel: "red",
     plazo: "Inmediato al vencer",
     accion_correctiva: "Renovar e.firma en SAT o módulo de atención",
-    fundamento: "Art. 17-D CFF — certificados dejan de surtir efectos al vencer",
+    fundamento: "Art. 17-D CFF  -  certificados dejan de surtir efectos al vencer",
     icon: "🔑",
   },
   efirma_por_vencer: {
@@ -2184,7 +2191,7 @@ const CONSECUENCIAS_MAP = {
     nivel: "red",
     plazo: "Inmediato",
     accion_correctiva: "Regularizar adeudos SAT y solicitar nueva opinión",
-    fundamento: "Regla 2.1.39 RMF — opinión afecta contratos con gobierno",
+    fundamento: "Regla 2.1.39 RMF  -  opinión afecta contratos con gobierno",
     icon: "⛔",
   },
   buzon_inactivo: {
@@ -2195,7 +2202,7 @@ const CONSECUENCIAS_MAP = {
     nivel: "amber",
     plazo: "Ya en curso",
     accion_correctiva: "Activar buzón tributario y registrar correo de notificaciones",
-    fundamento: "Art. 17-K CFF — buzón inactivo no exime de efectos de notificaciones",
+    fundamento: "Art. 17-K CFF  -  buzón inactivo no exime de efectos de notificaciones",
     icon: "📭",
   },
   sin_representante_sat: {
@@ -2206,7 +2213,7 @@ const CONSECUENCIAS_MAP = {
     nivel: "amber",
     plazo: "Al primer acto de autoridad",
     accion_correctiva: "Acreditar representante legal ante SAT con e.firma",
-    fundamento: "Art. 19 CFF — representación ante autoridades fiscales",
+    fundamento: "Art. 19 CFF  -  representación ante autoridades fiscales",
     icon: "👤",
   },
   padron_importadores: {
@@ -2223,13 +2230,13 @@ const CONSECUENCIAS_MAP = {
   // IMSS
   credito_fiscal_imss: {
     autoridad: "IMSS",
-    riesgo: "Crédito fiscal IMSS — riesgo de embargo",
+    riesgo: "Crédito fiscal IMSS  -  riesgo de embargo",
     consecuencia: "El IMSS no necesita ir a juicio para embargarte. Puede congelar tus cuentas y tomar tus bienes directamente.",
     impacto: "CRÍTICO",
     nivel: "red",
     plazo: "Inmediato tras liquidación de crédito",
     accion_correctiva: "Celebrar convenio de pago con el IMSS o cubrir adeudo",
-    fundamento: "Art. 287 LSS — el IMSS tiene facultades de ejecución fiscal",
+    fundamento: "Art. 287 LSS  -  el IMSS tiene facultades de ejecución fiscal",
     icon: "🏦",
   },
   sin_registro_patronal: {
@@ -2257,7 +2264,7 @@ const CONSECUENCIAS_MAP = {
   // INFONAVIT
   credito_fiscal_infonavit: {
     autoridad: "INFONAVIT",
-    riesgo: "Crédito fiscal INFONAVIT — riesgo de embargo",
+    riesgo: "Crédito fiscal INFONAVIT  -  riesgo de embargo",
     consecuencia: "INFONAVIT puede congelarte las cuentas sin juicio si tienes adeudos.",
     impacto: "CRÍTICO",
     nivel: "red",
@@ -2298,7 +2305,7 @@ const CONSECUENCIAS_MAP = {
     nivel: "amber",
     plazo: "Al primer acto cuestionado",
     accion_correctiva: "Actualizar folio mercantil en RPPyC",
-    fundamento: "Art. 21 Código de Comercio — obligación de inscripción",
+    fundamento: "Art. 21 Código de Comercio  -  obligación de inscripción",
     icon: "📋",
   },
 };
@@ -2340,7 +2347,7 @@ async function calcConsecuencias(clientId, industria) {
   else if (sat.efirma_vencimiento && new Date(sat.efirma_vencimiento) >= hoy && new Date(sat.efirma_vencimiento) <= en30) {
     const dias = Math.ceil((new Date(sat.efirma_vencimiento) - hoy) / (1000*60*60*24));
     alertas.push({ ...CONSECUENCIAS_MAP.efirma_por_vencer, id: "cons_efirma_pronto",
-      detalle: `e.firma vence en ${dias} días — ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+      detalle: `e.firma vence en ${dias} días - ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
   }
   // Opinión negativa
   if (sat.opinion_cumplimiento === "Negativa" || sat.opinion_cumplimiento === "No vigente" || sat.opinion_cumplimiento === "No consultada" || !sat.opinion_cumplimiento) {
@@ -2377,7 +2384,7 @@ async function calcConsecuencias(clientId, industria) {
     alertas.push({ ...CONSECUENCIAS_MAP.credito_fiscal_infonavit, id: "cons_infonavit",
       detalle: `Estatus INFONAVIT: ${infonavit.estatus_infonavit}` });
   }
-  // PLD — KYC incompleto en apoderados bancarios
+  // PLD - KYC incompleto en apoderados bancarios
   const apoderadosBancarios = ps.filter(p => p.tipo === "apoderado" && p.alcance && p.alcance.some(a => a.includes("bancari") || a.includes("CNBV") || a.includes("crédito")));
   const sinKYC = apoderadosBancarios.filter(p => {
     const docs = kd.filter(d => d.persona_id === p.id && d.status === "entregado");
@@ -2385,7 +2392,7 @@ async function calcConsecuencias(clientId, industria) {
   });
   if (sinKYC.length > 0 || ps.filter(p => p.beneficiario_final).length === 0) {
     alertas.push({ ...CONSECUENCIAS_MAP.riesgo_pld, id: "cons_pld",
-      detalle: sinKYC.length > 0 ? `${sinKYC.length} apoderado(s) bancario(s) sin KYC completo` : "Sin beneficiario final declarado — riesgo PLD" });
+      detalle: sinKYC.length > 0 ? `${sinKYC.length} apoderado(s) bancario(s) sin KYC completo` : "Sin beneficiario final declarado - riesgo PLD" });
   }
   // Sin constancia bancaria
   const consBancaria = cons.filter(c => c.alcance && (c.alcance.includes("bancari") || c.alcance.includes("Apertura") || c.alcance.includes("CNBV")));
@@ -2451,7 +2458,7 @@ function ConsecuenciasTab({client, isAdmin=false, onNavigate}){
 
       {alertas.length===0&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"2rem",textAlign:"center"}}>
         <div style={{fontSize:28,marginBottom:8}}>✓</div>
-        <div style={{fontSize:15,fontFamily:"'Georgia',serif",color:"#166534"}}>Todo en orden — puedes operar sin interrupciones</div>
+        <div style={{fontSize:15,fontFamily:"'Georgia',serif",color:"#166534"}}>Todo en orden - puedes operar sin interrupciones</div>
         <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:4}}>Llena tu perfil ante autoridades para ver el análisis completo</div>
       </div>}
 
@@ -2505,7 +2512,7 @@ function AdminEstatutosTab({client}){
   const [showChecklist,setShowChecklist]=useState(false);
   const [newClausula,setNewClausula]=useState({categoria:"",titulo:"",descripcion:"",obligatoria:true});
   const [dragOver,setDragOver]=useState(false);
-  const fileRef=useRef(null);
+  const fileRef=React.useRef(null);
 
   useEffect(()=>{
     async function load(){
@@ -2525,8 +2532,8 @@ function AdminEstatutosTab({client}){
     setAnalyzing(true);
     try{
       // Upload to Supabase Storage to avoid Vercel 4MB body limit
-      const path=`${client.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
-      const {error:uploadError}=await supabase.storage.from("Estatutos").upload(path,file,{contentType:"application/pdf"});
+      const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");const path=`${client.id}/${Date.now()}_${safeName}`;
+      const {error:uploadError}=await supabase.storage.from("estatutos").upload(path,file,{contentType:"application/pdf"});
       if(uploadError)throw new Error("Error al subir: "+uploadError.message);
 
       const response=await fetch("/api/analizar-estatutos",{
@@ -2620,7 +2627,7 @@ function AdminEstatutosTab({client}){
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Título de la cláusula *" value={newClausula.titulo} onChange={e=>setNewClausula({...newClausula,titulo:e.target.value})}/>
               <input style={{width:140,border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",flexShrink:0}} placeholder="Categoría" value={newClausula.categoria} onChange={e=>setNewClausula({...newClausula,categoria:e.target.value})}/>
             </div>
-            <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"}} rows={2} placeholder="Descripción — ¿qué debe decir el estatuto sobre esto?" value={newClausula.descripcion} onChange={e=>setNewClausula({...newClausula,descripcion:e.target.value})}/>
+            <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"}} rows={2} placeholder="Descripción - ¿qué debe decir el estatuto sobre esto?" value={newClausula.descripcion} onChange={e=>setNewClausula({...newClausula,descripcion:e.target.value})}/>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,fontFamily:"system-ui,sans-serif"}}>
                 <input type="checkbox" checked={newClausula.obligatoria} onChange={e=>setNewClausula({...newClausula,obligatoria:e.target.checked})} style={{accentColor:"#C9A84C"}}/>
@@ -2633,7 +2640,7 @@ function AdminEstatutosTab({client}){
       </div>
 
       {/* Analysis results */}
-      {analisis.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Aún no hay análisis — sube los estatutos para empezar</div>
+      {analisis.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Aún no hay análisis - sube los estatutos para empezar</div>
       :analisis.map(a=>{
         const r=a.resultado||{};
         if(r.error)return(
@@ -2724,15 +2731,15 @@ function RequestModal({client,onClose,onSubmit}){
   const dt=DOC_TYPES.find(d=>d.id===type);
   async function submit(){
     if(!type)return;setSending(true);
-    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({empresa:client.name,contacto:client.contact,email:client.email,documento:dt?.label||type,notas:notes||"—",_subject:`Solicitud: ${dt?.label} — ${client.name}`})});}catch(e){}
+    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({empresa:client.name,contacto:client.contact,email:client.email,documento:dt?.label||type,notas:notes||"-",_subject:`Solicitud: ${dt?.label}  -  ${client.name}`})});}catch(e){}
     setSending(false);await onSubmit({type,label:dt?.label||type,notes});setSent(true);
     setTimeout(()=>{setSent(false);onClose();},1500);
   }
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}} onClick={onClose}>
-      <div style={{background:WHITE,padding:"2rem",width:"min(500px,90vw)",maxHeight:"80vh",overflowY:"auto",border:`1px solid ${BORDER}`}} onClick={e=>e.stopPropagation()}>
-        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"'Georgia', serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>Te contactamos en 48 hrs.</div></div>
-        :<><span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/><div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Solicitar documento</div><div style={{...s.muted,marginBottom:20}}>Tu solicitud llega al despacho por email y queda registrada.</div>
+      <div style={{background:WHITE,padding:"2rem",width:"min(500px,90vw)",maxHeight:"80vh",overflowY:"auto",border:"1px solid "+BORDER}} onClick={e=>e.stopPropagation()}>
+        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"Georgia, serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>Te contactamos en 48 hrs.</div></div>
+        :<><span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/><div style={{fontSize:16,fontFamily:"Georgia, serif",marginBottom:4}}>Solicitar documento</div><div style={{...s.muted,marginBottom:20}}>Tu solicitud llega al despacho por email y queda registrada.</div>
         <span style={s.label}>Tipo de documento</span>
         <select style={{...s.select,marginBottom:16}} value={type} onChange={e=>setType(e.target.value)}>
           <option value="">Seleccionar...</option>
@@ -2742,7 +2749,7 @@ function RequestModal({client,onClose,onSubmit}){
         <div style={{...s.card,fontSize:13,marginBottom:16,fontFamily:"system-ui, sans-serif"}}>
           <div><span style={s.muted}>Empresa: </span>{client.name}</div>
           <div style={{marginTop:6}}><span style={s.muted}>Contacto: </span>{client.contact}</div>
-          <div style={{marginTop:6}}><span style={s.muted}>Correo: </span>{client.email||"—"}</div>
+          <div style={{marginTop:6}}><span style={s.muted}>Correo: </span>{client.email||"-"}</div>
         </div>
         <span style={s.label}>Notas adicionales</span>
         <textarea style={{...s.textarea,marginBottom:20}} rows={3} placeholder="Especificaciones, nombres, fechas..." value={notes} onChange={e=>setNotes(e.target.value)}/>
@@ -2797,26 +2804,42 @@ function ClientView({client,onLogout}){
   const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
 
   return(
-    <div style={{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+    <div style={{fontFamily:"Georgia, serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* TOP NAV */}
-      <div style={{background:BLACK,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui,sans-serif"}}>M&M Abogados</div>
-          <div style={{width:1,height:16,background:"rgba(255,255,255,.2)"}}/>
-          <div style={{fontSize:13,color:"rgba(255,255,255,.8)",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{client.name}</div>
+      {/* SIDEBAR + MAIN */}
+      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+        {/* SIDEBAR */}
+        <div style={{width:204,background:MUSGO,borderRight:"1px solid "+MUSGO_DARK,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+          <div style={{padding:"22px 18px 14px"}}>
+            <div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>
+            <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.name}</div>
+          </div>
+          <div style={{height:1,background:"rgba(255,255,255,.12)",margin:"0 18px"}}/>
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Principal</div>
+          {tabs.slice(0,3).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Mi empresa</div>
+          {tabs.slice(3,9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Despacho</div>
+          {tabs.slice(9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{marginTop:"auto",padding:"16px 18px",borderTop:"1px solid rgba(255,255,255,.1)"}}>
+            <button style={{width:"100%",background:"rgba(0,0,0,.15)",border:"none",borderRadius:8,padding:"10px 12px",textAlign:"left",cursor:"pointer"}} onClick={onLogout}>
+              <div style={{fontSize:9,color:"rgba(240,244,238,.38)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Sesión activa</div>
+              <div style={{fontSize:11,color:MUSGO_TEXT,fontWeight:500}}>Cerrar sesión</div>
+            </button>
+          </div>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
-          <NotifBell clientId={client.id}/>
-          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={onLogout}>Salir</button>
-        </div>
-      </div>
-      {/* TABS BAR */}
-      <div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"0 1rem",display:"flex",overflowX:"auto",flexShrink:0}}>
-        {tabs.map(t=><button key={t.id} style={{padding:"12px 14px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:tab===t.id?BLACK:GRAY,borderBottom:tab===t.id?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
-      </div>
-      {/* CONTENT */}
-      <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
+        {/* MAIN AREA */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* TOPBAR */}
+          <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
+              <NotifBell clientId={client.id}/>
+            </div>
+          </div>
+          {/* CONTENT */}
+          <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
 
       {tab==="panel"&&<>
         <div style={{...s.flex(),marginBottom:24,gap:10}}>
@@ -2828,10 +2851,10 @@ function ClientView({client,onLogout}){
         {["red","amber","green"].map(st=>{
           const filtered=areas.filter(a=>a.status===st);if(!filtered.length)return null;
           const lbl={red:"Atención urgente",amber:"Revisar pronto",green:"En orden"}[st];
-          return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
+          return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[a.status]}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
                   {a.nota&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{a.nota}</div>}</div><Badge status={a.status}/></div></div>)}</div>;
         })}
-        {!diagDone&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Aún sin diagnóstico</div><div style={{...s.muted,marginTop:4}}>Responde unas preguntas y verás el estado real de tu empresa</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Empezar →</button></div></div>}
+        {!diagDone&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Aún sin diagnóstico</div><div style={{...s.muted,marginTop:4}}>Responde unas preguntas y verás el estado real de tu empresa</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Empezar →</button></div></div>}
       </>}
 
       {tab==="poderes"&&<>
@@ -2839,7 +2862,7 @@ function ClientView({client,onLogout}){
         :Object.entries(poderesPorPersona).map(([persona,docs])=>(
           <div key={persona} style={{marginBottom:20}}>
             <span style={s.label}>{persona}</span>
-            <div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{DOC_TYPES.find(t=>t.id===doc.type)?.label||doc.type}</div><div style={s.muted}>{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}</div>
+            <div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{DOC_TYPES.find(t=>t.id===doc.type)?.label||doc.type}</div><div style={s.muted}>{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}</div>
           </div>
         ))}
         <div style={{textAlign:"right",marginTop:8}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar poder</button></div>
@@ -2851,7 +2874,7 @@ function ClientView({client,onLogout}){
         </div>
         <div style={s.card}>
           {catDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"1.5rem 0"}}>Sin documentos en esta categoría</div>
-          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
+          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
         </div>
         <div style={{textAlign:"right",marginTop:16}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar documento</button></div>
       </>}
@@ -2859,7 +2882,7 @@ function ClientView({client,onLogout}){
       {tab==="asambleas"&&<AsambleasTab client={client} isAdmin={false}/>}
 
       {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
-        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:`3px solid ${GOLD}`}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: ${p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: ${p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
       )}
 
       {tab==="solicitudes"&&<>
@@ -2867,8 +2890,8 @@ function ClientView({client,onLogout}){
           <span style={{...s.label,margin:0}}>Lo que he pedido al despacho</span>
           <button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Pedir algo al despacho</button>
         </div>
-        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no has pedido nada — estamos aquí</div>
-        :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
+        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no has pedido nada - estamos aquí</div>
+        :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
       </>}
 
       {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
@@ -2880,6 +2903,8 @@ function ClientView({client,onLogout}){
       {tab==="resumen"&&<ResumenClientTab client={client}/>}
       {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);setShowDiag(true);}}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2918,8 +2943,8 @@ function UsersTab({clients,setClients,admins,setAdmins}){
       {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui, sans-serif",marginBottom:12}}>{saved}</div>}
       {confirmDelete&&(
         <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
-          <div style={{background:WHITE,padding:"2rem",border:`1px solid ${BORDER}`,width:"min(400px,90vw)"}}>
-            <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:8}}>Eliminar cliente</div>
+          <div style={{background:WHITE,padding:"2rem",border:"1px solid "+BORDER,width:"min(400px,90vw)"}}>
+            <div style={{fontSize:16,fontFamily:"Georgia, serif",marginBottom:8}}>Eliminar cliente</div>
             <div style={{...s.muted,marginBottom:20}}>Se eliminarán todos los datos de <strong>{confirmDelete.name}</strong>. Esta acción no se puede deshacer.</div>
             <div style={s.flex()}>
               <button style={s.btn} onClick={()=>setConfirmDelete(null)}>Cancelar</button>
@@ -2936,22 +2961,22 @@ function UsersTab({clients,setClients,admins,setAdmins}){
       </div>}
       <div style={{...s.card,marginBottom:20}}>
         {admins.map(a=>editingAdmin?.id===a.id
-          ?<div key={a.id} style={{...s.col(),padding:"12px 0",borderBottom:`1px solid ${BORDER}`}}>
+          ?<div key={a.id} style={{...s.col(),padding:"12px 0",borderBottom:"1px solid "+BORDER}}>
             <div style={s.flex()}><input style={{...s.input,width:100}} value={editingAdmin.id} disabled/><input style={s.input} placeholder="Nombre" value={editingAdmin.name} onChange={e=>setEditingAdmin({...editingAdmin,name:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingAdmin.password} onChange={e=>setEditingAdmin({...editingAdmin,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveAdmin(editingAdmin)}>Guardar</button><button style={s.btn} onClick={()=>setEditingAdmin(null)}>Cancelar</button></div>
           </div>
-          :<div key={a.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{a.name}</div><div style={s.muted}>@{a.id}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingAdmin({...a})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>deleteAdmin(a.id)}>×</button></div>
+          :<div key={a.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{a.name}</div><div style={s.muted}>@{a.id}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingAdmin({...a})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>deleteAdmin(a.id)}>×</button></div>
         )}
       </div>
       <span style={s.label}>Clientes del sistema</span>
       <div style={s.card}>
         {clients.map(c=>editingClient?.id===c.id
-          ?<div key={c.id} style={{...s.col(),padding:"12px 0",borderBottom:`1px solid ${BORDER}`}}>
+          ?<div key={c.id} style={{...s.col(),padding:"12px 0",borderBottom:"1px solid "+BORDER}}>
             <div style={s.flex()}><input style={{...s.input,width:80}} value={editingClient.id} disabled/><input style={s.input} placeholder="Nombre empresa" value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} placeholder="Contacto" value={editingClient.contact} onChange={e=>setEditingClient({...editingClient,contact:e.target.value})}/><input style={s.input} placeholder="Email" value={editingClient.email} onChange={e=>setEditingClient({...editingClient,email:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingClient.password} onChange={e=>setEditingClient({...editingClient,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveClient(editingClient)}>Guardar</button><button style={s.btn} onClick={()=>setEditingClient(null)}>Cancelar</button></div>
           </div>
-          :<div key={c.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{c.name}</div><div style={s.muted}>Usuario: {c.id} · {c.contact}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingClient({...c,password:""})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>setConfirmDelete(c)}>Eliminar</button></div>
+          :<div key={c.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{c.name}</div><div style={s.muted}>Usuario: {c.id} · {c.contact}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingClient({...c,password:""})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>setConfirmDelete(c)}>Eliminar</button></div>
         )}
       </div>
     </div>
@@ -3048,28 +3073,50 @@ function AdminView({onLogout,admin}){
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
   return(
-    <div style={{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+    <div style={{fontFamily:"Georgia, serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* TOP NAV */}
-      <div style={{background:BLACK,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui,sans-serif"}}>M&M Abogados</div>
-          <div style={{width:1,height:16,background:"rgba(255,255,255,.2)"}}/>
-          <div style={{fontSize:13,color:"rgba(255,255,255,.8)",fontFamily:"system-ui,sans-serif"}}>Panel Administrativo</div>
+      {/* SIDEBAR + MAIN */}
+      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+        {/* SIDEBAR */}
+        <div style={{width:204,background:MUSGO,borderRight:"1px solid "+MUSGO_DARK,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+          <div style={{padding:"22px 18px 14px"}}>
+            <div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>
+            <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>Panel administrativo</div>
+          </div>
+          <div style={{height:1,background:"rgba(255,255,255,.12)",margin:"0 18px"}}/>
+          {tab!=="usuarios"&&<div style={{padding:"12px 12px 8px"}}>
+            <select style={{width:"100%",background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.15)",borderRadius:6,padding:"7px 10px",fontSize:11,color:MUSGO_TEXT,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} value={sel||""} onChange={e=>setSel(e.target.value)}>
+              {clients.map(c=><option key={c.id} value={c.id} style={{background:MUSGO,color:MUSGO_TEXT}}>{c.id} · {c.name}</option>)}
+            </select>
+          </div>}
+          <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"0 18px"}}/>
+          <div style={{padding:"10px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Vistas</div>
+          {tabs.slice(0,3).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"10px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Cliente</div>
+          {tabs.slice(3,11).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"10px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Sistema</div>
+          {tabs.slice(11).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{marginTop:"auto",padding:"16px 18px",borderTop:"1px solid rgba(255,255,255,.1)"}}>
+            <button style={{width:"100%",background:"rgba(0,0,0,.15)",border:"none",borderRadius:8,padding:"10px 12px",textAlign:"left",cursor:"pointer"}} onClick={onLogout}>
+              <div style={{fontSize:9,color:"rgba(240,244,238,.38)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Admin activo</div>
+              <div style={{fontSize:11,color:MUSGO_TEXT,fontWeight:500}}>{admin?.name||"Despacho"}</div>
+            </button>
+          </div>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {saved&&<span style={{fontSize:11,color:GOLD,fontFamily:"system-ui,sans-serif"}}>Guardado ✓</span>}
-          {client&&tab!=="usuarios"&&<button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
-          <AdminNotifBell/>
-          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={onLogout}>Salir</button>
-        </div>
-      </div>
-      {/* CLIENT SELECTOR */}
-      {tab!=="usuarios"&&tab!=="dashboard"&&<div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"10px 1.5rem",display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-        <select style={{...s.select,flex:1,maxWidth:400}} value={sel||""} onChange={e=>setSel(e.target.value)}>
-          {clients.map(c=><option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
-        </select>
-        <button style={{...s.btn,...s.btnSm}} onClick={()=>setShowAddClient(!showAddClient)}>+ Cliente</button>
-      </div>}
+        {/* MAIN AREA */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* TOPBAR */}
+          <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Dashboard"}</div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {saved&&<span style={{fontSize:11,color:"#3A7A30",fontFamily:"system-ui,sans-serif"}}>Guardado ✓</span>}
+              {client&&tab!=="usuarios"&&<button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
+              <AdminNotifBell/>
+            </div>
+          </div>
+          {tab==="usuarios"&&<div style={{padding:"8px 16px",background:CARD_BG,borderBottom:"1px solid "+BORDER}}><button style={{...s.btn,...s.btnSm}} onClick={()=>setShowAddClient(!showAddClient)}>+ Cliente</button></div>}
+          {/* CONTENT */}
+          <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
 
       {showAddClient&&<div style={{...s.card,...s.col(),marginBottom:16}}>
         <span style={{...s.label,margin:0}}>Nuevo cliente</span>
@@ -3084,8 +3131,8 @@ function AdminView({onLogout,admin}){
       </div>}
 
       {/* TABS BAR */}
-      <div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"0 1rem",display:"flex",overflowX:"auto",flexShrink:0}}>
-        {tabs.map(t=><button key={t.id} style={{padding:"12px 14px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:tab===t.id?BLACK:GRAY,borderBottom:tab===t.id?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+      <div style={{background:WHITE,borderBottom:"1px solid "+BORDER,padding:"0 1rem",display:"flex",overflowX:"auto",flexShrink:0}}>
+        {tabs.map(t=><button key={t.id} style={{padding:"12px 14px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:tab===t.id?BLACK:GRAY,borderBottom:tab===t.id?"2px solid "+GOLD:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
       </div>
       {/* CONTENT */}
       <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
@@ -3093,9 +3140,9 @@ function AdminView({onLogout,admin}){
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
 
       {tab==="panel"&&client&&<>
-        {hasDrafts&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Resultados pendientes de revisión</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
+        {hasDrafts&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Resultados pendientes de revisión</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
         <div style={s.col()}>{areas.map(area=>(
-          <div key={area.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[area.status]}`}}>
+          <div key={area.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[area.status]}}>
             {editing===area.id
             ?<div style={s.col()}>
               <input style={s.input} value={area.name} onChange={e=>setAreas(prev=>prev.map(a=>a.id===area.id?{...a,name:e.target.value}:a))} onBlur={e=>updateArea(area.id,"name",e.target.value)}/>
@@ -3109,7 +3156,7 @@ function AdminView({onLogout,admin}){
               </div>
             </div>
             :<div style={{...s.flex(),cursor:"pointer"}} onClick={()=>setEditing(area.id)}>
-              <div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{area.name}</div><div style={s.muted}>{area.sub}{area.draft&&<span style={{...s.badge("amber"),marginLeft:8}}>Borrador</span>}</div></div>
+              <div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{area.name}</div><div style={s.muted}>{area.sub}{area.draft&&<span style={{...s.badge("amber"),marginLeft:8}}>Borrador</span>}</div></div>
               <Badge status={area.status}/><span style={{fontSize:11,color:GRAY,marginLeft:8}}>✎</span>
             </div>}
           </div>
@@ -3136,7 +3183,7 @@ function AdminView({onLogout,admin}){
         </div>}
         {Object.entries(CAT_LABELS).map(([cat,catLabel])=>{
           const docs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===cat);if(!docs.length)return null;
-          return <div key={cat} style={{marginBottom:16}}><span style={s.label}>{catLabel}</span><div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status}/>{doc.drive_url&&<a href={doc.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:GOLD,marginLeft:8,fontFamily:"system-ui, sans-serif"}}>↗</a>}<button style={{...s.btnDanger,marginLeft:4}} onClick={()=>removeDoc(doc.id)}>×</button></div>)}</div></div>;
+          return <div key={cat} style={{marginBottom:16}}><span style={s.label}>{catLabel}</span><div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status}/>{doc.drive_url&&<a href={doc.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:GOLD,marginLeft:8,fontFamily:"system-ui, sans-serif"}}>↗</a>}<button style={{...s.btnDanger,marginLeft:4}} onClick={()=>removeDoc(doc.id)}>×</button></div>)}</div></div>;
         })}
       </>}
 
@@ -3163,16 +3210,19 @@ function AdminView({onLogout,admin}){
           <button style={{...s.btnPrimary,alignSelf:"flex-start"}} onClick={addPending}>Agregar</button>
         </div>}
         {pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
-        :pendingDocs.map(p=><div key={p.id} style={{...s.card,...s.flex(),borderLeft:`3px solid ${GOLD}`,alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{p.name}</div><div style={s.muted}>{p.due?"Vence: "+p.due+" · ":""}{p.note}</div></div><button style={s.btnDanger} onClick={()=>removePending(p.id)}>×</button></div>)}
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,...s.flex(),borderLeft:"3px solid "+GOLD,alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{p.name}</div><div style={s.muted}>{p.due?"Vence: "+p.due+" · ":""}{p.note}</div></div><button style={s.btnDanger} onClick={()=>removePending(p.id)}>×</button></div>)}
       </>}
 
       {tab==="solicitudes"&&client&&<>
         <span style={s.label}>Solicitudes recibidas</span>
         {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin solicitudes</div>
-        :requests.map(r=><div key={r.id} style={{...s.card,...s.flex(),alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div>{r.status==="pendiente"?<button style={s.btnPrimary} onClick={()=>resolveRequest(r.id)}>Marcar como listo</button>:<Badge status="green" label="Completado"/>}</div>)}
+        :requests.map(r=><div key={r.id} style={{...s.card,...s.flex(),alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div>{r.status==="pendiente"?<button style={s.btnPrimary} onClick={()=>resolveRequest(r.id)}>Marcar como listo</button>:<Badge status="green" label="Completado"/>}</div>)}
       </>}
+          </div>
+        </div>
       </div>
     </div>
+  </div>
   );
 }
 
@@ -3199,8 +3249,8 @@ function Login({onLogin}){
       <div style={s.loginBox}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontSize:11,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:20}}>Millán & Martínez Abogados</div>
-          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Tu empresa,</div>
-          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>protegida.</div>
+          <div style={{fontSize:28,fontFamily:"Georgia, serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Tu empresa,</div>
+          <div style={{fontSize:28,fontFamily:"Georgia, serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>protegida.</div>
           <div style={{width:40,height:2,background:GOLD,margin:"20px auto 0"}}/>
         </div>
         <div style={{...s.flex(),marginTop:8}}>
