@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -113,7 +113,7 @@ function generatePDF(client,areas,documents,pendingDocs){
   doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
   doc.text(`Cliente ${client.id}  ·  ${client.contact}`,margin,y);y+=14;
   const cW=(contentW-9)/4;const sC=score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
-  [{label:"Índice de inmunidad",value:String(score),color:sC},{label:"Riesgos críticos",value:String(areas.filter(a=>a.status==="red").length),color:[192,57,43]},{label:"Atención requerida",value:String(areas.filter(a=>a.status==="amber").length),color:[201,168,76]},{label:"Al corriente",value:String(areas.filter(a=>a.status==="green").length),color:[90,138,60]}].forEach((c,i)=>{
+  [{label:"Salud corporativa",value:String(score),color:sC},{label:"Riesgos críticos",value:String(areas.filter(a=>a.status==="red").length),color:[192,57,43]},{label:"Revisar pronto",value:String(areas.filter(a=>a.status==="amber").length),color:[201,168,76]},{label:"En orden",value:String(areas.filter(a=>a.status==="green").length),color:[90,138,60]}].forEach((c,i)=>{
     const x=margin+i*(cW+3);doc.setFillColor(245,242,237);doc.roundedRect(x,y,cW,22,2,2,"F");
     doc.setTextColor(...c.color);doc.setFontSize(20);doc.setFont("helvetica","bold");doc.text(c.value,x+cW/2,y+13,{align:"center"});
     doc.setTextColor(136,136,128);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(c.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
@@ -160,7 +160,7 @@ function generatePDF(client,areas,documents,pendingDocs){
     doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx",margin,292);
     doc.text(`Página ${i} de ${pc}`,pageW-margin,292,{align:"right"});
   }
-  doc.save(`MM_InmunidadCorporativa_${client.id}_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`MM_Inmunidadprotegida._${client.id}_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
 const s={
@@ -220,7 +220,7 @@ function DiagnosticoForm({client,onComplete}){
         <div style={{textAlign:"center",marginBottom:32}}>
           <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Millán & Martínez Abogados</div>
           <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>Diagnóstico de Inmunidad</div>
-          <div style={{fontSize:22,fontFamily:"'Georgia', serif",fontStyle:"italic",color:GOLD}}>Corporativa</div>
+          <div style={{fontSize:22,fontFamily:"'Georgia', serif",fontStyle:"italic",color:GOLD}}>protegida.</div>
           <div style={{...s.muted,marginTop:8}}>{client.name}</div>
         </div>
         <div style={{background:BORDER,borderRadius:2,height:3,marginBottom:8}}><div style={{background:GOLD,height:3,borderRadius:2,width:`${progress}%`,transition:"width .3s"}}/></div>
@@ -237,7 +237,7 @@ function DiagnosticoForm({client,onComplete}){
           </div>
         </div>
         {step>0&&<div style={{textAlign:"center",marginTop:16}}><button style={{...s.btn,...s.btnSm,color:GRAY,borderColor:"transparent"}} onClick={()=>setStep(s=>s-1)}>← Anterior</button></div>}
-        {submitting&&<div style={{textAlign:"center",marginTop:20,color:GRAY,fontSize:12,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"}}>Generando diagnóstico...</div>}
+        {submitting&&<div style={{textAlign:"center",marginTop:20,color:GRAY,fontSize:12,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"}}>Analizando tu empresa...</div>}
       </div>
     </div>
   );
@@ -249,13 +249,13 @@ function DiagnosticoResult({areas,onContinue}){
     <div style={{...s.wrap,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"100vh"}}>
       <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Diagnóstico completado</div>
-          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>Tu índice de inmunidad</div>
+          <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Ya tenemos tu diagnóstico</div>
+          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>La salud corporativa de tu empresa</div>
           <div style={{fontSize:64,fontFamily:"'Georgia', serif",color:scoreColor,margin:"16px 0"}}>{score}</div>
-          <div style={s.muted}>El despacho revisará estos resultados y los ajustará si es necesario.</div>
+          <div style={s.muted}>Tu despacho lo revisará y te dirá exactamente qué hacer primero.</div>
         </div>
         <div style={s.col(8)}>{areas.filter(a=>a.id!=="a6").map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div></div><Badge status={a.status}/></div></div>)}</div>
-        <div style={{textAlign:"center",marginTop:24}}><button style={s.btnPrimary} onClick={onContinue}>Ir a mi panel →</button></div>
+        <div style={{textAlign:"center",marginTop:24}}><button style={s.btnPrimary} onClick={onContinue}>Ver mi empresa →</button></div>
       </div>
     </div>
   );
@@ -294,8 +294,8 @@ function SolicitudAsambleaModal({client,onClose,onSaved}){
         {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"'Georgia', serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>El despacho la procesará y subirá el acta a tu panel.</div></div>
         :<>
           <span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/>
-          <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Solicitar asamblea</div>
-          <div style={{...s.muted,marginBottom:20}}>Llena los datos y el despacho preparará el acta.</div>
+          <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Necesito una asamblea</div>
+          <div style={{...s.muted,marginBottom:20}}>Dinos qué necesitas y preparamos todo. El acta llega a tu panel cuando esté lista.</div>
 
           <span style={s.label}>Tipo de asamblea</span>
           <select style={s.select} value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>
@@ -381,7 +381,7 @@ function AsambleasTab({client,isAdmin=false}){
     <div>
       <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
         <span style={{...s.label,margin:0}}>Asambleas</span>
-        {!isAdmin&&<button style={s.btnPrimary} onClick={()=>setShowForm(true)}>+ Solicitar asamblea</button>}
+        {!isAdmin&&<button style={s.btnPrimary} onClick={()=>setShowForm(true)}>+ Necesito una asamblea</button>}
       </div>
 
       {asambleas.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin asambleas registradas</div>
@@ -438,7 +438,7 @@ function ContratosClientTab({client}){
   return(
     <div>
       <span style={s.label}>Mis contratos</span>
-      {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos registrados</div>
+      {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos registrados aún</div>
       :contratos.map(c=>{
         const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date())/(1000*60*60*24)):null;
         const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
@@ -593,12 +593,12 @@ function HistorialClientTab({client}){
   const [historial,setHistorial]=useState([]);const [loading,setLoading]=useState(true);
   useEffect(()=>{supabase.from("historial").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setHistorial(data||[]);setLoading(false);});},[client.id]);
   if(loading)return <Spinner/>;
-  const sLabel={red:"Riesgo alto",amber:"Revisar",green:"Al corriente"};
+  const sLabel={red:"Atención urgente",amber:"Revisar",green:"En orden"};
   const sColor={red:"#C0392B",amber:"#C9A84C",green:"#5A8A3C"};
   return(
     <div>
-      <span style={s.label}>Historial de cambios</span>
-      {historial.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin cambios registrados aún</div>
+      <span style={s.label}>¿Qué ha cambiado en mi empresa?</span>
+      {historial.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no hay cambios registrados</div>
       :historial.map((h,i)=>{
         const fecha=new Date(h.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});
         const hora=new Date(h.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
@@ -655,16 +655,16 @@ function NotifBell({clientId}){
 function OnboardingScreen({client,onComplete}){
   const [step,setStep]=useState(0);
   const steps=[
-    {icon:"🔍",titulo:"Diagnóstico corporativo",desc:"Responde 15 preguntas para que generemos tu índice de inmunidad corporativa.",accion:"Iniciar diagnóstico",tab:"diagnostico"},
-    {icon:"📄",titulo:"Sube tus documentos clave",desc:"Comparte con el despacho tus documentos más importantes: acta constitutiva, poderes vigentes, contratos activos.",accion:"Ir a documentos",tab:"docs"},
-    {icon:"🏛️",titulo:"Solicita tu primera asamblea",desc:"Si necesitas formalizar decisiones recientes, solicita la preparación de tu acta de asamblea.",accion:"Solicitar asamblea",tab:"asambleas"},
+    {icon:"🔍",titulo:"Diagnóstico corporativo",desc:"En 5 minutos sabrás exactamente dónde está parada tu empresa. Sin tecnicismos.",accion:"Iniciar diagnóstico",tab:"diagnostico"},
+    {icon:"📄",titulo:"Comparte tus documentos principales",desc:"Tu despacho los necesita para protegerte mejor. Sube lo que tengas, ellos se encargan del resto.",accion:"Ir a documentos",tab:"docs"},
+    {icon:"🏛️",titulo:"¿Necesitas formalizar algo?",desc:"Si tomaste decisiones importantes en tu empresa, el despacho las puede formalizar. Es más fácil de lo que crees.",accion:"Necesito una asamblea",tab:"asambleas"},
   ];
   const s2=steps[step];
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:"1rem"}}>
       <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2.5rem 2rem",width:"min(500px,100%)",display:"flex",flexDirection:"column",gap:20}}>
         <div style={{textAlign:"center"}}>
-          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Bienvenido a M&M Abogados</div>
+          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Bienvenido a tu panel corporativo</div>
           <div style={{fontSize:32,marginBottom:12}}>{s2.icon}</div>
           <div style={{fontSize:20,fontFamily:"'Georgia',serif",marginBottom:8}}>{s2.titulo}</div>
           <div style={{fontSize:14,color:"#888880",fontFamily:"system-ui,sans-serif",lineHeight:1.6}}>{s2.desc}</div>
@@ -678,7 +678,7 @@ function OnboardingScreen({client,onComplete}){
             {step<steps.length-1?"Siguiente →":"Comenzar"}
           </button>
         </div>
-        <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={onComplete}>Saltar introducción</button></div>
+        <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={onComplete}>Omitir por ahora</button></div>
       </div>
     </div>
   );
@@ -715,7 +715,7 @@ function AdminPagosTab({client}){
       <div style={{display:"flex",gap:10,marginBottom:16}}>
         <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1}}>
           <div style={{fontSize:22,fontWeight:400,color:pendientes>0?"#C0392B":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{pendientes}</div>
-          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Meses pendientes</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Meses sin pagar</div>
         </div>
         <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1}}>
           <div style={{fontSize:22,fontWeight:400,color:"#5A8A3C",fontFamily:"'Georgia',serif"}}>{pagos.filter(p=>p.status==="pagado").length}</div>
@@ -723,7 +723,7 @@ function AdminPagosTab({client}){
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,alignItems:"center"}}>
-        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Registro de iguala</span>
+        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Historial de facturación</span>
         <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Mes</button>
       </div>
       {showForm&&<div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
@@ -779,7 +779,7 @@ function AdminTareasTab({client,admin}){
     <div>
       {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>{saved}</div>}
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,alignItems:"center"}}>
-        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>{pendientes} tareas pendientes</span>
+        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>{pendientes} tareas por hacer</span>
         <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Tarea</button>
       </div>
       {showForm&&<div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
@@ -789,7 +789,7 @@ function AdminTareasTab({client,admin}){
           <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Asignado a" value={form.asignado} onChange={e=>setForm({...form,asignado:e.target.value})}/>
           <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/>
         </div>
-        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Crear tarea</button>
+        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Agregar tarea</button>
       </div>}
       {tareas.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin tareas registradas</div>
       :tareas.map(t=><div key={t.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"flex-start",gap:12,opacity:t.status==="completada"?.6:1,borderLeft:`3px solid ${t.status==="completada"?"#5A8A3C":"#C9A84C"}`}}>
@@ -837,7 +837,7 @@ function AdminDashboard({clients,onSelectClient}){
 
   return(
     <div>
-      <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Vista general · {clients.length} clientes</div>
+      <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Estado de tus empresas · {clients.length} clientes</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
         {clients.map(c=>{
           const d=data[c.id]||{};
@@ -950,7 +950,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
             <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Cargo / Rol" value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})}/>
           </div>
           {form.tipo==="apoderado"&&<>
-            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Instrumento notarial</div>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Documento que le da el poder</div>
             <div style={{display:"flex",gap:8}}>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de escritura" value={form.num_escritura||""} onChange={e=>setForm({...form,num_escritura:e.target.value})}/>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Nombre del notario" value={form.notario||""} onChange={e=>setForm({...form,notario:e.target.value})}/>
@@ -959,7 +959,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de notaría" value={form.num_notaria||""} onChange={e=>setForm({...form,num_notaria:e.target.value})}/>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" placeholder="Fecha de la escritura" value={form.fecha_escritura||""} onChange={e=>setForm({...form,fecha_escritura:e.target.value})}/>
             </div>
-            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder="Tipo de poder otorgado (ej. Poder General para Actos de Dominio)" value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder="¿Para qué está autorizado? (ej. Poder General, Poder para cuentas bancarias)" value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
             <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Alcance del poder — instituciones y registros vinculados</div>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               {Object.entries(ALCANCE_PODER).map(([cat,items])=>(
@@ -982,7 +982,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
             <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Fecha de entrada" type="date" value={form.fecha_entrada} onChange={e=>setForm({...form,fecha_entrada:e.target.value})}/>
           </div>}
           {(form.tipo==="administrador"||form.tipo==="comisario")&&<>
-            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Instrumento de designación</div>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Documento de nombramiento</div>
             <div style={{display:"flex",gap:8}}>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder={form.tipo==="administrador"?"Número de escritura / Acta de asamblea":"Acta de asamblea de designación"} value={form.num_escritura||""} onChange={e=>setForm({...form,num_escritura:e.target.value})}/>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" placeholder="Fecha de designación" value={form.fecha_escritura||""} onChange={e=>setForm({...form,fecha_escritura:e.target.value})}/>
@@ -991,7 +991,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Nombre del notario (si aplica)" value={form.notario||""} onChange={e=>setForm({...form,notario:e.target.value})}/>
               <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de notaría" value={form.num_notaria||""} onChange={e=>setForm({...form,num_notaria:e.target.value})}/>
             </div>}
-            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder={form.tipo==="administrador"?"Tipo: Administrador Único / Consejero / Presidente del Consejo":"Alcance de la comisaría"} value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder={form.tipo==="administrador"?"Ej: Administrador Único, Consejero Presidente":"Alcance de su función de vigilancia"} value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
           </>}
         </div>
 
@@ -1102,11 +1102,11 @@ function UsoPoderesModal({persona,client,onClose}){
             </div>
           </div>}
         </div>}
-        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Historial de uso</div>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Historial de gestiones</div>
         {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:10,padding:"8px 12px",background:"#f0fdf4",borderRadius:4}}>{saved}</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <span style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>{usos.length} actos registrados</span>
-          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Registrar acto</button>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Registrar gestión</button>
         </div>
         {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem",marginBottom:12,display:"flex",flexDirection:"column",gap:8}}>
           <select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={form.tipo_acto} onChange={e=>setForm({...form,tipo_acto:e.target.value})}>
@@ -1117,7 +1117,7 @@ function UsoPoderesModal({persona,client,onClose}){
           <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add} disabled={!form.tipo_acto}>Guardar</button>
         </div>}
         {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
-        :usos.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin actos registrados</div>
+        :usos.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin gestiones registradas aún</div>
         :usos.map(u=><div key={u.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"10px 14px",marginBottom:8,display:"flex",alignItems:"flex-start",gap:10}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontFamily:"'Georgia',serif"}}>{u.tipo_acto}</div>
@@ -1346,7 +1346,7 @@ function UsosPoderesInline({personaId}){
   if(!loaded||usos.length===0)return null;
   return(
     <div style={{marginTop:8,borderTop:"1px solid #F5F2ED",paddingTop:8}}>
-      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Últimos usos del poder</div>
+      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Últimas gestiones realizadas</div>
       {usos.map(u=><div key={u.id} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:5}}>
         <div style={{width:5,height:5,borderRadius:"50%",background:"#C9A84C",flexShrink:0,marginTop:4}}/>
         <div>
@@ -1368,7 +1368,7 @@ function ConstanciasInline({personaId}){
   const sColor={activo:"#5A8A3C","en trámite":"#C9A84C",revocado:"#C0392B"};
   return(
     <div style={{marginTop:6,borderTop:"1px solid #F5F2ED",paddingTop:6}}>
-      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Representación ante instituciones</div>
+      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Acreditado ante</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
         {items.map((c,i)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fff",border:`1px solid ${sColor[c.status]||"#E2DDD6"}`,color:sColor[c.status]||"#888880",fontFamily:"system-ui,sans-serif"}}>{c.institucion}</span>)}
       </div>
@@ -1475,7 +1475,7 @@ function PersonasTab({client,isAdmin=false}){
               </div>}
             </div>
             <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              {p.tipo==="apoderado"&&<button style={{background:"none",border:"1px solid #C9A84C",color:"#92400e",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingUsos(p)}>Uso de poderes ↗</button>}
+              {p.tipo==="apoderado"&&<button style={{background:"none",border:"1px solid #C9A84C",color:"#92400e",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingUsos(p)}>Ver gestiones ↗</button>}
               <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingKYC(p)}>KYC</button>
               {(p.tipo==="apoderado"||p.tipo==="administrador")&&<button style={{background:"none",border:"1px solid #185FA5",color:"#185FA5",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingConstancias({...p,client_id:client.id})}>Constancias ↗</button>}
               {isAdmin&&<button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setEditingPersona(p)}>✎</button>}
@@ -1531,8 +1531,8 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "kyc_" + p.id,
         tipo: "kyc",
         nivel: "red",
-        titulo: `KYC incompleto — ${p.nombre}`,
-        detalle: `${pendientes.length} documento${pendientes.length !== 1 ? "s" : ""} pendiente${pendientes.length !== 1 ? "s" : ""} de entrega`,
+        titulo: `Falta documentación de ${p.nombre}`,
+        detalle: `${pendientes.length} documento(s) sin entregar al despacho`,
         accion: "Ir a Personas",
         tab: "personas",
       });
@@ -1545,8 +1545,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "pep_" + p.id,
       tipo: "pep",
       nivel: "red",
-      titulo: `PEP sin declarar — ${p.nombre}`,
-      detalle: "Marcado como PEP pero sin detalle de cargo o relación",
+      titulo: `Representante con cargo público sin declarar — ${p.nombre}`,
+      detalle: "Uno de tus representantes tiene o tuvo un cargo público y no está documentado. Esto puede afectar tus operaciones bancarias.",
       accion: "Completar perfil",
       tab: "personas",
     });
@@ -1560,51 +1560,51 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "origen_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `Sin declaración de origen — ${p.nombre}`,
-        detalle: "La industria requiere declaración de origen y fuente de recursos",
+        titulo: `¿De dónde vienen los recursos? — ${p.nombre}`,
+        detalle: "Tu industria requiere documentar el origen de los recursos de tus socios y representantes. Sin esto, los bancos pueden cuestionarte.",
         accion: "Completar perfil",
         tab: "personas",
       });
     });
   }
 
-  // 3b. Sin administrador registrado
+  // 3b. Tu empresa no tiene administrador registrado
   const tieneAdmin = ps.some(p => p.tipo === "administrador");
   if (!tieneAdmin && ps.length > 0) {
     alerts.push({
       id: "sin_administrador",
       tipo: "compliance",
       nivel: "amber",
-      titulo: "Sin administrador registrado",
-      detalle: "No hay ningún Administrador Único o Consejero registrado en el sistema",
+      titulo: "Tu empresa no tiene administrador registrado",
+      detalle: "No hay registro de quién administra formalmente tu empresa. Cualquier decisión puede ser cuestionada.",
       accion: "Ir a Personas",
       tab: "personas",
     });
   }
 
-  // 3c. Sin comisario registrado
+  // 3c. Tu empresa no tiene vigilancia interna registrada
   const tieneComisario = ps.some(p => p.tipo === "comisario");
   if (!tieneComisario && ps.length > 0) {
     alerts.push({
       id: "sin_comisario",
       tipo: "compliance",
       nivel: "amber",
-      titulo: "Sin comisario registrado",
-      detalle: "No hay ningún Comisario registrado en el sistema",
+      titulo: "Tu empresa no tiene vigilancia interna registrada",
+      detalle: "Sin comisario, no hay nadie que vigile formalmente las decisiones del administrador.",
       accion: "Ir a Personas",
       tab: "personas",
     });
   }
 
-  // 4. Sin beneficiario final identificado
+  // 4. ¿Quién controla realmente tu empresa?
   const tieneBenef = ps.some(p => p.beneficiario_final);
   if (ps.length > 0 && !tieneBenef) {
     alerts.push({
       id: "benef_final",
       tipo: "compliance",
       nivel: "amber",
-      titulo: "Sin beneficiario final identificado",
-      detalle: "Ningún accionista o apoderado está marcado como beneficiario final real",
+      titulo: "¿Quién controla realmente tu empresa?",
+      detalle: "Oficialmente nadie aparece como el controlador real de tu empresa. Esto es un riesgo ante bancos, gobierno y clientes corporativos.",
       accion: "Ir a Personas",
       tab: "personas",
     });
@@ -1618,9 +1618,9 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "asamblea_anual",
       tipo: "asamblea",
       nivel: "red",
-      titulo: "Sin asamblea ordinaria anual",
-      detalle: "No existe registro de asamblea ordinaria anual publicada",
-      accion: "Solicitar asamblea",
+      titulo: "Tu empresa no ha sesionado en más de un año",
+      detalle: "Sin asambleas formales, las decisiones de tu empresa no tienen respaldo legal. Eso te puede costar caro.",
+      accion: "Necesito una asamblea",
       tab: "asambleas",
     });
   } else if (new Date(ultOrd.fecha) < hace12meses) {
@@ -1628,7 +1628,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "asamblea_vencida",
       tipo: "asamblea",
       nivel: "amber",
-      titulo: "Asamblea ordinaria desactualizada",
+      titulo: "Tu última asamblea fue hace más de un año",
       detalle: `Última asamblea ordinaria: ${new Date(ultOrd.fecha).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
       accion: "Solicitar nueva asamblea",
       tab: "asambleas",
@@ -1642,7 +1642,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_vencido_" + c.id,
       tipo: "contrato",
       nivel: "red",
-      titulo: `Contrato vencido — ${c.nombre}`,
+      titulo: `Contrato vencido y sin renovar — ${c.nombre}`,
       detalle: `Venció el ${new Date(c.vencimiento).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
       accion: "Ver contratos",
       tab: "contratos",
@@ -1656,7 +1656,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_pronto_" + c.id,
       tipo: "contrato",
       nivel: dias <= 7 ? "red" : "amber",
-      titulo: `Contrato por vencer — ${c.nombre}`,
+      titulo: `Contrato próximo a vencer — ${c.nombre}`,
       detalle: `Vence en ${dias} día${dias !== 1 ? "s" : ""}`,
       accion: "Ver contratos",
       tab: "contratos",
@@ -1670,8 +1670,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "area_red_" + a.id,
       tipo: "semaforo",
       nivel: "amber",
-      titulo: `Riesgo sin contexto — ${a.name}`,
-      detalle: "Área en rojo sin nota explicativa para el cliente",
+      titulo: `El despacho aún no ha explicado este riesgo — ${a.name}`,
+      detalle: "Tu despacho detectó un problema aquí pero aún no ha agregado una explicación. Solicítala.",
       accion: "Agregar nota",
       tab: "panel",
     });
@@ -1689,8 +1689,8 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "sin_usos_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `Sin usos registrados — ${p.nombre}`,
-        detalle: "Apoderado activo sin historial de uso de poderes",
+        titulo: `Poder sin actividad registrada — ${p.nombre}`,
+        detalle: "Este representante tiene poderes activos pero no hay registro de que los haya usado. Verifica si sigue siendo necesario.",
         accion: "Ver apoderado",
         tab: "personas",
       });
@@ -1718,7 +1718,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "lfpiorpi",
         tipo: "regulatorio",
         nivel: "red",
-        titulo: "Obligación LFPIORPI pendiente",
+        titulo: "Tu industria tiene obligaciones antilavado sin cumplir",
         detalle: `${sinOrigen} persona${sinOrigen !== 1 ? "s" : ""} sin declaración de origen de recursos. Industria sujeta a LFPIORPI.`,
         accion: "Completar perfiles",
         tab: "personas",
@@ -1733,8 +1733,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "alcance_sat_" + p.id,
       tipo: "regulatorio",
       nivel: "amber",
-      titulo: `Poder SAT/SE sin RFC — ${p.nombre}`,
-      detalle: "Apoderado con alcance ante SAT o Secretaría de Economía sin RFC registrado",
+      titulo: `Representante ante el SAT sin RFC registrado — ${p.nombre}`,
+      detalle: "Este representante hace trámites fiscales pero no tenemos su RFC. Es un riesgo ante cualquier revisión del SAT.",
       accion: "Completar perfil",
       tab: "personas",
     });
@@ -1748,8 +1748,8 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "alcance_fin_" + p.id,
         tipo: "kyc",
         nivel: "red",
-        titulo: `Poder bancario sin identificación — ${p.nombre}`,
-        detalle: "Apoderado con alcance bancario/financiero sin identificación oficial entregada",
+        titulo: `Representante bancario sin documentos — ${p.nombre}`,
+        detalle: "Este representante puede operar cuentas bancarias pero no ha entregado su identificación. Tu banco puede bloquearte.",
         accion: "Ver KYC",
         tab: "personas",
       });
@@ -1939,7 +1939,7 @@ const AUTORIDADES = {
       {id:"subdelegacion_imss",label:"Subdelegación IMSS",tipo:"text"},
       {id:"representante_imss",label:"Representante ante IMSS",tipo:"text"},
       {id:"num_trabajadores",label:"Número de trabajadores registrados",tipo:"text"},
-      {id:"estatus_imss",label:"Estatus de cumplimiento",tipo:"select",ops:["Al corriente","Adeudo menor","Adeudo significativo"]},
+      {id:"estatus_imss",label:"Estatus de cumplimiento",tipo:"select",ops:["En orden","Adeudo menor","Adeudo significativo"]},
       {id:"sua_operador",label:"¿Quién opera el SUA?",tipo:"text"},
       {id:"notas_imss",label:"Notas adicionales IMSS",tipo:"textarea"},
     ]
@@ -1965,7 +1965,7 @@ const AUTORIDADES = {
     icon: "🏠",
     campos: [
       {id:"registro_infonavit",label:"Número de registro INFONAVIT",tipo:"text"},
-      {id:"estatus_infonavit",label:"Estatus de cumplimiento",tipo:"select",ops:["Al corriente","Adeudo menor","Adeudo significativo"]},
+      {id:"estatus_infonavit",label:"Estatus de cumplimiento",tipo:"select",ops:["En orden","Adeudo menor","Adeudo significativo"]},
       {id:"notas_infonavit",label:"Notas adicionales INFONAVIT",tipo:"textarea"},
     ]
   },
@@ -2054,7 +2054,7 @@ function PerfilRegulatorioTab({client,isAdmin=false}){
   return(
     <div>
       {riesgos.length>0&&<div style={{marginBottom:20}}>
-        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Alertas regulatorias activas</div>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Lo que las autoridades pueden usarte en contra</div>
         <div style={{display:"flex",gap:8,marginBottom:10}}>
           <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:4,padding:".5rem .8rem",flex:1,textAlign:"center"}}>
             <div style={{fontSize:22,color:"#C0392B",fontFamily:"'Georgia',serif"}}>{red.length}</div>
@@ -2139,6 +2139,588 @@ function PerfilRegulatorioTab({client,isAdmin=false}){
     </div>
   );
 }
+
+// ── MOTOR DE CONSECUENCIAS OPERATIVAS ────────────────────────
+const CONSECUENCIAS_MAP = {
+  // SAT
+  csd_vencido: {
+    autoridad: "SAT",
+    riesgo: "Cancelación de sellos digitales",
+    consecuencia: "Sin sellos vigentes no puedes emitir una sola factura. Tu empresa no puede cobrar.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato al vencer",
+    accion_correctiva: "Renovar CSD ante el SAT antes del vencimiento",
+    fundamento: "Art. 17-D CFF — el SAT puede dejar sin efectos los certificados",
+    icon: "🚫",
+  },
+  efirma_vencida: {
+    autoridad: "SAT",
+    riesgo: "e.firma (FIEL) vencida",
+    consecuencia: "Sin e.firma no puedes firmar nada ante el gobierno — declaraciones, contratos notariales, ni representar a tu empresa.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato al vencer",
+    accion_correctiva: "Renovar e.firma en SAT o módulo de atención",
+    fundamento: "Art. 17-D CFF — certificados dejan de surtir efectos al vencer",
+    icon: "🔑",
+  },
+  efirma_por_vencer: {
+    autoridad: "SAT",
+    riesgo: "e.firma próxima a vencer",
+    consecuencia: "En menos de 30 días no podrás firmar nada ante el SAT. Renuévala antes de que sea tarde.",
+    impacto: "ALTO",
+    nivel: "amber",
+    plazo: "Menos de 30 días",
+    accion_correctiva: "Agendar renovación de e.firma con el SAT",
+    fundamento: "Art. 17-D CFF",
+    icon: "⏰",
+  },
+  opinion_negativa: {
+    autoridad: "SAT",
+    riesgo: "Opinión de cumplimiento negativa",
+    consecuencia: "Con opinión negativa: no puedes ser proveedor de gobierno, los bancos te restringen y tus clientes corporativos pueden cancelarte.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato",
+    accion_correctiva: "Regularizar adeudos SAT y solicitar nueva opinión",
+    fundamento: "Regla 2.1.39 RMF — opinión afecta contratos con gobierno",
+    icon: "⛔",
+  },
+  buzon_inactivo: {
+    autoridad: "SAT",
+    riesgo: "Buzón tributario inactivo",
+    consecuencia: "El SAT te notifica aunque no estés leyendo. Si no tienes buzón activo, puedes perder una defensa sin saberlo.",
+    impacto: "ALTO",
+    nivel: "amber",
+    plazo: "Ya en curso",
+    accion_correctiva: "Activar buzón tributario y registrar correo de notificaciones",
+    fundamento: "Art. 17-K CFF — buzón inactivo no exime de efectos de notificaciones",
+    icon: "📭",
+  },
+  sin_representante_sat: {
+    autoridad: "SAT",
+    riesgo: "Sin representante acreditado ante SAT",
+    consecuencia: "Si el SAT llega a revisarte y no tienes representante acreditado, no tienes con quién defenderte.",
+    impacto: "MEDIO",
+    nivel: "amber",
+    plazo: "Al primer acto de autoridad",
+    accion_correctiva: "Acreditar representante legal ante SAT con e.firma",
+    fundamento: "Art. 19 CFF — representación ante autoridades fiscales",
+    icon: "👤",
+  },
+  padron_importadores: {
+    autoridad: "SAT",
+    riesgo: "Riesgo de suspensión en Padrón de Importadores",
+    consecuencia: "Si no estás al corriente, el SAT puede suspenderte del padrón. No podrás importar mercancía.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Al detectar incumplimiento",
+    accion_correctiva: "Verificar estatus en padrón de importadores y regularizar",
+    fundamento: "Reglas 1.3.2 y 1.3.3 RGCE",
+    icon: "🚢",
+  },
+  // IMSS
+  credito_fiscal_imss: {
+    autoridad: "IMSS",
+    riesgo: "Crédito fiscal IMSS — riesgo de embargo",
+    consecuencia: "El IMSS no necesita ir a juicio para embargarte. Puede congelar tus cuentas y tomar tus bienes directamente.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato tras liquidación de crédito",
+    accion_correctiva: "Celebrar convenio de pago con el IMSS o cubrir adeudo",
+    fundamento: "Art. 287 LSS — el IMSS tiene facultades de ejecución fiscal",
+    icon: "🏦",
+  },
+  sin_registro_patronal: {
+    autoridad: "IMSS",
+    riesgo: "Sin registro patronal IMSS",
+    consecuencia: "Tus empleados están desprotegidos y tú tienes multas severas por cada trabajador sin registrar.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato",
+    accion_correctiva: "Inscribir empresa ante IMSS y dar de alta a trabajadores",
+    fundamento: "Art. 15 y 304-A LSS",
+    icon: "👷",
+  },
+  sin_representante_imss: {
+    autoridad: "IMSS",
+    riesgo: "Sin representante ante IMSS",
+    consecuencia: "Si el IMSS inicia una revisión y no tienes representante registrado, no puedes defenderte.",
+    impacto: "MEDIO",
+    nivel: "amber",
+    plazo: "Al primer acto de autoridad",
+    accion_correctiva: "Acreditar representante legal ante IMSS",
+    fundamento: "Art. 5-A fracción VIII LSS",
+    icon: "⚖️",
+  },
+  // INFONAVIT
+  credito_fiscal_infonavit: {
+    autoridad: "INFONAVIT",
+    riesgo: "Crédito fiscal INFONAVIT — riesgo de embargo",
+    consecuencia: "INFONAVIT puede congelarte las cuentas sin juicio si tienes adeudos.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Inmediato tras liquidación",
+    accion_correctiva: "Regularizar aportaciones INFONAVIT",
+    fundamento: "Art. 30 Ley del INFONAVIT",
+    icon: "🏠",
+  },
+  // BANCOS / PLD
+  riesgo_pld: {
+    autoridad: "BANCOS",
+    riesgo: "Riesgo de bloqueo por PLD",
+    consecuencia: "Tu banco puede congelarte las cuentas sin aviso si la documentación de tus representantes y dueños no está completa.",
+    impacto: "CRÍTICO",
+    nivel: "red",
+    plazo: "Sin previo aviso",
+    accion_correctiva: "Completar KYC de todos los apoderados y declarar beneficiario final",
+    fundamento: "LFPIORPI y disposiciones Banxico en materia de PLD",
+    icon: "🔒",
+  },
+  sin_representante_bancario: {
+    autoridad: "BANCOS",
+    riesgo: "Sin constancia de representante bancario",
+    consecuencia: "Sin constancia de representación, tu banco puede rechazar operaciones o exigir que el dueño vaya en persona.",
+    impacto: "ALTO",
+    nivel: "amber",
+    plazo: "Al siguiente operación bancaria cuestionada",
+    accion_correctiva: "Registrar constancia de representación ante banco",
+    fundamento: "Circular Banxico 14/2022 en materia de representación",
+    icon: "🏛️",
+  },
+  // RPPyC
+  folio_cancelado: {
+    autoridad: "RPPyC",
+    riesgo: "Folio mercantil desactualizado",
+    consecuencia: "Sin folio actualizado, cualquier cambio en tu empresa puede ser desconocido por bancos, socios y clientes. Terceros pueden alegar desconocimiento de cambios societarios.",
+    impacto: "ALTO",
+    nivel: "amber",
+    plazo: "Al primer acto cuestionado",
+    accion_correctiva: "Actualizar folio mercantil en RPPyC",
+    fundamento: "Art. 21 Código de Comercio — obligación de inscripción",
+    icon: "📋",
+  },
+};
+
+async function calcConsecuencias(clientId, industria) {
+  const hoy = new Date();
+  const en30 = new Date(hoy); en30.setDate(hoy.getDate() + 30);
+
+  const [perfiles, personas, kycDocs, constancias] = await Promise.all([
+    supabase.from("perfil_regulatorio").select("*").eq("client_id", clientId),
+    supabase.from("personas").select("*").eq("client_id", clientId),
+    supabase.from("kyc_docs").select("*").eq("client_id", clientId),
+    supabase.from("constancias_representacion").select("*").eq("client_id", clientId).eq("status", "activo"),
+  ]);
+
+  const perMap = {};
+  (perfiles.data || []).forEach(p => { perMap[p.autoridad] = p.datos || {}; });
+  const ps = personas.data || [];
+  const kd = kycDocs.data || [];
+  const cons = constancias.data || [];
+
+  const alertas = [];
+
+  const sat = perMap["SAT"] || {};
+  const imss = perMap["IMSS"] || {};
+  const infonavit = perMap["INFONAVIT"] || {};
+
+  // CSD vencido
+  if (sat.csd_vencimiento && new Date(sat.csd_vencimiento) < hoy) {
+    alertas.push({ ...CONSECUENCIAS_MAP.csd_vencido, id: "cons_csd_vencido",
+      detalle: `CSD venció el ${new Date(sat.csd_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+  }
+  // e.firma vencida
+  if (sat.efirma_vencimiento && new Date(sat.efirma_vencimiento) < hoy) {
+    alertas.push({ ...CONSECUENCIAS_MAP.efirma_vencida, id: "cons_efirma_vencida",
+      detalle: `e.firma venció el ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+  }
+  // e.firma por vencer
+  else if (sat.efirma_vencimiento && new Date(sat.efirma_vencimiento) >= hoy && new Date(sat.efirma_vencimiento) <= en30) {
+    const dias = Math.ceil((new Date(sat.efirma_vencimiento) - hoy) / (1000*60*60*24));
+    alertas.push({ ...CONSECUENCIAS_MAP.efirma_por_vencer, id: "cons_efirma_pronto",
+      detalle: `e.firma vence en ${dias} días — ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+  }
+  // Opinión negativa
+  if (sat.opinion_cumplimiento === "Negativa" || sat.opinion_cumplimiento === "No vigente" || sat.opinion_cumplimiento === "No consultada" || !sat.opinion_cumplimiento) {
+    alertas.push({ ...CONSECUENCIAS_MAP.opinion_negativa, id: "cons_opinion",
+      detalle: sat.opinion_cumplimiento ? `Estatus actual: ${sat.opinion_cumplimiento}` : "Sin datos de opinión de cumplimiento" });
+  }
+  // Buzón inactivo
+  if (!sat.buzon_tributario || sat.buzon_tributario === "Inactivo" || sat.buzon_tributario === "No configurado") {
+    alertas.push({ ...CONSECUENCIAS_MAP.buzon_inactivo, id: "cons_buzon",
+      detalle: "Notificaciones del SAT con efectos legales sin receptor activo" });
+  }
+  // Sin representante SAT
+  if (!sat.representante_sat) {
+    alertas.push({ ...CONSECUENCIAS_MAP.sin_representante_sat, id: "cons_rep_sat",
+      detalle: "Sin representante legal acreditado ante el SAT" });
+  }
+  // IMSS adeudo
+  if (imss.estatus_imss === "Adeudo menor" || imss.estatus_imss === "Adeudo significativo") {
+    alertas.push({ ...CONSECUENCIAS_MAP.credito_fiscal_imss, id: "cons_imss_adeudo",
+      detalle: `Estatus IMSS: ${imss.estatus_imss}` });
+  }
+  // Sin registro patronal
+  if (!imss.registro_patronal) {
+    alertas.push({ ...CONSECUENCIAS_MAP.sin_registro_patronal, id: "cons_imss_reg",
+      detalle: "Sin número de registro patronal registrado" });
+  }
+  // Sin representante IMSS
+  if (!imss.representante_imss) {
+    alertas.push({ ...CONSECUENCIAS_MAP.sin_representante_imss, id: "cons_rep_imss",
+      detalle: "Sin representante acreditado ante el IMSS" });
+  }
+  // INFONAVIT adeudo
+  if (infonavit.estatus_infonavit === "Adeudo menor" || infonavit.estatus_infonavit === "Adeudo significativo") {
+    alertas.push({ ...CONSECUENCIAS_MAP.credito_fiscal_infonavit, id: "cons_infonavit",
+      detalle: `Estatus INFONAVIT: ${infonavit.estatus_infonavit}` });
+  }
+  // PLD — KYC incompleto en apoderados bancarios
+  const apoderadosBancarios = ps.filter(p => p.tipo === "apoderado" && p.alcance && p.alcance.some(a => a.includes("bancari") || a.includes("CNBV") || a.includes("crédito")));
+  const sinKYC = apoderadosBancarios.filter(p => {
+    const docs = kd.filter(d => d.persona_id === p.id && d.status === "entregado");
+    return docs.length === 0;
+  });
+  if (sinKYC.length > 0 || ps.filter(p => p.beneficiario_final).length === 0) {
+    alertas.push({ ...CONSECUENCIAS_MAP.riesgo_pld, id: "cons_pld",
+      detalle: sinKYC.length > 0 ? `${sinKYC.length} apoderado(s) bancario(s) sin KYC completo` : "Sin beneficiario final declarado — riesgo PLD" });
+  }
+  // Sin constancia bancaria
+  const consBancaria = cons.filter(c => c.alcance && (c.alcance.includes("bancari") || c.alcance.includes("Apertura") || c.alcance.includes("CNBV")));
+  if (apoderadosBancarios.length > 0 && consBancaria.length === 0) {
+    alertas.push({ ...CONSECUENCIAS_MAP.sin_representante_bancario, id: "cons_rep_banco",
+      detalle: "Apoderado con alcance bancario sin constancia de representación ante institución" });
+  }
+  // Folio desactualizado
+  const se = perMap["SE"] || {};
+  if (se.folio_actualizacion) {
+    const dos = new Date(hoy); dos.setFullYear(hoy.getFullYear() - 2);
+    if (new Date(se.folio_actualizacion) < dos) {
+      alertas.push({ ...CONSECUENCIAS_MAP.folio_cancelado, id: "cons_folio",
+        detalle: `Última actualización: ${new Date(se.folio_actualizacion).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+    }
+  } else if (!se.folio_mercantil) {
+    alertas.push({ ...CONSECUENCIAS_MAP.folio_cancelado, id: "cons_folio_ausente",
+      detalle: "Sin folio mercantil registrado en el sistema" });
+  }
+
+  alertas.sort((a, b) => (a.nivel === "red" ? -1 : 1) - (b.nivel === "red" ? -1 : 1));
+  return alertas;
+}
+
+function ConsecuenciasTab({client, isAdmin=false, onNavigate}){
+  const [alertas, setAlertas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(()=>{
+    calcConsecuencias(client.id, client.industria||"general").then(a=>{setAlertas(a);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Analizando riesgos operativos...</div>;
+
+  const criticos = alertas.filter(a=>a.nivel==="red");
+  const altos = alertas.filter(a=>a.nivel==="amber");
+  const IMPACTO_COLOR = {CRÍTICO:"#C0392B",ALTO:"#E67E22",MEDIO:"#C9A84C"};
+  const IMPACTO_BG = {CRÍTICO:"#fef2f2",ALTO:"#fef9f0",MEDIO:"#fffbeb"};
+
+  return(
+    <div>
+      {/* Header */}
+      <div style={{background:"#1a1a1a",borderRadius:4,padding:"1.25rem 1.5rem",marginBottom:20}}>
+        <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Exposición operativa</div>
+        <div style={{fontSize:18,fontFamily:"'Georgia',serif",color:"#fff",marginBottom:4}}>Lo que puede detenerte de operar mañana</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif"}}>Facturas bloqueadas · Cuentas embargadas · Sin acceso a trámites · Representantes sin validez</div>
+        <div style={{display:"flex",gap:12,marginTop:16}}>
+          <div style={{background:"rgba(192,57,43,.2)",border:"1px solid rgba(192,57,43,.4)",borderRadius:4,padding:"8px 16px",textAlign:"center"}}>
+            <div style={{fontSize:24,color:"#ff6b6b",fontFamily:"'Georgia',serif"}}>{criticos.length}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Críticos</div>
+          </div>
+          <div style={{background:"rgba(201,168,76,.15)",border:"1px solid rgba(201,168,76,.3)",borderRadius:4,padding:"8px 16px",textAlign:"center"}}>
+            <div style={{fontSize:24,color:"#C9A84C",fontFamily:"'Georgia',serif"}}>{altos.length}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Atención</div>
+          </div>
+          {alertas.length===0&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:20}}>✓</span>
+            <span style={{fontSize:13,color:"#5A8A3C",fontFamily:"system-ui,sans-serif"}}>Sin riesgos operativos detectados</span>
+          </div>}
+        </div>
+      </div>
+
+      {alertas.length===0&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"2rem",textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:8}}>✓</div>
+        <div style={{fontSize:15,fontFamily:"'Georgia',serif",color:"#166534"}}>Todo en orden — puedes operar sin interrupciones</div>
+        <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:4}}>Llena tu perfil ante autoridades para ver el análisis completo</div>
+      </div>}
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {alertas.map(a=>(
+          <div key={a.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,overflow:"hidden",borderLeft:"4px solid "+(a.nivel==="red"?"#C0392B":"#C9A84C")}}>
+            {/* Header row */}
+            <div style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:12}} onClick={()=>setExpanded(expanded===a.id?null:a.id)}>
+              <span style={{fontSize:20,flexShrink:0}}>{a.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                  <div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#1a1a1a",fontWeight:400}}>{a.riesgo}</div>
+                  <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:IMPACTO_BG[a.impacto]||"#f3f4f6",color:IMPACTO_COLOR[a.impacto]||"#888",fontFamily:"system-ui,sans-serif",fontWeight:600}}>{a.impacto}</span>
+                  <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#f3f4f6",color:"#888880",fontFamily:"system-ui,sans-serif"}}>{a.autoridad}</span>
+                </div>
+                <div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui,sans-serif",fontWeight:500}}>{a.consecuencia}</div>
+                <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:3}}>{a.detalle}</div>
+              </div>
+              <span style={{fontSize:11,color:"#888880",flexShrink:0}}>{expanded===a.id?"▲":"▼"}</span>
+            </div>
+            {/* Expanded detail */}
+            {expanded===a.id&&<div style={{borderTop:"1px solid #F5F2ED",padding:"12px 16px",background:"#F5F2ED",display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"8px 12px",flex:1,minWidth:150}}>
+                  <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>¿Cuándo pasa esto?</div>
+                  <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{a.plazo}</div>
+                </div>
+                <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"8px 12px",flex:2,minWidth:200}}>
+                  <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>¿Qué hago ahora?</div>
+                  <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{a.accion_correctiva}</div>
+                </div>
+              </div>
+              <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",fontStyle:"italic"}}>Fundamento: {a.fundamento}</div>
+              {isAdmin&&onNavigate&&<div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+                <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>onNavigate(a.autoridad==="SAT"||a.autoridad==="IMSS"||a.autoridad==="INFONAVIT"||a.autoridad==="RPPyC"?"regulatorio":"personas")}>Corregir esto →</button>
+              </div>}
+            </div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── ANÁLISIS DE ESTATUTOS CON IA ─────────────────────────────
+function AdminEstatutosTab({client}){
+  const [checklist,setChecklist]=useState([]);
+  const [analisis,setAnalisis]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [analyzing,setAnalyzing]=useState(false);
+  const [showChecklist,setShowChecklist]=useState(false);
+  const [newClausula,setNewClausula]=useState({categoria:"",titulo:"",descripcion:"",obligatoria:true});
+  const [dragOver,setDragOver]=useState(false);
+  const fileRef=React.useRef(null);
+
+  useEffect(()=>{
+    async function load(){
+      const [cl,an]=await Promise.all([
+        supabase.from("clausulas_checklist").select("*").order("orden"),
+        supabase.from("analisis_estatutos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}),
+      ]);
+      setChecklist(cl.data||[]);
+      setAnalisis(an.data||[]);
+      setLoading(false);
+    }
+    load();
+  },[client.id]);
+
+  async function analyzeFile(file){
+    if(!file||!file.type.includes("pdf"))return;
+    setAnalyzing(true);
+    try{
+      // Convert PDF to base64
+      const base64=await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result.split(",")[1]);
+        r.onerror=rej;
+        r.readAsDataURL(file);
+      });
+
+      const checklistText=checklist.map((c,i)=>`${i+1}. [${c.obligatoria?"OBLIGATORIA":"RECOMENDADA"}] ${c.titulo}: ${c.descripcion}`).join("\n");
+
+      // Call server-side endpoint to avoid CORS
+      const response=await fetch("/api/analizar-estatutos",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          pdfBase64:base64,
+          clientId:client.id,
+          clientName:client.name,
+          industria:client.industria||"general",
+          fileName:file.name,
+        })
+      });
+
+      const data=await response.json();
+      if(!data.ok){throw new Error(data.error||"Error en el análisis");}
+      setAnalisis(prev=>[data.analisis,...prev]);
+    }catch(e){console.error(e);}
+    setAnalyzing(false);
+  }
+
+  async function addClausula(){
+    if(!newClausula.titulo||!newClausula.descripcion)return;
+    const c={id:"cl"+Date.now(),...newClausula,orden:checklist.length+1,created_at:new Date().toISOString()};
+    await supabase.from("clausulas_checklist").insert(c);
+    setChecklist(prev=>[...prev,c]);
+    setNewClausula({categoria:"",titulo:"",descripcion:"",obligatoria:true});
+  }
+  async function deleteClausula(id){
+    await supabase.from("clausulas_checklist").delete().eq("id",id);
+    setChecklist(prev=>prev.filter(c=>c.id!==id));
+  }
+  async function deleteAnalisis(id){
+    await supabase.from("analisis_estatutos").delete().eq("id",id);
+    setAnalisis(prev=>prev.filter(a=>a.id!==id));
+  }
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
+
+  const NIVEL_COLOR={bajo:"#5A8A3C",medio:"#C9A84C",alto:"#C0392B"};
+  const NIVEL_LABEL={bajo:"Riesgo bajo",medio:"Riesgo medio",alto:"Riesgo alto"};
+
+  return(
+    <div>
+      {/* Upload area */}
+      <div
+        style={{border:"2px dashed "+(dragOver?"#1a1a1a":"#E2DDD6"),borderRadius:4,padding:"2rem",textAlign:"center",marginBottom:20,background:dragOver?"#F5F2ED":"#fff",cursor:"pointer",transition:"all .2s"}}
+        onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+        onDragLeave={()=>setDragOver(false)}
+        onDrop={e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f)analyzeFile(f);}}
+        onClick={()=>fileRef.current?.click()}
+      >
+        <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>analyzeFile(e.target.files[0])}/>
+        {analyzing
+          ?<div>
+            <div style={{fontSize:24,marginBottom:8}}>🔍</div>
+            <div style={{fontSize:14,fontFamily:"'Georgia',serif",color:"#1a1a1a",marginBottom:4}}>Analizando tus estatutos...</div>
+            <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>Claude está revisando cada cláusula contra tu checklist</div>
+          </div>
+          :<div>
+            <div style={{fontSize:32,marginBottom:8}}>📄</div>
+            <div style={{fontSize:14,fontFamily:"'Georgia',serif",color:"#1a1a1a",marginBottom:4}}>Sube los estatutos de {client.name}</div>
+            <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>Arrastra el PDF aquí o haz clic para seleccionar</div>
+            <div style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginTop:8}}>El análisis tarda menos de 30 segundos</div>
+          </div>
+        }
+      </div>
+
+      {/* Checklist management */}
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>{checklist.length} cláusulas en tu checklist</span>
+          <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setShowChecklist(!showChecklist)}>{showChecklist?"Ocultar checklist":"Ver y editar checklist"}</button>
+        </div>
+        {showChecklist&&<div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem"}}>
+          {checklist.map(c=><div key={c.id} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 0",borderBottom:"1px solid #F5F2ED"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",fontWeight:600}}>{c.titulo}</div>
+              <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}>{c.descripcion}</div>
+              {c.categoria&&<span style={{fontSize:10,padding:"1px 6px",background:"#F5F2ED",color:"#888880",borderRadius:2,fontFamily:"system-ui,sans-serif"}}>{c.categoria}</span>}
+            </div>
+            <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:c.obligatoria?"#fef2f2":"#fffbeb",color:c.obligatoria?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>{c.obligatoria?"Obligatoria":"Recomendada"}</span>
+            <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"2px 8px",fontSize:11,cursor:"pointer",flexShrink:0}} onClick={()=>deleteClausula(c.id)}>×</button>
+          </div>)}
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12,padding:"12px",background:"#F5F2ED",borderRadius:4}}>
+            <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>Agregar cláusula al checklist</div>
+            <div style={{display:"flex",gap:8}}>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Título de la cláusula *" value={newClausula.titulo} onChange={e=>setNewClausula({...newClausula,titulo:e.target.value})}/>
+              <input style={{width:140,border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",flexShrink:0}} placeholder="Categoría" value={newClausula.categoria} onChange={e=>setNewClausula({...newClausula,categoria:e.target.value})}/>
+            </div>
+            <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"}} rows={2} placeholder="Descripción — ¿qué debe decir el estatuto sobre esto?" value={newClausula.descripcion} onChange={e=>setNewClausula({...newClausula,descripcion:e.target.value})}/>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:12,fontFamily:"system-ui,sans-serif"}}>
+                <input type="checkbox" checked={newClausula.obligatoria} onChange={e=>setNewClausula({...newClausula,obligatoria:e.target.checked})} style={{accentColor:"#C9A84C"}}/>
+                Obligatoria
+              </label>
+              <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"6px 14px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",marginLeft:"auto"}} onClick={addClausula} disabled={!newClausula.titulo||!newClausula.descripcion}>Agregar</button>
+            </div>
+          </div>
+        </div>}
+      </div>
+
+      {/* Analysis results */}
+      {analisis.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Aún no hay análisis — sube los estatutos para empezar</div>
+      :analisis.map(a=>{
+        const r=a.resultado||{};
+        if(r.error)return(
+          <div key={a.id} style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:4,padding:"1rem",marginBottom:12}}>
+            <div style={{fontSize:13,color:"#C0392B",fontFamily:"system-ui,sans-serif"}}>Error al analizar: {r.error}</div>
+          </div>
+        );
+        const clausulasPresentes=(r.clausulas||[]).filter(c=>c.presente&&c.actualizada).length;
+        const clausulasFaltantes=(r.clausulas||[]).filter(c=>!c.presente).length;
+        const clausulasDesactualizadas=(r.clausulas||[]).filter(c=>c.presente&&!c.actualizada).length;
+        return(
+          <div key={a.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,marginBottom:16,overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{background:"#1a1a1a",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:13,color:"#fff",fontFamily:"system-ui,sans-serif",fontWeight:600}}>{a.nombre_documento}</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif"}}>{new Date(a.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}{r.fecha_probable_constitucion&&" · Constituida aprox. "+r.fecha_probable_constitucion}</div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                {r.nivel_riesgo&&<span style={{fontSize:11,padding:"3px 10px",borderRadius:2,background:NIVEL_COLOR[r.nivel_riesgo]||"#888",color:"#fff",fontFamily:"system-ui,sans-serif",fontWeight:600}}>{NIVEL_LABEL[r.nivel_riesgo]||r.nivel_riesgo}</span>}
+                <button style={{border:"1px solid rgba(255,255,255,.2)",color:"rgba(255,255,255,.5)",background:"none",borderRadius:2,padding:"2px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>deleteAnalisis(a.id)}>×</button>
+              </div>
+            </div>
+
+            <div style={{padding:"16px"}}>
+              {/* Resumen ejecutivo */}
+              {r.resumen_ejecutivo&&<div style={{background:"#F5F2ED",borderRadius:4,padding:"12px 16px",marginBottom:16,borderLeft:"3px solid #C9A84C"}}>
+                <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Diagnóstico rápido</div>
+                <div style={{fontSize:13,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",lineHeight:1.6}}>{r.resumen_ejecutivo}</div>
+              </div>}
+
+              {/* Objeto social */}
+              {r.objeto_social&&<div style={{marginBottom:16}}>
+                <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Objeto social</div>
+                <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"12px",borderLeft:"3px solid "+(r.objeto_social.vigente?"#5A8A3C":"#C0392B")}}>
+                  <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",marginBottom:4}}>{r.objeto_social.texto}</div>
+                  {r.objeto_social.observacion&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",fontStyle:"italic"}}>{r.objeto_social.observacion}</div>}
+                </div>
+              </div>}
+
+              {/* Prioridades */}
+              {r.prioridad_actualizacion?.length>0&&<div style={{marginBottom:16}}>
+                <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#C0392B",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Esto es lo más urgente</div>
+                {r.prioridad_actualizacion.map((p,i)=><div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 12px",background:i===0?"#fef2f2":"#fff",border:"1px solid "+(i===0?"#fca5a5":"#E2DDD6"),borderRadius:4,marginBottom:6}}>
+                  <span style={{fontSize:14,fontWeight:600,color:i===0?"#C0392B":i===1?"#C9A84C":"#888",fontFamily:"'Georgia',serif",flexShrink:0}}>{i+1}</span>
+                  <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{p}</span>
+                </div>)}
+              </div>}
+
+              {/* Clausulas summary */}
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"8px",textAlign:"center"}}>
+                  <div style={{fontSize:20,color:"#5A8A3C",fontFamily:"'Georgia',serif"}}>{clausulasPresentes}</div>
+                  <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Al día</div>
+                </div>
+                <div style={{flex:1,background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:4,padding:"8px",textAlign:"center"}}>
+                  <div style={{fontSize:20,color:"#C0392B",fontFamily:"'Georgia',serif"}}>{clausulasFaltantes}</div>
+                  <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Faltan</div>
+                </div>
+                <div style={{flex:1,background:"#fffbeb",border:"1px solid #fde68a",borderRadius:4,padding:"8px",textAlign:"center"}}>
+                  <div style={{fontSize:20,color:"#C9A84C",fontFamily:"'Georgia',serif"}}>{clausulasDesactualizadas}</div>
+                  <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Desactualizadas</div>
+                </div>
+              </div>
+
+              {/* Clausulas detail */}
+              {(r.clausulas||[]).map((c,i)=><div key={i} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"10px 14px",marginBottom:6,borderLeft:"3px solid "+(c.presente&&c.actualizada?"#5A8A3C":!c.presente?"#C0392B":"#C9A84C")}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",fontWeight:600,marginBottom:3}}>{c.titulo}</div>
+                    <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",lineHeight:1.5}}>{c.observacion_practica}</div>
+                    {!c.presente&&c.riesgo_si_falta&&<div style={{fontSize:11,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginTop:4,fontStyle:"italic"}}>⚠ {c.riesgo_si_falta}</div>}
+                    {c.texto_encontrado&&<div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:4,background:"#F5F2ED",padding:"4px 8px",borderRadius:2,fontStyle:"italic"}}>"{c.texto_encontrado}"</div>}
+                  </div>
+                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,whiteSpace:"nowrap",fontFamily:"system-ui,sans-serif",background:c.presente&&c.actualizada?"#f0fdf4":!c.presente?"#fef2f2":"#fffbeb",color:c.presente&&c.actualizada?"#166534":!c.presente?"#991b1b":"#92400e",flexShrink:0}}>{c.presente&&c.actualizada?"✓ Tiene":"No tiene"}</span>
+                </div>
+              </div>)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 function RequestModal({client,onClose,onSubmit}){
   const [type,setType]=useState("");const [notes,setNotes]=useState("");
   const [sending,setSending]=useState(false);const [sent,setSent]=useState(false);
@@ -2215,7 +2797,7 @@ function ClientView({client,onLogout}){
   const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
   const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
   const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
-  const tabs=[{id:"panel",label:"Panel"},{id:"compliance",label:"Compliance"},{id:"regulatorio",label:"Regulatorio"},{id:"personas",label:"Personas"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Resumen M&M"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitudes"}];
+  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
 
   return(
     <div style={{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
@@ -2248,11 +2830,11 @@ function ClientView({client,onLogout}){
         </div>
         {["red","amber","green"].map(st=>{
           const filtered=areas.filter(a=>a.status===st);if(!filtered.length)return null;
-          const lbl={red:"Riesgo crítico",amber:"Atención requerida",green:"Al corriente"}[st];
+          const lbl={red:"Atención urgente",amber:"Revisar pronto",green:"En orden"}[st];
           return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
                   {a.nota&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{a.nota}</div>}</div><Badge status={a.status}/></div></div>)}</div>;
         })}
-        {!diagDone&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Diagnóstico pendiente</div><div style={{...s.muted,marginTop:4}}>Completa el diagnóstico para generar tu panel</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Iniciar →</button></div></div>}
+        {!diagDone&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Aún sin diagnóstico</div><div style={{...s.muted,marginTop:4}}>Responde unas preguntas y verás el estado real de tu empresa</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Empezar →</button></div></div>}
       </>}
 
       {tab==="poderes"&&<>
@@ -2285,14 +2867,16 @@ function ClientView({client,onLogout}){
 
       {tab==="solicitudes"&&<>
         <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
-          <span style={{...s.label,margin:0}}>Mis solicitudes</span>
-          <button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Nueva solicitud</button>
+          <span style={{...s.label,margin:0}}>Lo que he pedido al despacho</span>
+          <button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Pedir algo al despacho</button>
         </div>
-        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin solicitudes aún</div>
+        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no has pedido nada — estamos aquí</div>
         :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
       </>}
 
+      {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
       {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="regulatorio"&&<PerfilRegulatorioTab client={client} isAdmin={false}/>}
       {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
       {tab==="contratos"&&<ContratosClientTab client={client}/>}
       {tab==="historial"&&<HistorialClientTab client={client}/>}
@@ -2462,7 +3046,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Semáforos"},{id:"compliance",label:"Compliance"},{id:"regulatorio",label:"Regulatorio"},{id:"personas",label:"Personas"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"pagos",label:"Iguala"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Resumen M&M"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"}];
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"}];
 
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
@@ -2512,7 +3096,7 @@ function AdminView({onLogout,admin}){
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
 
       {tab==="panel"&&client&&<>
-        {hasDrafts&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Diagnóstico pendiente de validación</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
+        {hasDrafts&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Resultados pendientes de revisión</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
         <div style={s.col()}>{areas.map(area=>(
           <div key={area.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[area.status]}`}}>
             {editing===area.id
@@ -2522,7 +3106,7 @@ function AdminView({onLogout,admin}){
               <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#FFFFFF",fontFamily:"system-ui, sans-serif",resize:"vertical"}} rows={2} placeholder="Nota visible para el cliente (opcional)" value={area.nota||""} onChange={e=>setAreas(prev=>prev.map(a=>a.id===area.id?{...a,nota:e.target.value}:a))} onBlur={e=>updateArea(area.id,"nota",e.target.value)}/>
               <div style={s.flex()}>
                 <select style={{...s.select,flex:1}} value={area.status} onChange={e=>updateArea(area.id,"status",e.target.value)}>
-                  {["red","amber","green"].map(st=><option key={st} value={st}>{({red:"Riesgo alto",amber:"Revisar",green:"Al corriente"})[st]}</option>)}
+                  {["red","amber","green"].map(st=><option key={st} value={st}>{({red:"Atención urgente",amber:"Revisar",green:"En orden"})[st]}</option>)}
                 </select>
                 <button style={s.btnPrimary} onClick={()=>setEditing(null)}>Listo</button>
               </div>
@@ -2560,9 +3144,12 @@ function AdminView({onLogout,admin}){
       </>}
 
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
+      {tab==="riesgos"&&client&&<ConsecuenciasTab client={client} isAdmin={true} onNavigate={t=>setTab(t)}/>}
       {tab==="compliance"&&client&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="regulatorio"&&client&&<PerfilRegulatorioTab client={client} isAdmin={true}/>}
       {tab==="personas"&&client&&<PersonasTab client={client} isAdmin={true}/>}
       {tab==="contratos"&&client&&<AdminContratosTab client={client}/>}
+      {tab==="estatutos"&&client&&<AdminEstatutosTab client={client}/>}
       {tab==="pagos"&&client&&<AdminPagosTab client={client}/>}
       {tab==="tareas"&&client&&<AdminTareasTab client={client} admin={admin}/>}
       {tab==="resumen"&&client&&<AdminResumenTab client={client}/>}
@@ -2583,9 +3170,9 @@ function AdminView({onLogout,admin}){
       </>}
 
       {tab==="solicitudes"&&client&&<>
-        <span style={s.label}>Solicitudes del cliente</span>
+        <span style={s.label}>Solicitudes recibidas</span>
         {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin solicitudes</div>
-        :requests.map(r=><div key={r.id} style={{...s.card,...s.flex(),alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div>{r.status==="pendiente"?<button style={s.btnPrimary} onClick={()=>resolveRequest(r.id)}>Marcar completado</button>:<Badge status="green" label="Completado"/>}</div>)}
+        :requests.map(r=><div key={r.id} style={{...s.card,...s.flex(),alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div>{r.status==="pendiente"?<button style={s.btnPrimary} onClick={()=>resolveRequest(r.id)}>Marcar como listo</button>:<Badge status="green" label="Completado"/>}</div>)}
       </>}
       </div>
     </div>
@@ -2615,8 +3202,8 @@ function Login({onLogin}){
       <div style={s.loginBox}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontSize:11,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:20}}>Millán & Martínez Abogados</div>
-          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Panel de Inmunidad</div>
-          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>Corporativa</div>
+          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Tu empresa,</div>
+          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>protegida.</div>
           <div style={{width:40,height:2,background:GOLD,margin:"20px auto 0"}}/>
         </div>
         <div style={{...s.flex(),marginTop:8}}>
