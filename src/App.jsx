@@ -2505,7 +2505,7 @@ function AdminEstatutosTab({client}){
   const [showChecklist,setShowChecklist]=useState(false);
   const [newClausula,setNewClausula]=useState({categoria:"",titulo:"",descripcion:"",obligatoria:true});
   const [dragOver,setDragOver]=useState(false);
-  const fileRef=React.useRef(null);
+  const fileRef=useRef(null);
 
   useEffect(()=>{
     async function load(){
