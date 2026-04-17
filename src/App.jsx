@@ -2505,7 +2505,7 @@ function AdminEstatutosTab({client}){
   const [showChecklist,setShowChecklist]=useState(false);
   const [newClausula,setNewClausula]=useState({categoria:"",titulo:"",descripcion:"",obligatoria:true});
   const [dragOver,setDragOver]=useState(false);
-  const fileRef=useRef(null);
+  const fileRef=React.useRef(null);
 
   useEffect(()=>{
     async function load(){
@@ -2524,22 +2524,16 @@ function AdminEstatutosTab({client}){
     if(!file||!file.type.includes("pdf"))return;
     setAnalyzing(true);
     try{
-      // Convert PDF to base64
-      const base64=await new Promise((res,rej)=>{
-        const r=new FileReader();
-        r.onload=()=>res(r.result.split(",")[1]);
-        r.onerror=rej;
-        r.readAsDataURL(file);
-      });
+      // Upload to Supabase Storage to avoid Vercel 4MB body limit
+      const path=`${client.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+      const {error:uploadError}=await supabase.storage.from("estatutos").upload(path,file,{contentType:"application/pdf"});
+      if(uploadError)throw new Error("Error al subir: "+uploadError.message);
 
-      const checklistText=checklist.map((c,i)=>`${i+1}. [${c.obligatoria?"OBLIGATORIA":"RECOMENDADA"}] ${c.titulo}: ${c.descripcion}`).join("\n");
-
-      // Call server-side endpoint to avoid CORS
       const response=await fetch("/api/analizar-estatutos",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          pdfBase64:base64,
+          storagePath:path,
           clientId:client.id,
           clientName:client.name,
           industria:client.industria||"general",
@@ -2550,7 +2544,10 @@ function AdminEstatutosTab({client}){
       const data=await response.json();
       if(!data.ok){throw new Error(data.error||"Error en el análisis");}
       setAnalisis(prev=>[data.analisis,...prev]);
-    }catch(e){console.error(e);}
+    }catch(e){
+      console.error(e);
+      alert("Error al analizar: "+e.message);
+    }
     setAnalyzing(false);
   }
 
