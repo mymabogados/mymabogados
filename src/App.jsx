@@ -1,0 +1,2643 @@
+import { useState, useEffect } from "react";
+import { supabase } from "./supabase";
+import jsPDF from "jspdf";
+
+const FORMSPREE = "https://formspree.io/f/xeevalwl";
+const GOLD = "#C9A84C";
+const CREAM = "#F5F2ED";
+const BLACK = "#1a1a1a";
+const GRAY = "#888880";
+const BORDER = "#E2DDD6";
+const WHITE = "#FFFFFF";
+
+const STATUS_COLORS = {
+  vigente:"#5A8A3C",vencido:"#C0392B","por renovar":"#C9A84C",
+  pendiente:"#C9A84C",red:"#C0392B",amber:"#C9A84C",green:"#5A8A3C"
+};
+
+const DOC_TYPES = [
+  {id:"poder_general",label:"Poder General",cat:"poderes"},
+  {id:"poder_dominio",label:"Poder para Actos de Dominio",cat:"poderes"},
+  {id:"poder_administracion",label:"Poder para Actos de Administración",cat:"poderes"},
+  {id:"poder_pleitos",label:"Poder para Pleitos y Cobranzas",cat:"poderes"},
+  {id:"poder_sat",label:"Poder ante SAT",cat:"poderes"},
+  {id:"poder_bancario",label:"Poder para Cuentas Bancarias",cat:"poderes"},
+  {id:"poder_laboral",label:"Poder en Materia Laboral",cat:"poderes"},
+  {id:"asamblea_ordinaria",label:"Asamblea Ordinaria",cat:"asambleas"},
+  {id:"asamblea_extraordinaria",label:"Asamblea Extraordinaria",cat:"asambleas"},
+  {id:"contrato_cliente",label:"Contrato con Cliente",cat:"contratos"},
+  {id:"contrato_proveedor",label:"Contrato con Proveedor",cat:"contratos"},
+  {id:"contrato_arrendamiento",label:"Contrato de Arrendamiento",cat:"contratos"},
+  {id:"contrato_laboral",label:"Contrato Laboral Clave",cat:"contratos"},
+  {id:"acta_constitutiva",label:"Acta Constitutiva",cat:"corporativos"},
+  {id:"estatutos",label:"Estatutos Vigentes",cat:"corporativos"},
+  {id:"registro_socios",label:"Libro de Registro de Socios",cat:"corporativos"},
+];
+
+const CAT_LABELS = {
+  poderes:"Poderes Notariales",asambleas:"Asambleas",
+  contratos:"Contratos",corporativos:"Documentos Corporativos",
+};
+
+const TIPOS_ASAMBLEA = ["Ordinaria Anual","Extraordinaria","Ordinaria Especial"];
+const ASUNTOS_ORDEN = [
+  "Verificación del quórum legal",
+  "Lectura y aprobación del orden del día",
+  "Aprobación de estados financieros",
+  "Nombramiento o ratificación de administradores",
+  "Determinación de emolumentos",
+  "Aprobación de la gestión del ejercicio",
+  "Modificación de estatutos sociales",
+  "Aumento o reducción de capital social",
+  "Revocación y/u otorgamiento de poderes",
+  "Aprobación de fusión o escisión",
+  "Distribución de dividendos",
+  "Aprobación de presupuesto anual",
+  "Cambio de domicilio fiscal o social",
+  "Asuntos generales",
+];
+
+const DIAGNOSTICO = [
+  {id:"q1",area:"estructura",question:"¿En qué año se constituyó la empresa?",options:["Antes de 2015","2015–2019","2020–2023","2024 o después"],score:{0:0,1:50,2:100,3:100}},
+  {id:"q2",area:"estructura",question:"¿Han cambiado socios desde la constitución?",options:["Sí, y está documentado notarialmente","Sí, pero no está documentado","No han cambiado socios"],score:{0:100,1:0,2:100}},
+  {id:"q3",area:"estructura",question:"¿Tienen un acuerdo de socios o pacto corporativo por escrito?",options:["Sí, está vigente","Está desactualizado","No existe"],score:{0:100,1:50,2:0}},
+  {id:"q4",area:"actas",question:"¿Cuándo fue la última asamblea ordinaria?",options:["En los últimos 12 meses","Hace 1–3 años","Hace más de 3 años","Nunca hemos hecho una"],score:{0:100,1:50,2:0,3:0}},
+  {id:"q5",area:"actas",question:"¿Las actas de asamblea están protocolizadas o firmadas formalmente?",options:["Sí, todas","Solo algunas","No están formalizadas"],score:{0:100,1:50,2:0}},
+  {id:"q6",area:"poderes",question:"¿Tienen poderes notariales vigentes para los representantes actuales?",options:["Sí, están actualizados","Están desactualizados","No tenemos poderes formales"],score:{0:100,1:0,2:0}},
+  {id:"q7",area:"poderes",question:"¿Han revocado los poderes de ex-socios o ex-empleados?",options:["Sí, todos revocados","Solo algunos","No se han revocado","No aplica"],score:{0:100,1:0,2:0,3:100}},
+  {id:"q8",area:"contratos",question:"¿Sus contratos con clientes están por escrito y firmados?",options:["Sí, todos","La mayoría","Solo algunos","Operamos sin contratos escritos"],score:{0:100,1:75,2:25,3:0}},
+  {id:"q9",area:"contratos",question:"¿Sus contratos con proveedores clave están formalizados?",options:["Sí, todos","La mayoría","Solo algunos","No"],score:{0:100,1:75,2:25,3:0}},
+  {id:"q10",area:"contratos",question:"¿Sus contratos incluyen cláusulas de terminación y resolución de conflictos?",options:["Sí","Solo algunos","No"],score:{0:100,1:50,2:0}},
+  {id:"q11",area:"arrendamientos",question:"¿Tienen oficinas u otros espacios rentados?",options:["Sí, con contrato formal vigente","Sí, pero sin contrato formal","No rentamos espacios"],score:{0:100,1:0,2:100}},
+  {id:"q12",area:"arrendamientos",question:"¿En cuánto tiempo vence su contrato de arrendamiento más importante?",options:["Más de 12 meses","6–12 meses","Menos de 6 meses","No aplica"],score:{0:100,1:50,2:0,3:100}},
+  {id:"q13",area:"fiscal",question:"¿Están al corriente en sus obligaciones fiscales con el SAT?",options:["Sí, sin adeudos","Tenemos algunos adeudos menores","Tenemos adeudos significativos"],score:{0:100,1:50,2:0}},
+  {id:"q14",area:"fiscal",question:"¿Sus empleados están dados de alta formalmente en IMSS?",options:["Sí, todos","La mayoría","Solo algunos","No tenemos empleados formales"],score:{0:100,1:50,2:0,3:100}},
+  {id:"q15",area:"fiscal",question:"¿Tienen contratos laborales firmados con sus empleados clave?",options:["Sí, todos","La mayoría","Solo algunos","No tenemos empleados clave"],score:{0:100,1:75,2:25,3:100}},
+];
+
+function calcDiagnostico(answers){
+  const areaScores={estructura:[],actas:[],poderes:[],contratos:[],arrendamientos:[],fiscal:[]};
+  DIAGNOSTICO.forEach(q=>{const ans=answers[q.id];if(ans!==undefined)areaScores[q.area].push(q.score[ans]??50);});
+  const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):50;
+  const toStatus=s=>s>=75?"green":s>=40?"amber":"red";
+  return [
+    {id:"a1",name:"Estructura societaria",sub:"Diagnóstico inicial",status:toStatus(avg(areaScores.estructura))},
+    {id:"a2",name:"Actas de asamblea",sub:"Diagnóstico inicial",status:toStatus(avg(areaScores.actas))},
+    {id:"a3",name:"Poderes notariales",sub:"Diagnóstico inicial",status:toStatus(avg(areaScores.poderes))},
+    {id:"a4",name:"Contratos activos",sub:"Diagnóstico inicial",status:toStatus(avg(areaScores.contratos))},
+    {id:"a5",name:"Arrendamientos",sub:"Diagnóstico inicial",status:toStatus(avg(areaScores.arrendamientos))},
+    {id:"a6",name:"Compromisos con M&M",sub:"En proceso",status:"green"},
+  ];
+}
+
+function scoreOf(areas){
+  if(!areas?.length)return 0;
+  const w={green:100,amber:50,red:0};
+  return Math.round(areas.reduce((s,a)=>s+(w[a.status]??0),0)/areas.length);
+}
+
+function generatePDF(client,areas,documents,pendingDocs){
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const today=new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
+  const score=scoreOf(areas);const pageW=210;const margin=20;const contentW=pageW-margin*2;let y=0;
+  function checkPage(n=20){if(y+n>270){doc.addPage();y=20;}}
+  doc.setFillColor(26,26,26);doc.rect(0,0,pageW,30,"F");
+  doc.setFillColor(201,168,76);doc.rect(0,28,pageW,1.5,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont("helvetica","bold");
+  doc.text("MILLÁN & MARTÍNEZ ABOGADOS",margin,13);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(201,168,76);
+  doc.text("PANEL DE INMUNIDAD CORPORATIVA",margin,22);
+  doc.setTextColor(180,180,180);doc.text(today,pageW-margin,22,{align:"right"});
+  y=42;doc.setTextColor(26,26,26);doc.setFontSize(16);doc.setFont("helvetica","bold");
+  doc.text(client.name,margin,y);y+=7;
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
+  doc.text(`Cliente ${client.id}  ·  ${client.contact}`,margin,y);y+=14;
+  const cW=(contentW-9)/4;const sC=score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
+  [{label:"Índice de inmunidad",value:String(score),color:sC},{label:"Riesgos críticos",value:String(areas.filter(a=>a.status==="red").length),color:[192,57,43]},{label:"Atención requerida",value:String(areas.filter(a=>a.status==="amber").length),color:[201,168,76]},{label:"Al corriente",value:String(areas.filter(a=>a.status==="green").length),color:[90,138,60]}].forEach((c,i)=>{
+    const x=margin+i*(cW+3);doc.setFillColor(245,242,237);doc.roundedRect(x,y,cW,22,2,2,"F");
+    doc.setTextColor(...c.color);doc.setFontSize(20);doc.setFont("helvetica","bold");doc.text(c.value,x+cW/2,y+13,{align:"center"});
+    doc.setTextColor(136,136,128);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(c.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
+  });y+=30;
+  doc.setFillColor(201,168,76);doc.rect(margin,y,contentW,0.5,"F");y+=8;
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);doc.text("ESTADO DE ÁREAS CORPORATIVAS",margin,y);y+=6;
+  const sL={red:"RIESGO ALTO",amber:"REVISAR",green:"AL CORRIENTE"};
+  const sR={red:[192,57,43],amber:[201,168,76],green:[90,138,60]};
+  const sB={red:[253,245,245],amber:[253,250,240],green:[245,251,240]};
+  areas.forEach(a=>{
+    checkPage(14);doc.setFillColor(...sB[a.status]||[245,242,237]);doc.roundedRect(margin,y,contentW,12,1,1,"F");
+    doc.setFillColor(...sR[a.status]||[136,136,128]);doc.rect(margin,y,2.5,12,"F");
+    doc.setTextColor(26,26,26);doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text(a.name,margin+6,y+5.5);
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);doc.text(a.sub,margin+6,y+10);
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(...sR[a.status]||[136,136,128]);
+    doc.text(sL[a.status]||a.status.toUpperCase(),pageW-margin-2,y+7,{align:"right"});y+=14;
+  });
+  y+=6;doc.setFillColor(201,168,76);doc.rect(margin,y,contentW,0.5,"F");y+=8;
+  Object.entries(CAT_LABELS).forEach(([cat,catLabel])=>{
+    const docs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===cat);if(!docs.length)return;
+    checkPage(20);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);doc.text(catLabel.toUpperCase(),margin,y);y+=5;
+    docs.forEach(d=>{
+      checkPage(10);const rgb=d.status==="vigente"?[90,138,60]:d.status==="vencido"?[192,57,43]:[201,168,76];
+      doc.setFillColor(...rgb);doc.circle(margin+2,y+2.5,1.5,"F");
+      doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(d.name,margin+6,y+4);
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(d.person?`${d.person}  ·  ${d.date}`:d.date,margin+6,y+9);
+      doc.setTextColor(...rgb);doc.setFontSize(7);doc.setFont("helvetica","bold");doc.text(d.status.toUpperCase(),pageW-margin-2,y+5,{align:"right"});y+=12;
+    });y+=4;
+  });
+  if(pendingDocs.length>0){
+    checkPage(20);doc.setFillColor(201,168,76);doc.rect(margin,y,contentW,0.5,"F");y+=8;
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);doc.text("DOCUMENTOS PENDIENTES",margin,y);y+=5;
+    pendingDocs.forEach(p=>{
+      checkPage(12);doc.setFillColor(201,168,76);doc.circle(margin+2,y+2.5,1.5,"F");
+      doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(p.name,margin+6,y+4);
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(p.due?`Vence: ${p.due}  ·  ${p.note}`:p.note,margin+6,y+9);y+=12;
+    });
+  }
+  const pc=doc.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);doc.setFillColor(26,26,26);doc.rect(0,285,pageW,12,"F");
+    doc.setFillColor(201,168,76);doc.rect(0,284,pageW,0.8,"F");
+    doc.setTextColor(180,180,180);doc.setFontSize(7);doc.setFont("helvetica","normal");
+    doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx",margin,292);
+    doc.text(`Página ${i} de ${pc}`,pageW-margin,292,{align:"right"});
+  }
+  doc.save(`MM_InmunidadCorporativa_${client.id}_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+const s={
+  wrap:{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"},
+  card:{background:WHITE,border:`1px solid ${BORDER}`,borderRadius:4,padding:"1rem 1.25rem",marginBottom:8},
+  btn:{background:"none",border:`1px solid ${BORDER}`,borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",color:BLACK,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  btnPrimary:{background:BLACK,color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  btnGold:{background:GOLD,color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  btnGreen:{background:"#5A8A3C",color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"},
+  btnSm:{padding:"4px 10px",fontSize:11},
+  btnDanger:{border:`1px solid #fca5a5`,color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"},
+  input:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:WHITE,fontFamily:"system-ui, sans-serif"},
+  textarea:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:WHITE,fontFamily:"system-ui, sans-serif",resize:"vertical"},
+  select:{width:"100%",border:`1px solid ${BORDER}`,borderRadius:2,padding:"8px 10px",fontSize:13,background:WHITE,cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui, sans-serif"},
+  label:{fontSize:10,fontWeight:400,color:GRAY,letterSpacing:".1em",textTransform:"uppercase",display:"block",marginBottom:8,marginTop:20,fontFamily:"system-ui, sans-serif"},
+  muted:{fontSize:12,color:GRAY,fontFamily:"system-ui, sans-serif"},
+  tab:active=>({padding:"10px 16px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:active?BLACK:GRAY,borderBottom:active?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}),
+  tabs:{display:"flex",borderBottom:`1px solid ${BORDER}`,marginBottom:20,gap:0,overflowX:"auto"},
+  dot:status=>({width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[status]||"#aaa",flexShrink:0,display:"inline-block"}),
+  badge:status=>{
+    const map={vigente:["#f0fdf4","#166534"],vencido:["#fef2f2","#991b1b"],"por renovar":["#fffbeb","#92400e"],pendiente:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"],red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"]};
+    const [bg,color]=map[status]||["#f3f4f6","#374151"];
+    return{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,background:bg,color,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"};
+  },
+  scoreCard:{background:WHITE,border:`1px solid ${BORDER}`,borderRadius:4,padding:".75rem .8rem",textAlign:"center",flex:1},
+  row:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:`1px solid ${BORDER}`},
+  flex:(gap=8)=>({display:"flex",gap,alignItems:"center"}),
+  col:(gap=8)=>({display:"flex",flexDirection:"column",gap}),
+  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:CREAM,padding:"1rem"},
+  loginBox:{background:WHITE,border:`1px solid ${BORDER}`,padding:"2.5rem 2rem",width:"min(480px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"0 8px 40px rgba(26,26,26,.08)"},
+};
+
+function Badge({status,label}){return <span style={s.badge(status)}>{label||status}</span>;}
+function ScoreCard({label,value,color}){
+  return <div style={s.scoreCard}><div style={{fontSize:26,fontWeight:400,color,fontFamily:"'Georgia', serif"}}>{value}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>{label}</div></div>;
+}
+function Spinner(){return <div style={{textAlign:"center",padding:"3rem",color:GRAY,fontSize:12,letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>Cargando...</div>;}
+
+function DiagnosticoForm({client,onComplete}){
+  const [step,setStep]=useState(0);const [answers,setAnswers]=useState({});const [submitting,setSubmitting]=useState(false);
+  const q=DIAGNOSTICO[step];const progress=Math.round((step/DIAGNOSTICO.length)*100);
+  const areaLabels={estructura:"Estructura Societaria",actas:"Actas de Asamblea",poderes:"Poderes Notariales",contratos:"Contratos",arrendamientos:"Arrendamientos",fiscal:"Fiscal y Laboral"};
+  async function next(val){
+    const na={...answers,[q.id]:val};setAnswers(na);
+    if(step<DIAGNOSTICO.length-1){setStep(s=>s+1);return;}
+    setSubmitting(true);
+    const ga=calcDiagnostico(na);
+    const ad=ga.map((a,i)=>({id:`draft_${client.id}_a${i+1}`,client_id:client.id,name:a.name,sub:"Pendiente de revisión por el despacho",status:a.status,draft:true}));
+    await supabase.from("areas").delete().eq("client_id",client.id).eq("draft",true);
+    await supabase.from("areas").insert(ad);
+    await supabase.from("clients").update({diagnostico:JSON.stringify(na),diagnostico_done:true}).eq("id",client.id);
+    setSubmitting(false);onComplete(ga);
+  }
+  return(
+    <div style={{...s.wrap,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"100vh"}}>
+      <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Millán & Martínez Abogados</div>
+          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>Diagnóstico de Inmunidad</div>
+          <div style={{fontSize:22,fontFamily:"'Georgia', serif",fontStyle:"italic",color:GOLD}}>Corporativa</div>
+          <div style={{...s.muted,marginTop:8}}>{client.name}</div>
+        </div>
+        <div style={{background:BORDER,borderRadius:2,height:3,marginBottom:8}}><div style={{background:GOLD,height:3,borderRadius:2,width:`${progress}%`,transition:"width .3s"}}/></div>
+        <div style={{...s.flex(),justifyContent:"space-between",marginBottom:32}}>
+          <span style={{...s.muted,fontSize:11}}>{areaLabels[q.area]}</span>
+          <span style={{...s.muted,fontSize:11}}>Pregunta {step+1} de {DIAGNOSTICO.length}</span>
+        </div>
+        <div style={{...s.card,padding:"2rem"}}>
+          <div style={{fontSize:17,fontFamily:"'Georgia', serif",marginBottom:24,lineHeight:1.5}}>{q.question}</div>
+          <div style={s.col(10)}>
+            {q.options.map((opt,i)=>(
+              <button key={i} style={{...s.btn,textAlign:"left",textTransform:"none",letterSpacing:"normal",fontSize:13,padding:"12px 16px",borderColor:answers[q.id]===i?BLACK:BORDER,background:answers[q.id]===i?BLACK:"none",color:answers[q.id]===i?WHITE:BLACK}} onClick={()=>next(i)} disabled={submitting}>{opt}</button>
+            ))}
+          </div>
+        </div>
+        {step>0&&<div style={{textAlign:"center",marginTop:16}}><button style={{...s.btn,...s.btnSm,color:GRAY,borderColor:"transparent"}} onClick={()=>setStep(s=>s-1)}>← Anterior</button></div>}
+        {submitting&&<div style={{textAlign:"center",marginTop:20,color:GRAY,fontSize:12,fontFamily:"system-ui, sans-serif",letterSpacing:".08em",textTransform:"uppercase"}}>Generando diagnóstico...</div>}
+      </div>
+    </div>
+  );
+}
+
+function DiagnosticoResult({areas,onContinue}){
+  const score=scoreOf(areas);const scoreColor=score>=70?"#5A8A3C":score>=40?GOLD:"#C0392B";
+  return(
+    <div style={{...s.wrap,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"100vh"}}>
+      <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:12}}>Diagnóstico completado</div>
+          <div style={{fontSize:22,fontFamily:"'Georgia', serif"}}>Tu índice de inmunidad</div>
+          <div style={{fontSize:64,fontFamily:"'Georgia', serif",color:scoreColor,margin:"16px 0"}}>{score}</div>
+          <div style={s.muted}>El despacho revisará estos resultados y los ajustará si es necesario.</div>
+        </div>
+        <div style={s.col(8)}>{areas.filter(a=>a.id!=="a6").map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div></div><Badge status={a.status}/></div></div>)}</div>
+        <div style={{textAlign:"center",marginTop:24}}><button style={s.btnPrimary} onClick={onContinue}>Ir a mi panel →</button></div>
+      </div>
+    </div>
+  );
+}
+
+// SOLICITUD DE ASAMBLEA — formulario simplificado
+function SolicitudAsambleaModal({client,onClose,onSaved}){
+  const [form,setForm]=useState({tipo:"Ordinaria Anual",fecha:"",lugar:"",presidente:"",secretario:"",escrutador:"",delegados:"",orden:[],notas:""});
+  const [socios,setSocios]=useState([{nombre:"",participacion:""}]);
+  const [sending,setSending]=useState(false);const [sent,setSent]=useState(false);
+
+  function toggleAsunto(a){setForm(prev=>({...prev,orden:prev.orden.includes(a)?prev.orden.filter(x=>x!==a):[...prev.orden,a]}));}
+
+  async function send(){
+    if(!form.fecha)return;
+    setSending(true);
+    const data={id:"asm"+Date.now(),client_id:client.id,...form,socios:JSON.stringify(socios),orden:JSON.stringify(form.orden),status:"solicitada",created_at:new Date().toISOString()};
+    await supabase.from("asambleas").insert(data);
+    // Email al despacho
+    const sociosTxt=socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"—"}%)`).join(", ");
+    const ordenTxt=form.orden.join(", ")||"—";
+    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({
+      empresa:client.name,contacto:client.contact,tipo:form.tipo,fecha:form.fecha,
+      lugar:form.lugar||"—",presidente:form.presidente||"—",secretario:form.secretario||"—",
+      escrutador:form.escrutador||"—",delegados:form.delegados||"—",
+      socios:sociosTxt||"—",orden:ordenTxt,notas:form.notas||"—",
+      _subject:`Solicitud de Asamblea: ${form.tipo} — ${client.name}`
+    })});}catch(e){}
+    setSending(false);setSent(true);onSaved(data);
+    setTimeout(()=>{setSent(false);onClose();},1500);
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,overflowY:"auto"}} onClick={onClose}>
+      <div style={{background:WHITE,padding:"2rem",width:"min(580px,95vw)",maxHeight:"90vh",overflowY:"auto",border:`1px solid ${BORDER}`,margin:"1rem"}} onClick={e=>e.stopPropagation()}>
+        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"'Georgia', serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>El despacho la procesará y subirá el acta a tu panel.</div></div>
+        :<>
+          <span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/>
+          <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Solicitar asamblea</div>
+          <div style={{...s.muted,marginBottom:20}}>Llena los datos y el despacho preparará el acta.</div>
+
+          <span style={s.label}>Tipo de asamblea</span>
+          <select style={s.select} value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>
+            {TIPOS_ASAMBLEA.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+
+          <span style={s.label}>Fecha de la asamblea</span>
+          <input style={s.input} type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})}/>
+
+          <span style={s.label}>Lugar (opcional)</span>
+          <input style={s.input} placeholder="Ej. Domicilio social de la empresa" value={form.lugar} onChange={e=>setForm({...form,lugar:e.target.value})}/>
+
+          <span style={s.label}>Presidente de la asamblea</span>
+          <input style={s.input} placeholder="Nombre completo" value={form.presidente} onChange={e=>setForm({...form,presidente:e.target.value})}/>
+
+          <span style={s.label}>Secretario de la asamblea</span>
+          <input style={s.input} placeholder="Nombre completo" value={form.secretario} onChange={e=>setForm({...form,secretario:e.target.value})}/>
+
+          <span style={s.label}>Escrutador</span>
+          <input style={s.input} placeholder="Nombre completo" value={form.escrutador} onChange={e=>setForm({...form,escrutador:e.target.value})}/>
+
+          <span style={s.label}>Delegados especiales (opcional)</span>
+          <input style={s.input} placeholder="Nombre(s) de los delegados designados" value={form.delegados} onChange={e=>setForm({...form,delegados:e.target.value})}/>
+
+          <span style={s.label}>Accionistas / Socios presentes</span>
+          <div style={s.col(6)}>
+            {socios.map((sc,i)=>(
+              <div key={i} style={s.flex()}>
+                <input style={s.input} placeholder="Nombre del socio o accionista" value={sc.nombre} onChange={e=>{const ns=[...socios];ns[i].nombre=e.target.value;setSocios(ns);}}/>
+                <input style={{...s.input,width:100}} placeholder="% capital" value={sc.participacion} onChange={e=>{const ns=[...socios];ns[i].participacion=e.target.value;setSocios(ns);}}/>
+                {i>0&&<button style={s.btnDanger} onClick={()=>setSocios(socios.filter((_,j)=>j!==i))}>×</button>}
+              </div>
+            ))}
+            <button style={{...s.btn,...s.btnSm,alignSelf:"flex-start"}} onClick={()=>setSocios([...socios,{nombre:"",participacion:""}])}>+ Agregar socio</button>
+          </div>
+
+          <span style={s.label}>Puntos del orden del día</span>
+          <div style={s.col(6)}>
+            {ASUNTOS_ORDEN.map(a=>(
+              <label key={a} style={{...s.flex(8),cursor:"pointer",fontSize:13,fontFamily:"system-ui, sans-serif"}}>
+                <input type="checkbox" checked={form.orden.includes(a)} onChange={()=>toggleAsunto(a)} style={{accentColor:GOLD}}/>
+                {a}
+              </label>
+            ))}
+          </div>
+
+          <span style={s.label}>Notas adicionales (opcional)</span>
+          <textarea style={{...s.textarea,marginBottom:0}} rows={3} placeholder="Cualquier información adicional para el despacho..." value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})}/>
+
+          <div style={{...s.flex(),justifyContent:"flex-end",marginTop:20}}>
+            <button style={s.btn} onClick={onClose}>Cancelar</button>
+            <button style={s.btnPrimary} onClick={send} disabled={sending||!form.fecha}>{sending?"Enviando...":"Enviar solicitud"}</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function AsambleasTab({client,isAdmin=false}){
+  const [asambleas,setAsambleas]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+
+  useEffect(()=>{
+    supabase.from("asambleas").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setAsambleas(data||[]);setLoading(false);});
+  },[client.id]);
+
+  async function uploadActa(id,driveUrl){
+    await supabase.from("asambleas").update({acta_url:driveUrl,status:"publicada"}).eq("id",id);
+    setAsambleas(prev=>prev.map(a=>a.id===id?{...a,acta_url:driveUrl,status:"publicada"}:a));
+  }
+  async function deleteAsamblea(id){
+    await supabase.from("asambleas").delete().eq("id",id);
+    setAsambleas(prev=>prev.filter(a=>a.id!==id));
+  }
+
+  if(loading)return <Spinner/>;
+
+  const statusLabel={solicitada:"Solicitada",publicada:"Publicada",borrador:"En proceso"};
+  const statusBadge={solicitada:"amber",publicada:"green",borrador:"pendiente"};
+
+  return(
+    <div>
+      <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+        <span style={{...s.label,margin:0}}>Asambleas</span>
+        {!isAdmin&&<button style={s.btnPrimary} onClick={()=>setShowForm(true)}>+ Solicitar asamblea</button>}
+      </div>
+
+      {asambleas.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin asambleas registradas</div>
+      :asambleas.map(a=>{
+        const socios=a.socios?JSON.parse(a.socios):[];
+        const orden=a.orden?JSON.parse(a.orden):[];
+        const isPublished=a.status==="publicada";
+        return(
+          <div key={a.id} style={{...s.card,borderLeft:`3px solid ${isPublished?STATUS_COLORS.green:GOLD}`}}>
+            <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div>
+                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.tipo}</div>
+                <div style={s.muted}>{a.fecha}{a.lugar?" · "+a.lugar:""}</div>
+                {a.presidente&&<div style={{...s.muted,marginTop:2}}>Presidente: {a.presidente}{a.secretario?" · Secretario: "+a.secretario:""}</div>}
+                {socios.filter(s=>s.nombre).length>0&&<div style={{...s.muted,marginTop:2}}>{socios.filter(s=>s.nombre).map(s=>`${s.nombre} (${s.participacion||"—"}%)`).join(", ")}</div>}
+                {orden.length>0&&<div style={{...s.muted,marginTop:2,fontSize:11}}>{orden.length} punto{orden.length!==1?"s":""} en el orden del día</div>}
+              </div>
+              <Badge status={statusBadge[a.status]||"amber"} label={statusLabel[a.status]||a.status}/>
+            </div>
+
+            {/* Admin: subir acta desde Drive */}
+            {isAdmin&&!isPublished&&<AdminActaUpload onUpload={url=>uploadActa(a.id,url)}/>}
+
+            <div style={{...s.flex(),gap:8,flexWrap:"wrap",marginTop:8}}>
+              {isPublished&&a.acta_url&&<button style={{...s.btnGreen,...s.btnSm}} onClick={()=>window.open(a.acta_url,"_blank")}>↓ Descargar acta</button>}
+              {isAdmin&&<button style={{...s.btnDanger,...s.btnSm}} onClick={()=>deleteAsamblea(a.id)}>Eliminar</button>}
+            </div>
+          </div>
+        );
+      })}
+
+      {showForm&&<SolicitudAsambleaModal client={client} onClose={()=>setShowForm(false)} onSaved={a=>{setAsambleas(prev=>[a,...prev]);}}/>}
+    </div>
+  );
+}
+
+function AdminActaUpload({onUpload}){
+  const [url,setUrl]=useState("");const [show,setShow]=useState(false);
+  if(!show)return <button style={{...s.btn,...s.btnSm,marginTop:4}} onClick={()=>setShow(true)}>+ Subir acta finalizada</button>;
+  return(
+    <div style={{...s.flex(),gap:8,marginTop:8}}>
+      <input style={s.input} placeholder="Link de Google Drive del acta final..." value={url} onChange={e=>setUrl(e.target.value)}/>
+      <button style={{...s.btnGreen,...s.btnSm}} disabled={!url} onClick={()=>{onUpload(url);setShow(false);setUrl("");}}>Publicar</button>
+      <button style={{...s.btn,...s.btnSm}} onClick={()=>setShow(false)}>×</button>
+    </div>
+  );
+}
+
+
+function ContratosClientTab({client}){
+  const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos(data||[]);setLoading(false);});},[client.id]);
+  if(loading)return <Spinner/>;
+  return(
+    <div>
+      <span style={s.label}>Mis contratos</span>
+      {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos registrados</div>
+      :contratos.map(c=>{
+        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date())/(1000*60*60*24)):null;
+        const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
+        return(
+          <div key={c.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[st]}`}}>
+            <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{c.nombre}</div>
+                <div style={s.muted}>{c.contraparte}{c.tipo?" · "+c.tipo:""}{c.monto?" · "+c.monto:""}</div>
+                {c.vencimiento&&<div style={{...s.muted,marginTop:2}}>Vence: {new Date(c.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
+              </div>
+              <div style={s.col(4)}>
+                <span style={s.badge(st)}>{st}</span>
+                {c.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(c.drive_url,"_blank")}>Ver</button>}
+              </div>
+            </div>
+            {c.notas&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{c.notas}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdminContratosTab({client}){
+  const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({nombre:"",tipo:"",contraparte:"",vencimiento:"",monto:"",drive_url:"",notas:""});
+  const TIPOS=["Con cliente","Con proveedor","De arrendamiento","Laboral clave","Otro"];
+  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos(data||[]);setLoading(false);});},[client.id]);
+  async function add(){
+    if(!form.nombre)return;
+    const c={id:"ctr"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
+    await supabase.from("contratos").insert(c);setContratos(prev=>[c,...prev]);
+    setShowForm(false);setForm({nombre:"",tipo:"",contraparte:"",vencimiento:"",monto:"",drive_url:"",notas:""});
+  }
+  async function del(id){await supabase.from("contratos").delete().eq("id",id);setContratos(prev=>prev.filter(c=>c.id!==id));}
+  if(loading)return <Spinner/>;
+  return(
+    <div>
+      <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+        <span style={{...s.label,margin:0}}>{contratos.length} contratos</span>
+        <button style={s.btnPrimary} onClick={()=>setShowForm(!showForm)}>+ Contrato</button>
+      </div>
+      {showForm&&<div style={{...s.card,...s.col(),marginBottom:16}}>
+        <div style={s.flex()}>
+          <input style={s.input} placeholder="Nombre del contrato" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})}/>
+          <select style={{...s.select,width:180}} value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>
+            <option value="">Tipo...</option>{TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={s.flex()}>
+          <input style={s.input} placeholder="Contraparte" value={form.contraparte} onChange={e=>setForm({...form,contraparte:e.target.value})}/>
+          <input style={s.input} placeholder="Monto (opcional)" value={form.monto} onChange={e=>setForm({...form,monto:e.target.value})}/>
+        </div>
+        <div style={s.flex()}>
+          <span style={{...s.muted,whiteSpace:"nowrap",fontSize:12}}>Vencimiento</span>
+          <input style={s.input} type="date" value={form.vencimiento} onChange={e=>setForm({...form,vencimiento:e.target.value})}/>
+        </div>
+        <input style={s.input} placeholder="Link Google Drive (opcional)" value={form.drive_url} onChange={e=>setForm({...form,drive_url:e.target.value})}/>
+        <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#FFFFFF",fontFamily:"system-ui, sans-serif",resize:"vertical"}} rows={2} placeholder="Notas del despacho (visible para el cliente)" value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})}/>
+        <button style={{...s.btnPrimary,alignSelf:"flex-start"}} onClick={add}>Agregar</button>
+      </div>}
+      {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos</div>
+      :contratos.map(c=>{
+        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date())/(1000*60*60*24)):null;
+        const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
+        return(
+          <div key={c.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[st]}`}}>
+            <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{c.nombre}</div>
+                <div style={s.muted}>{c.contraparte}{c.tipo?" · "+c.tipo:""}{c.monto?" · "+c.monto:""}</div>
+                {c.vencimiento&&<div style={{...s.muted,marginTop:2}}>Vence: {new Date(c.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
+              </div>
+              <div style={s.flex()}>
+                <span style={s.badge(st)}>{st}</span>
+                {c.drive_url&&<a href={c.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#C9A84C",marginLeft:8}}>↗</a>}
+                <button style={{...s.btnDanger,marginLeft:4}} onClick={()=>del(c.id)}>×</button>
+              </div>
+            </div>
+            {c.notas&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{c.notas}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResumenClientTab({client}){
+  const [resumenes,setResumenes]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes(data||[]);setLoading(false);});},[client.id]);
+  if(loading)return <Spinner/>;
+  return(
+    <div>
+      <span style={s.label}>Resumen del despacho</span>
+      {resumenes.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin resúmenes publicados aún</div>
+      :resumenes.map(r=><div key={r.id} style={{...s.card,borderLeft:"3px solid #C9A84C",marginBottom:12}}>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:8}}>{r.mes}</div>
+        <div style={{fontSize:14,fontFamily:"system-ui,sans-serif",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{r.contenido}</div>
+      </div>)}
+    </div>
+  );
+}
+
+function AdminResumenTab({client}){
+  const [resumenes,setResumenes]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const mesActual=new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"});
+  const [form,setForm]=useState({mes:mesActual,contenido:""});
+  const [saved,setSaved]=useState("");
+  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes(data||[]);setLoading(false);});},[client.id]);
+  async function publish(){
+    if(!form.contenido.trim())return;
+    const r={id:"res"+Date.now(),client_id:client.id,mes:form.mes,contenido:form.contenido,created_at:new Date().toISOString()};
+    await supabase.from("resumenes").insert(r);setResumenes(prev=>[r,...prev]);
+    setShowForm(false);setForm({mes:mesActual,contenido:""});
+    setSaved("Resumen publicado");setTimeout(()=>setSaved(""),2000);
+  }
+  async function del(id){await supabase.from("resumenes").delete().eq("id",id);setResumenes(prev=>prev.filter(r=>r.id!==id));}
+  if(loading)return <Spinner/>;
+  return(
+    <div>
+      {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>{saved}</div>}
+      <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+        <span style={{...s.label,margin:0}}>Resúmenes mensuales</span>
+        <button style={s.btnPrimary} onClick={()=>setShowForm(!showForm)}>+ Nuevo resumen</button>
+      </div>
+      {showForm&&<div style={{...s.card,display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        <input style={s.input} value={form.mes} onChange={e=>setForm({...form,mes:e.target.value})} placeholder="Mes"/>
+        <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#FFFFFF",fontFamily:"system-ui, sans-serif",resize:"vertical"}} rows={8} placeholder="Contenido del resumen..." value={form.contenido} onChange={e=>setForm({...form,contenido:e.target.value})}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button style={s.btn} onClick={()=>setShowForm(false)}>Cancelar</button>
+          <button style={s.btnPrimary} onClick={publish} disabled={!form.contenido.trim()}>Publicar en panel del cliente</button>
+        </div>
+      </div>}
+      {resumenes.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin resúmenes</div>
+      :resumenes.map(r=><div key={r.id} style={{...s.card,borderLeft:"3px solid #C9A84C",marginBottom:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:6}}>{r.mes}</div>
+            <div style={{fontSize:13,fontFamily:"system-ui,sans-serif",lineHeight:1.7,whiteSpace:"pre-wrap",color:"#888880"}}>{r.contenido.length>200?r.contenido.slice(0,200)+"...":r.contenido}</div>
+          </div>
+          <button style={{...s.btnDanger,marginLeft:12,flexShrink:0}} onClick={()=>del(r.id)}>×</button>
+        </div>
+      </div>)}
+    </div>
+  );
+}
+
+function HistorialClientTab({client}){
+  const [historial,setHistorial]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{supabase.from("historial").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setHistorial(data||[]);setLoading(false);});},[client.id]);
+  if(loading)return <Spinner/>;
+  const sLabel={red:"Riesgo alto",amber:"Revisar",green:"Al corriente"};
+  const sColor={red:"#C0392B",amber:"#C9A84C",green:"#5A8A3C"};
+  return(
+    <div>
+      <span style={s.label}>Historial de cambios</span>
+      {historial.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin cambios registrados aún</div>
+      :historial.map((h,i)=>{
+        const fecha=new Date(h.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});
+        const hora=new Date(h.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+        return(
+          <div key={h.id} style={{display:"flex",gap:16,marginBottom:16}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:sColor[h.status_nuevo]||"#aaa",flexShrink:0,marginTop:4}}/>
+              {i<historial.length-1&&<div style={{width:1,flex:1,background:"#E2DDD6",marginTop:4}}/>}
+            </div>
+            <div style={{background:"#FFFFFF",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",flex:1,marginBottom:0}}>
+              <div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{h.area_name}</div>
+              <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{...{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"},...(()=>{const m={red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"]};const [bg,color]=m[h.status_anterior]||["#f3f4f6","#374151"];return{background:bg,color,opacity:.7};})()}}>{sLabel[h.status_anterior]||h.status_anterior}</span>
+                <span style={{fontSize:11,color:"#888880"}}>→</span>
+                <span style={{...{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"},...(()=>{const m={red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"]};const [bg,color]=m[h.status_nuevo]||["#f3f4f6","#374151"];return{background:bg,color};})()}}>{sLabel[h.status_nuevo]||h.status_nuevo}</span>
+              </div>
+              <div style={{fontSize:11,color:"#888880",marginTop:4}}>{fecha} · {hora} · {h.admin_name}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function NotifBell({clientId}){
+  const [notifs,setNotifs]=useState([]);const [open,setOpen]=useState(false);
+  useEffect(()=>{
+    supabase.from("notificaciones").select("*").eq("client_id",clientId).order("created_at",{ascending:false}).limit(20).then(({data})=>setNotifs(data||[]));
+  },[clientId]);
+  const unread=notifs.filter(n=>!n.leida).length;
+  async function markRead(){
+    await supabase.from("notificaciones").update({leida:true}).eq("client_id",clientId).eq("leida",false);
+    setNotifs(prev=>prev.map(n=>({...n,leida:true})));
+  }
+  const iconMap={documento:"📄",semaforo:"🔴",solicitud:"✉️",asamblea:"🏛️",contrato:"📋",resumen:"📊",default:"🔔"};
+  return(
+    <div style={{position:"relative"}}>
+      <button style={{...{background:"none",border:"1px solid rgba(255,255,255,.2)",borderRadius:2,padding:"4px 10px",fontSize:12,cursor:"pointer",color:"rgba(255,255,255,.7)",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"},position:"relative"}} onClick={()=>{setOpen(!open);if(!open&&unread>0)markRead();}}>
+        🔔{unread>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#C0392B",color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>{unread}</span>}
+      </button>
+      {open&&<div style={{position:"absolute",right:0,top:36,background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,width:300,maxHeight:360,overflowY:"auto",zIndex:200,boxShadow:"0 8px 32px rgba(0,0,0,.12)"}}>
+        <div style={{padding:"10px 14px",borderBottom:"1px solid #E2DDD6",fontSize:11,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>Notificaciones</div>
+        {notifs.length===0?<div style={{padding:"1.5rem",textAlign:"center",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin notificaciones</div>
+        :notifs.map(n=><div key={n.id} style={{padding:"10px 14px",borderBottom:"1px solid #f0f0f0",background:n.leida?"#fff":"#fffbf0"}}>
+          <div style={{fontSize:13,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{iconMap[n.tipo]||iconMap.default} {n.mensaje}</div>
+          <div style={{fontSize:11,color:"#888880",marginTop:3,fontFamily:"system-ui,sans-serif"}}>{new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</div>
+        </div>)}
+      </div>}
+    </div>
+  );
+}
+
+function OnboardingScreen({client,onComplete}){
+  const [step,setStep]=useState(0);
+  const steps=[
+    {icon:"🔍",titulo:"Diagnóstico corporativo",desc:"Responde 15 preguntas para que generemos tu índice de inmunidad corporativa.",accion:"Iniciar diagnóstico",tab:"diagnostico"},
+    {icon:"📄",titulo:"Sube tus documentos clave",desc:"Comparte con el despacho tus documentos más importantes: acta constitutiva, poderes vigentes, contratos activos.",accion:"Ir a documentos",tab:"docs"},
+    {icon:"🏛️",titulo:"Solicita tu primera asamblea",desc:"Si necesitas formalizar decisiones recientes, solicita la preparación de tu acta de asamblea.",accion:"Solicitar asamblea",tab:"asambleas"},
+  ];
+  const s2=steps[step];
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:"1rem"}}>
+      <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2.5rem 2rem",width:"min(500px,100%)",display:"flex",flexDirection:"column",gap:20}}>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Bienvenido a M&M Abogados</div>
+          <div style={{fontSize:32,marginBottom:12}}>{s2.icon}</div>
+          <div style={{fontSize:20,fontFamily:"'Georgia',serif",marginBottom:8}}>{s2.titulo}</div>
+          <div style={{fontSize:14,color:"#888880",fontFamily:"system-ui,sans-serif",lineHeight:1.6}}>{s2.desc}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"center",gap:6,margin:"4px 0"}}>
+          {steps.map((_,i)=><div key={i} style={{width:i===step?20:6,height:6,borderRadius:3,background:i===step?"#C9A84C":"#E2DDD6",transition:"width .3s"}}/>)}
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          {step>0&&<button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setStep(s=>s-1)}>← Anterior</button>}
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>{if(step<steps.length-1){setStep(s=>s+1);}else{onComplete();}}}>
+            {step<steps.length-1?"Siguiente →":"Comenzar"}
+          </button>
+        </div>
+        <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={onComplete}>Saltar introducción</button></div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPagosTab({client}){
+  const [pagos,setPagos]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const mesActual=new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"});
+  const [form,setForm]=useState({mes:mesActual,monto:"",status:"pendiente",nota:""});
+  const [saved,setSaved]=useState("");
+
+  useEffect(()=>{supabase.from("pagos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setPagos(data||[]);setLoading(false);});},[client.id]);
+
+  async function add(){
+    if(!form.mes)return;
+    const p={id:"pag"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
+    await supabase.from("pagos").insert(p);setPagos(prev=>[p,...prev]);
+    setShowForm(false);setForm({mes:mesActual,monto:"",status:"pendiente",nota:""});
+    setSaved("Pago registrado ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function toggleStatus(id,current){
+    const next=current==="pagado"?"pendiente":"pagado";
+    await supabase.from("pagos").update({status:next}).eq("id",id);
+    setPagos(prev=>prev.map(p=>p.id===id?{...p,status:next}:p));
+  }
+  async function del(id){await supabase.from("pagos").delete().eq("id",id);setPagos(prev=>prev.filter(p=>p.id!==id));}
+
+  if(loading)return <Spinner/>;
+  const pendientes=pagos.filter(p=>p.status==="pendiente").length;
+  return(
+    <div>
+      {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>{saved}</div>}
+      <div style={{display:"flex",gap:10,marginBottom:16}}>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1}}>
+          <div style={{fontSize:22,fontWeight:400,color:pendientes>0?"#C0392B":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{pendientes}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Meses pendientes</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1}}>
+          <div style={{fontSize:22,fontWeight:400,color:"#5A8A3C",fontFamily:"'Georgia',serif"}}>{pagos.filter(p=>p.status==="pagado").length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Meses pagados</div>
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,alignItems:"center"}}>
+        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Registro de iguala</span>
+        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Mes</button>
+      </div>
+      {showForm&&<div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",gap:8}}>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} value={form.mes} onChange={e=>setForm({...form,mes:e.target.value})} placeholder="Mes"/>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} value={form.monto} onChange={e=>setForm({...form,monto:e.target.value})} placeholder="Monto"/>
+        </div>
+        <select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+          <option value="pendiente">Pendiente</option>
+          <option value="pagado">Pagado</option>
+        </select>
+        <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} value={form.nota} onChange={e=>setForm({...form,nota:e.target.value})} placeholder="Nota (opcional)"/>
+        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Agregar</button>
+      </div>}
+      {pagos.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin registros de pago</div>
+      :pagos.map(p=><div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"center",gap:12,borderLeft:`3px solid ${p.status==="pagado"?"#5A8A3C":"#C0392B"}`}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontFamily:"'Georgia',serif"}}>{p.mes}</div>
+          <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>{p.monto||"—"}{p.nota?" · "+p.nota:""}</div>
+        </div>
+        <button style={{background:p.status==="pagado"?"#5A8A3C":"none",color:p.status==="pagado"?"#fff":"#C0392B",border:p.status==="pagado"?"none":"1px solid #fca5a5",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>toggleStatus(p.id,p.status)}>{p.status==="pagado"?"✓ Pagado":"Pendiente"}</button>
+        <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"}} onClick={()=>del(p.id)}>×</button>
+      </div>)}
+    </div>
+  );
+}
+
+function AdminTareasTab({client,admin}){
+  const [tareas,setTareas]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({titulo:"",descripcion:"",asignado:admin?.name||"",due:"",status:"pendiente"});
+  const [saved,setSaved]=useState("");
+
+  useEffect(()=>{supabase.from("tareas").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setTareas(data||[]);setLoading(false);});},[client.id]);
+
+  async function add(){
+    if(!form.titulo)return;
+    const t={id:"tar"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
+    await supabase.from("tareas").insert(t);setTareas(prev=>[t,...prev]);
+    setShowForm(false);setForm({titulo:"",descripcion:"",asignado:admin?.name||"",due:"",status:"pendiente"});
+    setSaved("Tarea creada ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function toggleStatus(id,current){
+    const next=current==="completada"?"pendiente":"completada";
+    await supabase.from("tareas").update({status:next}).eq("id",id);
+    setTareas(prev=>prev.map(t=>t.id===id?{...t,status:next}:t));
+  }
+  async function del(id){await supabase.from("tareas").delete().eq("id",id);setTareas(prev=>prev.filter(t=>t.id!==id));}
+
+  if(loading)return <Spinner/>;
+  const pendientes=tareas.filter(t=>t.status==="pendiente").length;
+  return(
+    <div>
+      {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:12}}>{saved}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,alignItems:"center"}}>
+        <span style={{fontSize:10,fontWeight:400,color:"#888880",letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>{pendientes} tareas pendientes</span>
+        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Tarea</button>
+      </div>
+      {showForm&&<div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
+        <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Título de la tarea" value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})}/>
+        <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Descripción (opcional)" value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})}/>
+        <div style={{display:"flex",gap:8}}>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Asignado a" value={form.asignado} onChange={e=>setForm({...form,asignado:e.target.value})}/>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/>
+        </div>
+        <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add}>Crear tarea</button>
+      </div>}
+      {tareas.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin tareas registradas</div>
+      :tareas.map(t=><div key={t.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,display:"flex",alignItems:"flex-start",gap:12,opacity:t.status==="completada"?.6:1,borderLeft:`3px solid ${t.status==="completada"?"#5A8A3C":"#C9A84C"}`}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontFamily:"'Georgia',serif",textDecoration:t.status==="completada"?"line-through":"none"}}>{t.titulo}</div>
+          {t.descripcion&&<div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{t.descripcion}</div>}
+          <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:4}}>{t.asignado&&"→ "+t.asignado}{t.due&&" · Vence: "+new Date(t.due).toLocaleDateString("es-MX",{day:"numeric",month:"short"})}</div>
+        </div>
+        <div style={{display:"flex",gap:6,flexShrink:0}}>
+          <button style={{background:t.status==="completada"?"#5A8A3C":"none",color:t.status==="completada"?"#fff":"#5A8A3C",border:"1px solid #5A8A3C",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"}} onClick={()=>toggleStatus(t.id,t.status)}>{t.status==="completada"?"✓":"Completar"}</button>
+          <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 10px",fontSize:11,cursor:"pointer"}} onClick={()=>del(t.id)}>×</button>
+        </div>
+      </div>)}
+    </div>
+  );
+}
+
+function AdminDashboard({clients,onSelectClient}){
+  const [data,setData]=useState({});const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    async function load(){
+      const results={};
+      await Promise.all(clients.map(async c=>{
+        const [a,r,ctr,t]=await Promise.all([
+          supabase.from("areas").select("status").eq("client_id",c.id),
+          supabase.from("requests").select("status").eq("client_id",c.id).eq("status","pendiente"),
+          supabase.from("contratos").select("vencimiento").eq("client_id",c.id),
+          supabase.from("tareas").select("status").eq("client_id",c.id).eq("status","pendiente"),
+        ]);
+        const areas=a.data||[];
+        const w={green:100,amber:50,red:0};
+        const score=areas.length?Math.round(areas.reduce((s,x)=>s+(w[x.status]??0),0)/areas.length):0;
+        const hoy=new Date();
+        const en7=new Date(hoy);en7.setDate(hoy.getDate()+7);
+        const vencen=(ctr.data||[]).filter(x=>x.vencimiento&&new Date(x.vencimiento)<=en7&&new Date(x.vencimiento)>=hoy).length;
+        results[c.id]={score,criticos:areas.filter(x=>x.status==="red").length,solicitudes:r.data?.length||0,vencen,tareas:t.data?.length||0};
+      }));
+      setData(results);setLoading(false);
+    }
+    load();
+  },[clients]);
+
+  if(loading)return <Spinner/>;
+  const scoreColor=s=>s>=70?"#5A8A3C":s>=40?"#C9A84C":"#C0392B";
+
+  return(
+    <div>
+      <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Vista general · {clients.length} clientes</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+        {clients.map(c=>{
+          const d=data[c.id]||{};
+          return(
+            <div key={c.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1.25rem",cursor:"pointer",transition:"border-color .15s"}} onClick={()=>onSelectClient(c.id)} onMouseEnter={e=>e.currentTarget.style.borderColor="#1a1a1a"} onMouseLeave={e=>e.currentTarget.style.borderColor="#E2DDD6"}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:14,fontFamily:"'Georgia',serif"}}>{c.name}</div>
+                  <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>Cliente {c.id}</div>
+                </div>
+                <div style={{fontSize:24,fontWeight:400,color:scoreColor(d.score||0),fontFamily:"'Georgia',serif"}}>{d.score||0}</div>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {d.criticos>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif"}}>⚠ {d.criticos} crítico{d.criticos!==1?"s":""}</span>}
+                {d.solicitudes>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fffbeb",color:"#92400e",fontFamily:"system-ui,sans-serif"}}>✉ {d.solicitudes} solicitud{d.solicitudes!==1?"es":""}</span>}
+                {d.vencen>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif"}}>📋 {d.vencen} vence{d.vencen!==1?"n":""} pronto</span>}
+                {d.tareas>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#f0fdf4",color:"#166534",fontFamily:"system-ui,sans-serif"}}>✓ {d.tareas} tarea{d.tareas!==1?"s":""}</span>}
+                {!d.criticos&&!d.solicitudes&&!d.vencen&&!d.tareas&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#f0fdf4",color:"#166534",fontFamily:"system-ui,sans-serif"}}>Al corriente</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const KYC_DOC_LABELS = {
+  identificacion_oficial: "Identificación oficial vigente",
+  comprobante_domicilio: "Comprobante de domicilio",
+  rfc: "RFC y cédula fiscal",
+  curp: "CURP",
+  origen_recursos: "Declaración de origen de recursos",
+  pep: "Declaración PEP",
+  beneficiario_final: "Declaración de beneficiario final",
+  estado_cuenta: "Estado de cuenta bancario",
+  declaracion_impuestos: "Declaración de impuestos reciente",
+};
+
+const INDUSTRIA_LABELS = {
+  inmobiliaria: "Intermediación Inmobiliaria",
+  marketing: "Marketing / Publicidad",
+  retail: "Retail / Comercio",
+  tecnologia: "Tecnología / Startups",
+  servicios: "Servicios Profesionales",
+  manufactura: "Manufactura / Industrial",
+  financiero: "Financiero / Fintech",
+  general: "General",
+};
+
+// ── PERFIL DE PERSONA (Apoderado o Accionista) ────────────────
+function PersonaModal({client,industria_config,persona,onClose,onSaved}){
+  const isEdit=!!persona;
+  const [form,setForm]=useState(persona||{
+    tipo:"apoderado",nombre:"",rfc:"",curp:"",domicilio:"",empresa:"",cargo:"",
+    participacion:"",fecha_entrada:"",status:"activo",pep:false,pep_detalle:"",
+    origen_recursos:"",beneficiario_final:false,industria_extra:{},
+    num_escritura:"",notario:"",num_notaria:"",fecha_escritura:"",tipo_poder:"",alcance:[]
+  });
+  const [saving,setSaving]=useState(false);
+  const cfg=industria_config||{obligatorios:[],opcionales:[],campos_extra:[]};
+
+  async function save(){
+    setSaving(true);
+    if(isEdit){
+      await supabase.from("personas").update(form).eq("id",persona.id);
+      onSaved({...persona,...form});
+    } else {
+      const p={id:"per"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
+      await supabase.from("personas").insert(p);
+      // Create KYC doc placeholders
+      const docs=[...cfg.obligatorios,...cfg.opcionales].map(tipo=>({
+        id:"kyc"+Date.now()+Math.random().toString(36).slice(2),
+        persona_id:p.id,client_id:client.id,tipo,status:"pendiente",drive_url:"",created_at:new Date().toISOString()
+      }));
+      if(docs.length)await supabase.from("kyc_docs").insert(docs);
+      onSaved(p);
+    }
+    setSaving(false);onClose();
+  }
+
+  const TIPO_LABELS={apoderado:"Apoderado",accionista:"Accionista",administrador:"Administrador",comisario:"Comisario"};
+  const TIPO_COLORS={apoderado:"#185FA5",accionista:"#888880",administrador:"#5A8A3C",comisario:"#7B4F9E"};
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"1rem",overflowY:"auto"}} onClick={onClose}>
+      <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2rem",width:"min(580px,100%)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <span style={{width:40,height:1,background:"#C9A84C",display:"block",marginBottom:12}}/>
+        <div style={{fontSize:16,fontFamily:"'Georgia',serif",marginBottom:4}}>{isEdit?"Editar perfil":"Nuevo perfil"}</div>
+        <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:20}}>
+          {client.name} · {INDUSTRIA_LABELS[client.industria]||"General"}
+          {cfg.lfpiorpi&&<span style={{marginLeft:8,fontSize:10,padding:"2px 7px",background:"#fef2f2",color:"#991b1b",borderRadius:2,fontFamily:"system-ui,sans-serif"}}>LFPIORPI aplicable</span>}
+        </div>
+
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Tipo</div>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {["apoderado","accionista","administrador","comisario"].map(t=><button key={t} style={{flex:1,minWidth:100,background:form.tipo===t?"#1a1a1a":"none",color:form.tipo===t?"#fff":"#1a1a1a",border:"1px solid #E2DDD6",borderColor:form.tipo===t?"#1a1a1a":"#E2DDD6",borderRadius:2,padding:"7px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",textTransform:"capitalize"}} onClick={()=>setForm({...form,tipo:t})}>{TIPO_LABELS[t]}</button>)}
+        </div>
+
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16}}>Datos personales</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Nombre completo *" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})}/>
+          <div style={{display:"flex",gap:8}}>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="RFC" value={form.rfc} onChange={e=>setForm({...form,rfc:e.target.value.toUpperCase()})}/>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="CURP" value={form.curp} onChange={e=>setForm({...form,curp:e.target.value.toUpperCase()})}/>
+          </div>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Domicilio" value={form.domicilio} onChange={e=>setForm({...form,domicilio:e.target.value})}/>
+          <div style={{display:"flex",gap:8}}>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Empresa donde trabaja" value={form.empresa} onChange={e=>setForm({...form,empresa:e.target.value})}/>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Cargo / Rol" value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})}/>
+          </div>
+          {form.tipo==="apoderado"&&<>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Instrumento notarial</div>
+            <div style={{display:"flex",gap:8}}>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de escritura" value={form.num_escritura||""} onChange={e=>setForm({...form,num_escritura:e.target.value})}/>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Nombre del notario" value={form.notario||""} onChange={e=>setForm({...form,notario:e.target.value})}/>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de notaría" value={form.num_notaria||""} onChange={e=>setForm({...form,num_notaria:e.target.value})}/>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" placeholder="Fecha de la escritura" value={form.fecha_escritura||""} onChange={e=>setForm({...form,fecha_escritura:e.target.value})}/>
+            </div>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder="Tipo de poder otorgado (ej. Poder General para Actos de Dominio)" value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Alcance del poder — instituciones y registros vinculados</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {Object.entries(ALCANCE_PODER).map(([cat,items])=>(
+                <div key={cat}>
+                  <div style={{fontSize:11,fontWeight:600,color:"#1a1a1a",fontFamily:"system-ui,sans-serif",marginBottom:6,letterSpacing:".04em"}}>{cat}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {items.map(item=>(
+                      <label key={item} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",fontSize:12,fontFamily:"system-ui,sans-serif",color:(form.alcance||[]).includes(item)?"#1a1a1a":"#555"}}>
+                        <input type="checkbox" checked={(form.alcance||[]).includes(item)} onChange={()=>{const a=form.alcance||[];setForm({...form,alcance:a.includes(item)?a.filter(x=>x!==item):[...a,item]});}} style={{accentColor:"#C9A84C",flexShrink:0}}/>
+                        {item}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>}
+          {form.tipo==="accionista"&&<div style={{display:"flex",gap:8}}>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="% de participación" value={form.participacion} onChange={e=>setForm({...form,participacion:e.target.value})}/>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Fecha de entrada" type="date" value={form.fecha_entrada} onChange={e=>setForm({...form,fecha_entrada:e.target.value})}/>
+          </div>}
+          {(form.tipo==="administrador"||form.tipo==="comisario")&&<>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:12}}>Instrumento de designación</div>
+            <div style={{display:"flex",gap:8}}>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder={form.tipo==="administrador"?"Número de escritura / Acta de asamblea":"Acta de asamblea de designación"} value={form.num_escritura||""} onChange={e=>setForm({...form,num_escritura:e.target.value})}/>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" placeholder="Fecha de designación" value={form.fecha_escritura||""} onChange={e=>setForm({...form,fecha_escritura:e.target.value})}/>
+            </div>
+            {form.tipo==="administrador"&&<div style={{display:"flex",gap:8,marginTop:8}}>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Nombre del notario (si aplica)" value={form.notario||""} onChange={e=>setForm({...form,notario:e.target.value})}/>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de notaría" value={form.num_notaria||""} onChange={e=>setForm({...form,num_notaria:e.target.value})}/>
+            </div>}
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",marginTop:8}} placeholder={form.tipo==="administrador"?"Tipo: Administrador Único / Consejero / Presidente del Consejo":"Alcance de la comisaría"} value={form.tipo_poder||""} onChange={e=>setForm({...form,tipo_poder:e.target.value})}/>
+          </>}
+        </div>
+
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16}}>Compliance</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <label style={{display:"flex",gap:10,alignItems:"center",cursor:"pointer",fontSize:13,fontFamily:"system-ui,sans-serif"}}>
+            <input type="checkbox" checked={form.pep} onChange={e=>setForm({...form,pep:e.target.checked})} style={{accentColor:"#C9A84C"}}/>
+            Persona Políticamente Expuesta (PEP)
+          </label>
+          {form.pep&&<input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Cargo público o relación con PEP" value={form.pep_detalle} onChange={e=>setForm({...form,pep_detalle:e.target.value})}/>}
+          <label style={{display:"flex",gap:10,alignItems:"center",cursor:"pointer",fontSize:13,fontFamily:"system-ui,sans-serif"}}>
+            <input type="checkbox" checked={form.beneficiario_final} onChange={e=>setForm({...form,beneficiario_final:e.target.checked})} style={{accentColor:"#C9A84C"}}/>
+            Es beneficiario final real de la empresa
+          </label>
+          {(cfg.obligatorios.includes("origen_recursos")||cfg.opcionales.includes("origen_recursos"))&&
+            <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"}} rows={2} placeholder="Origen y fuente de recursos / ingresos" value={form.origen_recursos} onChange={e=>setForm({...form,origen_recursos:e.target.value})}/>
+          }
+        </div>
+
+        {cfg.campos_extra&&cfg.campos_extra.length>0&&<>
+          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16}}>Datos de industria — {INDUSTRIA_LABELS[client.industria]||"General"}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {cfg.campos_extra.map(campo=>(
+              <div key={campo.id}>
+                {campo.tipo==="select"
+                  ?<select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={(form.industria_extra||{})[campo.id]||""} onChange={e=>setForm({...form,industria_extra:{...(form.industria_extra||{}),[campo.id]:e.target.value}})}>
+                    <option value="">{campo.label}...</option>
+                    {campo.opciones.map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                  :<input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder={campo.label} value={(form.industria_extra||{})[campo.id]||""} onChange={e=>setForm({...form,industria_extra:{...(form.industria_extra||{}),[campo.id]:e.target.value}})}/>
+                }
+              </div>
+            ))}
+          </div>
+        </>}
+
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
+          <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={onClose}>Cancelar</button>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={save} disabled={!form.nombre||saving}>{saving?"Guardando...":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── USO DE PODERES MODAL ──────────────────────────────────────
+function UsoPoderesModal({persona,client,onClose}){
+  const [usos,setUsos]=useState([]);const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({tipo_acto:"",descripcion:"",fecha:""});
+  const [saved,setSaved]=useState("");
+
+  useEffect(()=>{
+    supabase.from("uso_poderes").select("*").eq("persona_id",persona.id).order("created_at",{ascending:false}).then(({data})=>{setUsos(data||[]);setLoading(false);});
+  },[persona.id]);
+
+  async function add(){
+    if(!form.tipo_acto)return;
+    const u={id:"uso"+Date.now(),persona_id:persona.id,client_id:client.id,...form,created_at:new Date().toISOString()};
+    await supabase.from("uso_poderes").insert(u);
+    // Notify admins via notificaciones table (client_id=null means for all admins)
+    const msg=`${persona.nombre} usó poder: ${form.tipo_acto}${form.descripcion?" — "+form.descripcion:""}`;
+    // Store as notificacion for the client (despacho lo ve en solicitudes)
+    await supabase.from("notificaciones").insert({
+      id:"notif"+Date.now(),
+      client_id:client.id,
+      tipo:"poder",
+      mensaje:msg,
+      leida:false,
+      created_at:new Date().toISOString()
+    });
+    // Also create a request so admin sees it in Solicitudes
+    await supabase.from("requests").insert({
+      id:"req"+Date.now(),
+      client_id:client.id,
+      label:"Uso de poder registrado",
+      type:"uso_poder",
+      notes:msg,
+      status:"pendiente",
+      date:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})
+    });
+    setUsos(prev=>[u,...prev]);
+    setShowForm(false);setForm({tipo_acto:"",descripcion:"",fecha:""});
+    setSaved("Acto registrado. El despacho ha sido notificado.");
+  }
+  async function del(id){await supabase.from("uso_poderes").delete().eq("id",id);setUsos(prev=>prev.filter(u=>u.id!==id));}
+
+  const TIPOS_ACTO=["Firma de contrato","Representación ante notario","Apertura de cuenta bancaria","Firma ante SAT","Representación en juicio","Acto de dominio","Administración de bienes","Otro"];
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:"1rem"}} onClick={onClose}>
+      <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2rem",width:"min(520px,100%)",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <span style={{width:40,height:1,background:"#C9A84C",display:"block",marginBottom:12}}/>
+        <div style={{fontSize:16,fontFamily:"'Georgia',serif",marginBottom:4}}>Uso de poderes</div>
+        <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>{persona.nombre}</div>
+        {(persona.num_escritura||persona.tipo_poder||persona.alcance?.length>0)&&<div style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"10px 14px",marginBottom:16}}>
+          {persona.tipo_poder&&<div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#1a1a1a",marginBottom:4}}>{persona.tipo_poder}</div>}
+          <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}>
+            {persona.num_escritura&&"Escritura "+persona.num_escritura}
+            {persona.notario&&" · Not. "+persona.notario}
+            {persona.num_notaria&&" No. "+persona.num_notaria}
+            {persona.fecha_escritura&&" · "+new Date(persona.fecha_escritura).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}
+          </div>
+          {persona.alcance&&persona.alcance.length>0&&<div style={{marginTop:8}}>
+            <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Alcance vinculado</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {persona.alcance.map(a=><span key={a} style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fff",color:"#888880",fontFamily:"system-ui,sans-serif",border:"1px solid #E2DDD6"}}>{a}</span>)}
+            </div>
+          </div>}
+        </div>}
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:12}}>Historial de uso</div>
+        {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:10,padding:"8px 12px",background:"#f0fdf4",borderRadius:4}}>{saved}</div>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>{usos.length} actos registrados</span>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Registrar acto</button>
+        </div>
+        {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem",marginBottom:12,display:"flex",flexDirection:"column",gap:8}}>
+          <select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={form.tipo_acto} onChange={e=>setForm({...form,tipo_acto:e.target.value})}>
+            <option value="">Tipo de acto...</option>{TIPOS_ACTO.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Descripción del acto" value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})}/>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})}/>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add} disabled={!form.tipo_acto}>Guardar</button>
+        </div>}
+        {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
+        :usos.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin actos registrados</div>
+        :usos.map(u=><div key={u.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"10px 14px",marginBottom:8,display:"flex",alignItems:"flex-start",gap:10}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontFamily:"'Georgia',serif"}}>{u.tipo_acto}</div>
+            {u.descripcion&&<div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{u.descripcion}</div>}
+            {u.fecha&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{new Date(u.fecha).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</div>}
+          </div>
+          <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",flexShrink:0}} onClick={()=>del(u.id)}>×</button>
+        </div>)}
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+          <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── KYC DOCS MODAL ────────────────────────────────────────────
+function KYCDocsModal({persona,onClose}){
+  const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    supabase.from("kyc_docs").select("*").eq("persona_id",persona.id).then(({data})=>{setDocs(data||[]);setLoading(false);});
+  },[persona.id]);
+
+  async function updateDoc(id,field,val){
+    await supabase.from("kyc_docs").update({[field]:val}).eq("id",id);
+    setDocs(prev=>prev.map(d=>d.id===id?{...d,[field]:val}:d));
+  }
+
+  const statusBadge={pendiente:{bg:"#fffbeb",color:"#92400e"},entregado:{bg:"#f0fdf4",color:"#166534"},vencido:{bg:"#fef2f2",color:"#991b1b"}};
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:"1rem"}} onClick={onClose}>
+      <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2rem",width:"min(520px,100%)",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <span style={{width:40,height:1,background:"#C9A84C",display:"block",marginBottom:12}}/>
+        <div style={{fontSize:16,fontFamily:"'Georgia',serif",marginBottom:4}}>Documentos KYC</div>
+        <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:20}}>{persona.nombre}</div>
+        {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
+        :docs.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin documentos requeridos</div>
+        :docs.map(d=><div key={d.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"10px 14px",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:13,fontFamily:"'Georgia',serif"}}>{KYC_DOC_LABELS[d.tipo]||d.tipo}</div>
+            <select style={{border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,background:(statusBadge[d.status]||statusBadge.pendiente).bg,color:(statusBadge[d.status]||statusBadge.pendiente).color,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} value={d.status} onChange={e=>updateDoc(d.id,"status",e.target.value)}>
+              <option value="pendiente">Pendiente</option>
+              <option value="entregado">Entregado</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Link Google Drive..." value={d.drive_url||""} onChange={e=>updateDoc(d.id,"drive_url",e.target.value)}/>
+            {d.drive_url&&<a href={d.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#C9A84C",whiteSpace:"nowrap",alignSelf:"center"}}>Ver ↗</a>}
+          </div>
+        </div>)}
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+          <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PERSONAS TAB (Admin + Client) ─────────────────────────────
+
+
+const ALCANCE_PODER = {
+  "SAT / Fiscal": [
+    "Registro en RFC",
+    "Trámites ante SAT (declaraciones, devoluciones, recursos)",
+    "Padrón de importadores",
+    "IEPS / facturación especial",
+    "Portal de la Secretaría de Economía (SE)",
+    "Registro en SIEM",
+    "Trámites ante SE (permisos de importación/exportación)",
+    "Trámites ante IMPI (marcas, patentes)",
+  ],
+  "IMSS / Laboral": [
+    "Registro patronal IMSS",
+    "Trámites ante IMSS (altas, bajas, modificaciones)",
+    "Trámites ante STPS",
+    "Representación en juicios laborales",
+    "Registro ante INFONAVIT",
+  ],
+  "Registro Público": [
+    "Inscripción de actos en RPPyC",
+    "Modificaciones al folio mercantil",
+    "Registro de poderes notariales",
+    "Cancelación de gravámenes",
+  ],
+  "Sistema Financiero": [
+    "Apertura y operación de cuentas bancarias",
+    "Representación ante CNBV",
+    "Representación ante Banxico",
+    "Operaciones de crédito y financiamiento",
+    "Contratos con casas de bolsa",
+  ],
+  "Notarial / Judicial": [
+    "Actos ante notario público",
+    "Representación en juicio civil",
+    "Representación en juicio mercantil",
+    "Representación en amparo",
+    "Actos de dominio sobre inmuebles",
+    "Actos de administración de bienes",
+  ],
+  "Regulatorio Específico": [
+    "COFEPRIS / permisos sanitarios",
+    "SEMARNAT / permisos ambientales",
+    "Padrón de proveedores gobierno federal",
+    "Compranet / licitaciones públicas",
+    "SCT / permisos de transporte",
+  ],
+};
+
+// ── CONSTANCIAS DE REPRESENTACIÓN ────────────────────────────
+function ConstanciasModal({persona, onClose}){
+  const [constancias, setConstancias] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({alcance:"", institucion:"", num_registro:"", drive_url:"", status:"activo", notas:""});
+  const [saved, setSaved] = useState("");
+
+  const alcances = persona.alcance || [];
+
+  useEffect(()=>{
+    supabase.from("constancias_representacion").select("*").eq("persona_id", persona.id).order("created_at",{ascending:false}).then(({data})=>{setConstancias(data||[]);setLoading(false);});
+  },[persona.id]);
+
+  async function add(){
+    if(!form.alcance||!form.institucion)return;
+    const c={id:"con"+Date.now(), persona_id:persona.id, client_id:persona.client_id, ...form, created_at:new Date().toISOString()};
+    await supabase.from("constancias_representacion").insert(c);
+    setConstancias(prev=>[c,...prev]);
+    setShowForm(false);setForm({alcance:"",institucion:"",num_registro:"",drive_url:"",status:"activo",notas:""});
+    setSaved("Constancia registrada ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function del(id){
+    await supabase.from("constancias_representacion").delete().eq("id",id);
+    setConstancias(prev=>prev.filter(c=>c.id!==id));
+  }
+  async function updateStatus(id, status){
+    await supabase.from("constancias_representacion").update({status}).eq("id",id);
+    setConstancias(prev=>prev.map(c=>c.id===id?{...c,status}:c));
+  }
+
+  const statusStyle={
+    activo:{bg:"#f0fdf4",color:"#166534"},
+    revocado:{bg:"#fef2f2",color:"#991b1b"},
+    "en trámite":{bg:"#fffbeb",color:"#92400e"},
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem",overflowY:"auto"}} onClick={onClose}>
+      <div style={{background:"#fff",border:"1px solid #E2DDD6",padding:"2rem",width:"min(580px,100%)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <span style={{width:40,height:1,background:"#C9A84C",display:"block",marginBottom:12}}/>
+        <div style={{fontSize:16,fontFamily:"'Georgia',serif",marginBottom:2}}>Constancias de representación</div>
+        <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>{persona.nombre}</div>
+        {persona.tipo_poder&&<div style={{fontSize:12,color:"#C9A84C",fontFamily:"system-ui,sans-serif",fontStyle:"italic",marginBottom:16}}>{persona.tipo_poder}</div>}
+
+        {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:12,padding:"6px 10px",background:"#f0fdf4",borderRadius:2}}>{saved}</div>}
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>{constancias.length} constancia{constancias.length!==1?"s":""} registrada{constancias.length!==1?"s":""}</span>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(!showForm)}>+ Agregar</button>
+        </div>
+
+        {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem",marginBottom:16,display:"flex",flexDirection:"column",gap:8}}>
+          <select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={form.alcance} onChange={e=>setForm({...form,alcance:e.target.value})}>
+            <option value="">Tipo de representación / alcance *</option>
+            {alcances.length>0
+              ?alcances.map(a=><option key={a} value={a}>{a}</option>)
+              :Object.entries(ALCANCE_PODER).map(([cat,items])=><optgroup key={cat} label={cat}>{items.map(i=><option key={i} value={i}>{i}</option>)}</optgroup>)
+            }
+          </select>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Institución específica * (ej. HSBC, SAT CDMX Norte, IMSS Sub. 4)" value={form.institucion} onChange={e=>setForm({...form,institucion:e.target.value})}/>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Número de registro o referencia (opcional)" value={form.num_registro} onChange={e=>setForm({...form,num_registro:e.target.value})}/>
+          <select style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+            <option value="activo">Activo</option>
+            <option value="en trámite">En trámite</option>
+            <option value="revocado">Revocado</option>
+          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Link constancia en Google Drive (opcional)" value={form.drive_url} onChange={e=>setForm({...form,drive_url:e.target.value})}/>
+          </div>
+          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Notas adicionales (opcional)" value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})}/>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setShowForm(false)}>Cancelar</button>
+            <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={add} disabled={!form.alcance||!form.institucion}>Guardar</button>
+          </div>
+        </div>}
+
+        {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
+        :constancias.length===0?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin constancias registradas aún</div>
+        :constancias.map(c=>(
+          <div key={c.id} style={{background:"#F5F2ED",border:"1px solid #E2DDD6",borderRadius:4,padding:"12px 14px",marginBottom:8,borderLeft:`3px solid ${c.status==="activo"?"#5A8A3C":c.status==="en trámite"?"#C9A84C":"#C0392B"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#1a1a1a"}}>{c.institucion}</div>
+                <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{c.alcance}</div>
+                {c.num_registro&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>Ref: {c.num_registro}</div>}
+                {c.notas&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2,fontStyle:"italic"}}>{c.notas}</div>}
+              </div>
+              <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <select style={{border:"1px solid #E2DDD6",borderRadius:2,padding:"2px 6px",fontSize:10,background:(statusStyle[c.status]||statusStyle.activo).bg,color:(statusStyle[c.status]||statusStyle.activo).color,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} value={c.status} onChange={e=>updateStatus(c.id,e.target.value)}>
+                  <option value="activo">Activo</option>
+                  <option value="en trámite">En trámite</option>
+                  <option value="revocado">Revocado</option>
+                </select>
+                {c.drive_url&&<a href={c.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>Ver constancia ↗</a>}
+                <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"2px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>del(c.id)}>×</button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+          <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function UsosPoderesInline({personaId}){
+  const [usos,setUsos]=useState([]);const [loaded,setLoaded]=useState(false);
+  useEffect(()=>{
+    supabase.from("uso_poderes").select("*").eq("persona_id",personaId).order("created_at",{ascending:false}).limit(3).then(({data})=>{setUsos(data||[]);setLoaded(true);});
+  },[personaId]);
+  if(!loaded||usos.length===0)return null;
+  return(
+    <div style={{marginTop:8,borderTop:"1px solid #F5F2ED",paddingTop:8}}>
+      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Últimos usos del poder</div>
+      {usos.map(u=><div key={u.id} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:5}}>
+        <div style={{width:5,height:5,borderRadius:"50%",background:"#C9A84C",flexShrink:0,marginTop:4}}/>
+        <div>
+          <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a"}}>{u.tipo_acto}</span>
+          {u.descripcion&&<span style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}> — {u.descripcion}</span>}
+          {u.fecha&&<span style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}> · {new Date(u.fecha).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</span>}
+        </div>
+      </div>)}
+    </div>
+  );
+}
+
+function ConstanciasInline({personaId}){
+  const [items,setItems]=useState([]);const [loaded,setLoaded]=useState(false);
+  useEffect(()=>{
+    supabase.from("constancias_representacion").select("institucion,alcance,status").eq("persona_id",personaId).order("created_at",{ascending:false}).limit(4).then(({data})=>{setItems(data||[]);setLoaded(true);});
+  },[personaId]);
+  if(!loaded||items.length===0)return null;
+  const sColor={activo:"#5A8A3C","en trámite":"#C9A84C",revocado:"#C0392B"};
+  return(
+    <div style={{marginTop:6,borderTop:"1px solid #F5F2ED",paddingTop:6}}>
+      <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Representación ante instituciones</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {items.map((c,i)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fff",border:`1px solid ${sColor[c.status]||"#E2DDD6"}`,color:sColor[c.status]||"#888880",fontFamily:"system-ui,sans-serif"}}>{c.institucion}</span>)}
+      </div>
+    </div>
+  );
+}
+function PersonasTab({client,isAdmin=false}){
+  const [personas,setPersonas]=useState([]);const [loading,setLoading]=useState(true);
+  const [industria_config,setIndustriaConfig]=useState(null);
+  const [showForm,setShowForm]=useState(false);
+  const [editingPersona,setEditingPersona]=useState(null);
+  const [viewingUsos,setViewingUsos]=useState(null);
+  const [viewingKYC,setViewingKYC]=useState(null);
+  const [viewingConstancias,setViewingConstancias]=useState(null);
+  const [filter,setFilter]=useState("todos");
+
+  useEffect(()=>{
+    async function load(){
+      const [p,ind]=await Promise.all([
+        supabase.from("personas").select("*").eq("client_id",client.id).order("tipo").order("nombre"),
+        supabase.from("industrias").select("*").eq("id",client.industria||"general").single(),
+      ]);
+      setPersonas(p.data||[]);
+      setIndustriaConfig(ind.data?.campos_kyc||{obligatorios:[],opcionales:[],campos_extra:[]});
+      setLoading(false);
+    }
+    load();
+  },[client.id,client.industria]);
+
+  const filtered=filter==="todos"?personas:personas.filter(p=>p.tipo===filter);
+  const apoderados=personas.filter(p=>p.tipo==="apoderado");
+  const accionistas=personas.filter(p=>p.tipo==="accionista");
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
+
+  return(
+    <div>
+      {/* Summary cards */}
+      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,minWidth:70}}>
+          <div style={{fontSize:20,fontWeight:400,color:"#185FA5",fontFamily:"'Georgia',serif"}}>{apoderados.length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Apoderados</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,minWidth:70}}>
+          <div style={{fontSize:20,fontWeight:400,color:"#888880",fontFamily:"'Georgia',serif"}}>{accionistas.length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Accionistas</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,minWidth:70}}>
+          <div style={{fontSize:20,fontWeight:400,color:"#166534",fontFamily:"'Georgia',serif"}}>{personas.filter(p=>p.tipo==="administrador").length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Administradores</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,minWidth:70}}>
+          <div style={{fontSize:20,fontWeight:400,color:"#7B4F9E",fontFamily:"'Georgia',serif"}}>{personas.filter(p=>p.tipo==="comisario").length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Comisarios</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,minWidth:70}}>
+          <div style={{fontSize:20,fontWeight:400,color:personas.filter(p=>p.pep).length>0?"#C0392B":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{personas.filter(p=>p.pep).length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>PEP</div>
+        </div>
+      </div>
+
+      {/* Filter + Add */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{display:"flex",gap:6}}>
+          {[{id:"todos",label:"Todos"},{id:"apoderado",label:"Apoderados"},{id:"accionista",label:"Accionistas"},{id:"administrador",label:"Administradores"},{id:"comisario",label:"Comisarios"}].map(f=><button key={f.id} style={{background:filter===f.id?"#1a1a1a":"none",color:filter===f.id?"#fff":"#888880",border:"1px solid #E2DDD6",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setFilter(f.id)}>{f.label}</button>)}
+        </div>
+        {isAdmin&&<button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setShowForm(true)}>+ Persona</button>}
+      </div>
+
+      {/* List */}
+      {filtered.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin {filter==="todos"?"personas registradas":filter+"s registrados"}</div>
+      :filtered.map(p=>(
+        <div key={p.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,borderLeft:`3px solid ${p.status==="activo"?"#5A8A3C":"#E2DDD6"}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <div style={{fontSize:14,fontFamily:"'Georgia',serif"}}>{p.nombre}</div>
+                <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:p.tipo==="apoderado"?"#E6F1FB":p.tipo==="administrador"?"#f0fdf4":p.tipo==="comisario"?"#f5f0ff":"#F5F2ED",color:p.tipo==="apoderado"?"#185FA5":p.tipo==="administrador"?"#166534":p.tipo==="comisario"?"#7B4F9E":"#888880",fontFamily:"system-ui,sans-serif",textTransform:"capitalize"}}>{p.tipo==="administrador"?"Administrador":p.tipo==="comisario"?"Comisario":p.tipo}</span>
+                {p.pep&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif"}}>PEP</span>}
+                {p.beneficiario_final&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#fffbeb",color:"#92400e",fontFamily:"system-ui,sans-serif"}}>Benef. Final</span>}
+              </div>
+              <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}}>
+                {p.cargo&&p.cargo}{p.empresa&&" · "+p.empresa}
+                {p.tipo==="accionista"&&p.participacion&&<span style={{marginLeft:8,fontWeight:600,color:"#1a1a1a"}}>{p.participacion}%</span>}
+              </div>
+              {(p.rfc||p.curp)&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>
+                {p.rfc&&"RFC: "+p.rfc}{p.curp&&" · CURP: "+p.curp}
+              </div>}
+              {(p.tipo==="apoderado"||p.tipo==="administrador")&&p.num_escritura&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>
+                {p.tipo==="administrador"?"Designación:":"Escritura"} {p.num_escritura}{p.notario&&" · Not. "+p.notario}{p.num_notaria&&" No. "+p.num_notaria}{p.fecha_escritura&&" · "+new Date(p.fecha_escritura).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}
+              </div>}
+              {p.tipo==="comisario"&&p.num_escritura&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>
+                Acta de designación: {p.num_escritura}{p.fecha_escritura&&" · "+new Date(p.fecha_escritura).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}
+              </div>}
+              {(p.tipo==="apoderado"||p.tipo==="administrador"||p.tipo==="comisario")&&p.tipo_poder&&<div style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginTop:2,fontStyle:"italic"}}>{p.tipo_poder}</div>}
+              {p.tipo==="apoderado"&&p.alcance&&p.alcance.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
+                {p.alcance.map(a=><span key={a} style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#F5F2ED",color:"#888880",fontFamily:"system-ui,sans-serif",border:"1px solid #E2DDD6"}}>{a}</span>)}
+              </div>}
+              {p.tipo==="apoderado"&&<UsosPoderesInline personaId={p.id}/>
+              }
+              {p.tipo==="apoderado"&&<ConstanciasInline personaId={p.id}/>}
+              {p.industria_extra&&Object.keys(p.industria_extra).length>0&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>
+                {Object.entries(p.industria_extra).map(([k,v])=>v?`${k}: ${v}`:"").filter(Boolean).join(" · ")}
+              </div>}
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              {p.tipo==="apoderado"&&<button style={{background:"none",border:"1px solid #C9A84C",color:"#92400e",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingUsos(p)}>Uso de poderes ↗</button>}
+              <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingKYC(p)}>KYC</button>
+              {(p.tipo==="apoderado"||p.tipo==="administrador")&&<button style={{background:"none",border:"1px solid #185FA5",color:"#185FA5",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingConstancias({...p,client_id:client.id})}>Constancias ↗</button>}
+              {isAdmin&&<button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setEditingPersona(p)}>✎</button>}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {(showForm||editingPersona)&&<PersonaModal
+        client={client}
+        industria_config={industria_config}
+        persona={editingPersona}
+        onClose={()=>{setShowForm(false);setEditingPersona(null);}}
+        onSaved={p=>{
+          if(editingPersona){setPersonas(prev=>prev.map(x=>x.id===p.id?p:x));}
+          else{setPersonas(prev=>[...prev,p]);}
+          setShowForm(false);setEditingPersona(null);
+        }}
+      />}
+      {viewingUsos&&<UsoPoderesModal persona={viewingUsos} client={client} onClose={()=>setViewingUsos(null)}/>}
+      {viewingKYC&&<KYCDocsModal persona={viewingKYC} onClose={()=>setViewingKYC(null)}/>
+      }
+      {viewingConstancias&&<ConstanciasModal persona={viewingConstancias} onClose={()=>setViewingConstancias(null)}/>}
+    </div>
+  );
+}
+
+// ── COMPLIANCE ALERTS ENGINE ──────────────────────────────────
+async function calcComplianceAlerts(clientId, industria) {
+  const hoy = new Date();
+  const hace12meses = new Date(hoy); hace12meses.setFullYear(hoy.getFullYear() - 1);
+  const en30 = new Date(hoy); en30.setDate(hoy.getDate() + 30);
+  const en7 = new Date(hoy); en7.setDate(hoy.getDate() + 7);
+
+  const [personas, kycDocs, asambleas, contratos, areas] = await Promise.all([
+    supabase.from("personas").select("*").eq("client_id", clientId),
+    supabase.from("kyc_docs").select("*").eq("client_id", clientId),
+    supabase.from("asambleas").select("*").eq("client_id", clientId).order("fecha", {ascending:false}),
+    supabase.from("contratos").select("*").eq("client_id", clientId),
+    supabase.from("areas").select("*").eq("client_id", clientId),
+  ]);
+
+  const alerts = [];
+
+  // 1. Apoderados sin KYC completo
+  const ps = personas.data || [];
+  const kd = kycDocs.data || [];
+  ps.forEach(p => {
+    const docsPersona = kd.filter(d => d.persona_id === p.id);
+    const pendientes = docsPersona.filter(d => d.status === "pendiente" && !d.drive_url);
+    if (pendientes.length > 0) {
+      alerts.push({
+        id: "kyc_" + p.id,
+        tipo: "kyc",
+        nivel: "red",
+        titulo: `KYC incompleto — ${p.nombre}`,
+        detalle: `${pendientes.length} documento${pendientes.length !== 1 ? "s" : ""} pendiente${pendientes.length !== 1 ? "s" : ""} de entrega`,
+        accion: "Ir a Personas",
+        tab: "personas",
+      });
+    }
+  });
+
+  // 2. PEP sin declaración detallada
+  ps.filter(p => p.pep && !p.pep_detalle).forEach(p => {
+    alerts.push({
+      id: "pep_" + p.id,
+      tipo: "pep",
+      nivel: "red",
+      titulo: `PEP sin declarar — ${p.nombre}`,
+      detalle: "Marcado como PEP pero sin detalle de cargo o relación",
+      accion: "Completar perfil",
+      tab: "personas",
+    });
+  });
+
+  // 3. Origen de recursos vacío en industrias que lo requieren
+  const industriasConOrigen = ["inmobiliaria", "financiero", "retail", "manufactura"];
+  if (industriasConOrigen.includes(industria)) {
+    ps.filter(p => !p.origen_recursos).forEach(p => {
+      alerts.push({
+        id: "origen_" + p.id,
+        tipo: "compliance",
+        nivel: "amber",
+        titulo: `Sin declaración de origen — ${p.nombre}`,
+        detalle: "La industria requiere declaración de origen y fuente de recursos",
+        accion: "Completar perfil",
+        tab: "personas",
+      });
+    });
+  }
+
+  // 3b. Sin administrador registrado
+  const tieneAdmin = ps.some(p => p.tipo === "administrador");
+  if (!tieneAdmin && ps.length > 0) {
+    alerts.push({
+      id: "sin_administrador",
+      tipo: "compliance",
+      nivel: "amber",
+      titulo: "Sin administrador registrado",
+      detalle: "No hay ningún Administrador Único o Consejero registrado en el sistema",
+      accion: "Ir a Personas",
+      tab: "personas",
+    });
+  }
+
+  // 3c. Sin comisario registrado
+  const tieneComisario = ps.some(p => p.tipo === "comisario");
+  if (!tieneComisario && ps.length > 0) {
+    alerts.push({
+      id: "sin_comisario",
+      tipo: "compliance",
+      nivel: "amber",
+      titulo: "Sin comisario registrado",
+      detalle: "No hay ningún Comisario registrado en el sistema",
+      accion: "Ir a Personas",
+      tab: "personas",
+    });
+  }
+
+  // 4. Sin beneficiario final identificado
+  const tieneBenef = ps.some(p => p.beneficiario_final);
+  if (ps.length > 0 && !tieneBenef) {
+    alerts.push({
+      id: "benef_final",
+      tipo: "compliance",
+      nivel: "amber",
+      titulo: "Sin beneficiario final identificado",
+      detalle: "Ningún accionista o apoderado está marcado como beneficiario final real",
+      accion: "Ir a Personas",
+      tab: "personas",
+    });
+  }
+
+  // 5. Asamblea ordinaria no celebrada en 12+ meses
+  const asms = asambleas.data || [];
+  const ultOrd = asms.find(a => a.tipo === "Ordinaria Anual" && a.status === "publicada");
+  if (!ultOrd) {
+    alerts.push({
+      id: "asamblea_anual",
+      tipo: "asamblea",
+      nivel: "red",
+      titulo: "Sin asamblea ordinaria anual",
+      detalle: "No existe registro de asamblea ordinaria anual publicada",
+      accion: "Solicitar asamblea",
+      tab: "asambleas",
+    });
+  } else if (new Date(ultOrd.fecha) < hace12meses) {
+    alerts.push({
+      id: "asamblea_vencida",
+      tipo: "asamblea",
+      nivel: "amber",
+      titulo: "Asamblea ordinaria desactualizada",
+      detalle: `Última asamblea ordinaria: ${new Date(ultOrd.fecha).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
+      accion: "Solicitar nueva asamblea",
+      tab: "asambleas",
+    });
+  }
+
+  // 6. Contratos vencidos
+  const ctrs = contratos.data || [];
+  ctrs.filter(c => c.vencimiento && new Date(c.vencimiento) < hoy).forEach(c => {
+    alerts.push({
+      id: "ctr_vencido_" + c.id,
+      tipo: "contrato",
+      nivel: "red",
+      titulo: `Contrato vencido — ${c.nombre}`,
+      detalle: `Venció el ${new Date(c.vencimiento).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
+      accion: "Ver contratos",
+      tab: "contratos",
+    });
+  });
+
+  // 7. Contratos por vencer en 30 días
+  ctrs.filter(c => c.vencimiento && new Date(c.vencimiento) >= hoy && new Date(c.vencimiento) <= en30).forEach(c => {
+    const dias = Math.ceil((new Date(c.vencimiento) - hoy) / (1000*60*60*24));
+    alerts.push({
+      id: "ctr_pronto_" + c.id,
+      tipo: "contrato",
+      nivel: dias <= 7 ? "red" : "amber",
+      titulo: `Contrato por vencer — ${c.nombre}`,
+      detalle: `Vence en ${dias} día${dias !== 1 ? "s" : ""}`,
+      accion: "Ver contratos",
+      tab: "contratos",
+    });
+  });
+
+  // 8. Áreas en rojo sin nota del despacho
+  const ar = areas.data || [];
+  ar.filter(a => a.status === "red" && !a.nota).forEach(a => {
+    alerts.push({
+      id: "area_red_" + a.id,
+      tipo: "semaforo",
+      nivel: "amber",
+      titulo: `Riesgo sin contexto — ${a.name}`,
+      detalle: "Área en rojo sin nota explicativa para el cliente",
+      accion: "Agregar nota",
+      tab: "panel",
+    });
+  });
+
+  // 9b. Apoderados sin uso de poder registrado en 12+ meses
+  const [usosPoderes] = await Promise.all([
+    supabase.from("uso_poderes").select("persona_id, created_at").eq("client_id", clientId),
+  ]);
+  const usosData = usosPoderes.data || [];
+  ps.filter(p => p.tipo === "apoderado" && p.status === "activo").forEach(p => {
+    const usosPersona = usosData.filter(u => u.persona_id === p.id);
+    if (usosPersona.length === 0) {
+      alerts.push({
+        id: "sin_usos_" + p.id,
+        tipo: "compliance",
+        nivel: "amber",
+        titulo: `Sin usos registrados — ${p.nombre}`,
+        detalle: "Apoderado activo sin historial de uso de poderes",
+        accion: "Ver apoderado",
+        tab: "personas",
+      });
+    } else {
+      const ultimo = new Date(Math.max(...usosPersona.map(u => new Date(u.created_at))));
+      if (ultimo < hace12meses) {
+        alerts.push({
+          id: "uso_antiguo_" + p.id,
+          tipo: "compliance",
+          nivel: "amber",
+          titulo: `Poder sin uso reciente — ${p.nombre}`,
+          detalle: `Último uso registrado: ${ultimo.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}`,
+          accion: "Ver apoderado",
+          tab: "personas",
+        });
+      }
+    }
+  });
+
+  // 9. LFPIORPI — inmobiliaria/financiero sin declaración de origen en TODOS
+  if (["inmobiliaria", "financiero"].includes(industria)) {
+    const sinOrigen = ps.filter(p => !p.origen_recursos).length;
+    if (sinOrigen > 0 && ps.length > 0) {
+      alerts.push({
+        id: "lfpiorpi",
+        tipo: "regulatorio",
+        nivel: "red",
+        titulo: "Obligación LFPIORPI pendiente",
+        detalle: `${sinOrigen} persona${sinOrigen !== 1 ? "s" : ""} sin declaración de origen de recursos. Industria sujeta a LFPIORPI.`,
+        accion: "Completar perfiles",
+        tab: "personas",
+      });
+    }
+  }
+
+
+  // 10. Poder con alcance SAT sin RFC del apoderado
+  ps.filter(p => p.tipo === "apoderado" && p.alcance && p.alcance.some(a => a.includes("SAT") || a.includes("Secretaría de Economía") || a.includes("RFC")) && !p.rfc).forEach(p => {
+    alerts.push({
+      id: "alcance_sat_" + p.id,
+      tipo: "regulatorio",
+      nivel: "amber",
+      titulo: `Poder SAT/SE sin RFC — ${p.nombre}`,
+      detalle: "Apoderado con alcance ante SAT o Secretaría de Economía sin RFC registrado",
+      accion: "Completar perfil",
+      tab: "personas",
+    });
+  });
+
+  // 11. Poder con alcance financiero sin identificación KYC
+  ps.filter(p => p.tipo === "apoderado" && p.alcance && p.alcance.some(a => a.includes("bancari") || a.includes("CNBV") || a.includes("crédito"))).forEach(p => {
+    const docsPersona = kd.filter(d => d.persona_id === p.id && d.tipo === "identificacion_oficial" && d.status === "entregado");
+    if (docsPersona.length === 0) {
+      alerts.push({
+        id: "alcance_fin_" + p.id,
+        tipo: "kyc",
+        nivel: "red",
+        titulo: `Poder bancario sin identificación — ${p.nombre}`,
+        detalle: "Apoderado con alcance bancario/financiero sin identificación oficial entregada",
+        accion: "Ver KYC",
+        tab: "personas",
+      });
+    }
+  });
+
+  // 12. Constancias revocadas activas
+  const { data: constanciasData } = await supabase.from("constancias_representacion").select("*").eq("client_id", clientId).eq("status","revocado");
+  (constanciasData||[]).forEach(c=>{
+    const persona = ps.find(p=>p.id===c.persona_id);
+    alerts.push({
+      id:"const_rev_"+c.id,
+      tipo:"regulatorio",
+      nivel:"amber",
+      titulo:`Representación revocada — ${c.institucion}`,
+      detalle:`${persona?.nombre||"Apoderado"} ya no tiene representación activa ante ${c.institucion}`,
+      accion:"Ver constancias",
+      tab:"personas",
+    });
+  });
+
+  // Sort: red first, then amber
+  return alerts.sort((a, b) => (a.nivel === "red" ? -1 : 1) - (b.nivel === "red" ? -1 : 1));
+}
+
+// ── COMPLIANCE PANEL COMPONENT ────────────────────────────────
+function CompliancePanel({client, onNavigate}){
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    calcComplianceAlerts(client.id, client.industria || "general").then(a => {
+      setAlerts(a); setLoading(false);
+    });
+  }, [client.id, client.industria]);
+
+  const TIPO_ICON = {kyc:"🪪", pep:"⚠️", compliance:"📋", asamblea:"🏛️", contrato:"📄", semaforo:"🔴", regulatorio:"⚖️"};
+  const red = alerts.filter(a => a.nivel === "red");
+  const amber = alerts.filter(a => a.nivel === "amber");
+
+  if (loading) return <div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Analizando...</div>;
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:`3px solid ${red.length>0?"#C0392B":"#5A8A3C"}`}}>
+          <div style={{fontSize:24,fontWeight:400,color:red.length>0?"#C0392B":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{red.length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Críticas</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:1,borderTop:`3px solid ${amber.length>0?"#C9A84C":"#5A8A3C"}`}}>
+          <div style={{fontSize:24,fontWeight:400,color:amber.length>0?"#C9A84C":"#5A8A3C",fontFamily:"'Georgia',serif"}}>{amber.length}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Atención</div>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".65rem .8rem",textAlign:"center",flex:2}}>
+          <div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#1a1a1a"}}>{INDUSTRIA_LABELS[client.industria]||"General"}</div>
+          <div style={{fontSize:10,color:"#888880",marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Perfil de compliance</div>
+        </div>
+      </div>
+
+      {alerts.length === 0 && (
+        <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"2rem",textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:8}}>✓</div>
+          <div style={{fontSize:15,fontFamily:"'Georgia',serif",color:"#166534"}}>Sin alertas de compliance</div>
+          <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:4}}>Todo en orden para esta empresa</div>
+        </div>
+      )}
+
+      {red.length > 0 && <>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#C0392B",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Alertas críticas</div>
+        {red.map(a => (
+          <div key={a.id} style={{background:"#fff",border:"1px solid #fca5a5",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,borderLeft:"3px solid #C0392B",display:"flex",alignItems:"flex-start",gap:12}}>
+            <span style={{fontSize:18,flexShrink:0}}>{TIPO_ICON[a.tipo]||"⚠️"}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontFamily:"'Georgia',serif",color:"#1a1a1a"}}>{a.titulo}</div>
+              <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:3}}>{a.detalle}</div>
+            </div>
+            {onNavigate && <button style={{background:"#C0392B",color:"#fff",border:"none",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>onNavigate(a.tab)}>{a.accion}</button>}
+          </div>
+        ))}
+      </>}
+
+      {amber.length > 0 && <>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:red.length>0?16:0}}>Requieren atención</div>
+        {amber.map(a => (
+          <div key={a.id} style={{background:"#fff",border:"1px solid #fde68a",borderRadius:4,padding:"1rem 1.25rem",marginBottom:8,borderLeft:"3px solid #C9A84C",display:"flex",alignItems:"flex-start",gap:12}}>
+            <span style={{fontSize:18,flexShrink:0}}>{TIPO_ICON[a.tipo]||"⚠️"}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontFamily:"'Georgia',serif",color:"#1a1a1a"}}>{a.titulo}</div>
+              <div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:3}}>{a.detalle}</div>
+            </div>
+            {onNavigate && <button style={{background:"none",border:"1px solid #C9A84C",color:"#92400e",borderRadius:2,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>onNavigate(a.tab)}>{a.accion}</button>}
+          </div>
+        ))}
+      </>}
+    </div>
+  );
+}
+
+function AdminNotifBell(){
+  const [notifs,setNotifs]=useState([]);const [open,setOpen]=useState(false);const [loading,setLoading]=useState(true);
+
+  async function load(){
+    // Get all recent requests and uso_poderes across all clients
+    const [reqs,usos,diags,allClients,allPersonas]=await Promise.all([
+      supabase.from("requests").select("*").eq("status","pendiente").order("date",{ascending:false}).limit(20),
+      supabase.from("uso_poderes").select("*").order("created_at",{ascending:false}).limit(15),
+      supabase.from("notificaciones").select("*").eq("leida",false).order("created_at",{ascending:false}).limit(20),
+      supabase.from("clients").select("id,name"),
+      supabase.from("personas").select("id,nombre"),
+    ]);
+    const cMap=Object.fromEntries((allClients.data||[]).map(c=>[c.id,c.name]));
+    const pMap=Object.fromEntries((allPersonas.data||[]).map(p=>[p.id,p.nombre]));
+    const items=[];
+    (reqs.data||[]).forEach(r=>items.push({id:"req_"+r.id,tipo:"solicitud",icon:"✉️",texto:`${cMap[r.client_id]||r.client_id} — ${r.label}`,sub:r.notes||"",fecha:r.date,client_id:r.client_id}));
+    (usos.data||[]).forEach(u=>items.push({id:"uso_"+u.id,tipo:"poder",icon:"📋",texto:`${cMap[u.client_id]||u.client_id} — Uso de poder: ${u.tipo_acto}`,sub:pMap[u.persona_id]||"",fecha:new Date(u.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:u.client_id}));
+    (diags.data||[]).filter(n=>n.tipo!=="poder").forEach(n=>items.push({id:"notif_"+n.id,tipo:n.tipo,icon:"🔔",texto:`${cMap[n.client_id]||n.client_id} — ${n.mensaje}`,sub:"",fecha:new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:n.client_id}));
+    items.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    setNotifs(items);setLoading(false);
+  }
+
+  useEffect(()=>{load();},[]);
+
+  const unread=notifs.length;
+
+  async function markAllRead(){
+    await supabase.from("notificaciones").update({leida:true}).eq("leida",false);
+    setNotifs(prev=>prev.filter(n=>!n.id.startsWith("notif_")));
+  }
+
+  return(
+    <div style={{position:"relative"}}>
+      <button style={{background:"none",border:"1px solid rgba(255,255,255,.2)",borderRadius:2,padding:"4px 10px",fontSize:12,cursor:"pointer",color:"rgba(255,255,255,.7)",fontFamily:"system-ui,sans-serif",position:"relative"}} onClick={()=>{setOpen(!open);if(!open)load();}}>
+        🔔{unread>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#C0392B",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif",fontWeight:600}}>{unread>9?"9+":unread}</span>}
+      </button>
+      {open&&<div style={{position:"absolute",right:0,top:40,background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,width:360,maxHeight:480,overflowY:"auto",zIndex:300,boxShadow:"0 8px 32px rgba(0,0,0,.15)"}}>
+        <div style={{padding:"10px 16px",borderBottom:"1px solid #E2DDD6",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:11,letterSpacing:".08em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif"}}>Notificaciones del despacho</span>
+          {unread>0&&<button style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif"}} onClick={markAllRead}>Marcar leídas</button>}
+        </div>
+        {loading?<div style={{padding:"2rem",textAlign:"center",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando...</div>
+        :notifs.length===0?<div style={{padding:"2rem",textAlign:"center",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin notificaciones pendientes</div>
+        :notifs.map(n=><div key={n.id} style={{padding:"10px 16px",borderBottom:"1px solid #f5f5f5",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#F5F2ED"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{fontSize:16,flexShrink:0}}>{n.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",lineHeight:1.4}}>{n.texto}</div>
+              {n.sub&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{n.sub}</div>}
+              <div style={{fontSize:10,color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginTop:3}}>{n.fecha}</div>
+            </div>
+          </div>
+        </div>)}
+      </div>}
+    </div>
+  );
+}
+
+const AUTORIDADES = {
+  SAT: {
+    label: "SAT",
+    color: "#C0392B",
+    bg: "#fef2f2",
+    icon: "🏛",
+    campos: [
+      {id:"rfc",label:"RFC",tipo:"text"},
+      {id:"regimen_fiscal",label:"Régimen fiscal",tipo:"text"},
+      {id:"buzon_tributario",label:"Buzón tributario",tipo:"select",ops:["Activo","Inactivo","No configurado"]},
+      {id:"opinion_cumplimiento",label:"Opinión de cumplimiento",tipo:"select",ops:["Positiva","Negativa","No vigente","No consultada"]},
+      {id:"opinion_fecha",label:"Fecha de consulta de opinión",tipo:"date"},
+      {id:"efirma_vencimiento",label:"Vencimiento e.firma (FIEL)",tipo:"date"},
+      {id:"efirma_titular",label:"¿Quién tiene la e.firma?",tipo:"text"},
+      {id:"csd_vencimiento",label:"Vencimiento CSD (Sello Digital)",tipo:"date"},
+      {id:"csd_estatus",label:"Estatus CSD",tipo:"select",ops:["Activo","Inactivo","Revocado"]},
+      {id:"representante_sat",label:"Representante acreditado ante SAT",tipo:"text"},
+      {id:"avisos_sat",label:"Últimos avisos presentados",tipo:"textarea"},
+      {id:"obligaciones_sat",label:"Obligaciones periódicas activas",tipo:"textarea"},
+      {id:"notas_sat",label:"Notas adicionales SAT",tipo:"textarea"},
+    ]
+  },
+  IMSS: {
+    label: "IMSS",
+    color: "#185FA5",
+    bg: "#E6F1FB",
+    icon: "🏥",
+    campos: [
+      {id:"registro_patronal",label:"Número de registro patronal",tipo:"text"},
+      {id:"subdelegacion_imss",label:"Subdelegación IMSS",tipo:"text"},
+      {id:"representante_imss",label:"Representante ante IMSS",tipo:"text"},
+      {id:"num_trabajadores",label:"Número de trabajadores registrados",tipo:"text"},
+      {id:"estatus_imss",label:"Estatus de cumplimiento",tipo:"select",ops:["Al corriente","Adeudo menor","Adeudo significativo"]},
+      {id:"sua_operador",label:"¿Quién opera el SUA?",tipo:"text"},
+      {id:"notas_imss",label:"Notas adicionales IMSS",tipo:"textarea"},
+    ]
+  },
+  SE: {
+    label: "Secretaría de Economía",
+    color: "#5A8A3C",
+    bg: "#f0fdf4",
+    icon: "📋",
+    campos: [
+      {id:"folio_mercantil",label:"Folio mercantil RPPyC",tipo:"text"},
+      {id:"fecha_inscripcion_rppyc",label:"Fecha de inscripción en RPPyC",tipo:"date"},
+      {id:"folio_actualizacion",label:"Última modificación registrada",tipo:"date"},
+      {id:"representante_se",label:"Representante ante SE",tipo:"text"},
+      {id:"siem_registro",label:"Registro SIEM",tipo:"text"},
+      {id:"notas_se",label:"Notas adicionales SE/RPPyC",tipo:"textarea"},
+    ]
+  },
+  INFONAVIT: {
+    label: "INFONAVIT",
+    color: "#C9A84C",
+    bg: "#fffbeb",
+    icon: "🏠",
+    campos: [
+      {id:"registro_infonavit",label:"Número de registro INFONAVIT",tipo:"text"},
+      {id:"estatus_infonavit",label:"Estatus de cumplimiento",tipo:"select",ops:["Al corriente","Adeudo menor","Adeudo significativo"]},
+      {id:"notas_infonavit",label:"Notas adicionales INFONAVIT",tipo:"textarea"},
+    ]
+  },
+  STPS: {
+    label: "STPS",
+    color: "#7B4F9E",
+    bg: "#f5f0ff",
+    icon: "⚖",
+    campos: [
+      {id:"reglamento_stps",label:"Reglamento interior de trabajo",tipo:"select",ops:["Vigente","Desactualizado","No existe"]},
+      {id:"reglamento_fecha",label:"Fecha del reglamento",tipo:"date"},
+      {id:"representante_stps",label:"Representante ante STPS",tipo:"text"},
+      {id:"notas_stps",label:"Notas adicionales STPS",tipo:"textarea"},
+    ]
+  },
+};
+
+function PerfilRegulatorioTab({client,isAdmin=false}){
+  const [perfiles,setPerfiles]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [activeAut,setActiveAut]=useState("SAT");
+  const [editing,setEditing]=useState(false);
+  const [form,setForm]=useState({});
+  const [saved,setSaved]=useState("");
+  const [riesgos,setRiesgos]=useState([]);
+
+  useEffect(()=>{
+    async function load(){
+      const {data}=await supabase.from("perfil_regulatorio").select("*").eq("client_id",client.id);
+      const map={};
+      (data||[]).forEach(p=>{map[p.autoridad]=p.datos||{};});
+      setPerfiles(map);
+      const {data:reglas}=await supabase.from("reglas_compliance").select("*").eq("activa",true);
+      calcRiesgos(map,reglas||[]);
+      setLoading(false);
+    }
+    load();
+  },[client.id]);
+
+  function calcRiesgos(perfs,reglas){
+    const hoy=new Date();
+    const en30=new Date(hoy);en30.setDate(hoy.getDate()+30);
+    const alerts=[];
+    reglas.forEach(r=>{
+      const datos=perfs[r.autoridad]||{};
+      const val=datos[r.campo];
+      let triggered=false;
+      if(r.condicion==="vencido"&&val){triggered=new Date(val)<hoy;}
+      else if(r.condicion==="por_vencer_30"&&val){triggered=new Date(val)>=hoy&&new Date(val)<=en30;}
+      else if(r.condicion==="ausente"){triggered=!val||val===""||val==="No configurado"||val==="No existe"||val==="No consultada"||val==="Inactivo"||val==="Revocado";}
+      else if(r.condicion==="negativa"){triggered=val==="Negativa"||val==="No vigente"||val==="No consultada";}
+      else if(r.condicion==="adeudo"){triggered=val==="Adeudo menor"||val==="Adeudo significativo";}
+      else if(r.condicion==="desactualizado"&&val){const d=new Date(val);const dos=new Date(hoy);dos.setFullYear(hoy.getFullYear()-2);triggered=d<dos;}
+      else if(r.condicion==="inactivo"){triggered=!val||val==="Inactivo"||val==="Revocado"||val==="No existe";}
+      if(triggered){
+        const dias=val&&(r.condicion==="vencido"||r.condicion==="por_vencer_30")?Math.ceil((new Date(val)-hoy)/(1000*60*60*24)):null;
+        const detalle=dias!==null?(dias<0?"Venció hace "+Math.abs(dias)+" días":"Vence en "+dias+" días"):r.descripcion;
+        alerts.push({...r,detalle});
+      }
+    });
+    alerts.sort((a,b)=>(a.nivel==="red"?-1:1)-(b.nivel==="red"?-1:1));
+    setRiesgos(alerts);
+  }
+
+  async function save(){
+    const existing=await supabase.from("perfil_regulatorio").select("id").eq("client_id",client.id).eq("autoridad",activeAut).single();
+    if(existing.data){
+      await supabase.from("perfil_regulatorio").update({datos:form,updated_at:new Date().toISOString()}).eq("id",existing.data.id);
+    } else {
+      await supabase.from("perfil_regulatorio").insert({id:"reg"+Date.now(),client_id:client.id,autoridad:activeAut,datos:form,updated_at:new Date().toISOString()});
+    }
+    const newPerfiles={...perfiles,[activeAut]:form};
+    setPerfiles(newPerfiles);
+    const {data:reglas}=await supabase.from("reglas_compliance").select("*").eq("activa",true);
+    calcRiesgos(newPerfiles,reglas||[]);
+    setEditing(false);setSaved("Guardado");setTimeout(()=>setSaved(""),2000);
+  }
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
+
+  const autConfig=AUTORIDADES[activeAut];
+  const datosAut=perfiles[activeAut]||{};
+  const red=riesgos.filter(r=>r.nivel==="red");
+  const amber=riesgos.filter(r=>r.nivel==="amber");
+
+  return(
+    <div>
+      {riesgos.length>0&&<div style={{marginBottom:20}}>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Alertas regulatorias activas</div>
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:4,padding:".5rem .8rem",flex:1,textAlign:"center"}}>
+            <div style={{fontSize:22,color:"#C0392B",fontFamily:"'Georgia',serif"}}>{red.length}</div>
+            <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Críticas</div>
+          </div>
+          <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:4,padding:".5rem .8rem",flex:1,textAlign:"center"}}>
+            <div style={{fontSize:22,color:"#C9A84C",fontFamily:"'Georgia',serif"}}>{amber.length}</div>
+            <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Atención</div>
+          </div>
+          <div style={{background:"#fff",border:"1px solid #E2DDD6",borderRadius:4,padding:".5rem .8rem",flex:2,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",textAlign:"center"}}>Reglas actualizadas automáticamente<br/><span style={{color:"#C9A84C"}}>Sync semanal via DOF/SAT</span></div>
+          </div>
+        </div>
+        {riesgos.map(r=>(
+          <div key={r.id} style={{background:"#fff",border:"1px solid #E2DDD6",borderLeft:"3px solid "+(r.nivel==="red"?"#C0392B":"#C9A84C"),borderRadius:4,padding:"8px 12px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:16,flexShrink:0}}>{AUTORIDADES[r.autoridad]?.icon||"⚠"}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1a1a1a",fontWeight:600}}>{r.titulo}</div>
+              <div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif"}}>{r.detalle}</div>
+            </div>
+            <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:r.nivel==="red"?"#fef2f2":"#fffbeb",color:r.nivel==="red"?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>{r.autoridad}</span>
+          </div>
+        ))}
+      </div>}
+
+      {riesgos.length===0&&Object.keys(perfiles).length>0&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"1rem",marginBottom:20,textAlign:"center"}}>
+        <div style={{fontSize:13,fontFamily:"'Georgia',serif",color:"#166534",marginTop:4}}>Sin alertas regulatorias detectadas</div>
+      </div>}
+
+      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+        {Object.entries(AUTORIDADES).map(([key,cfg])=>{
+          const tieneRojo=riesgos.some(r=>r.autoridad===key&&r.nivel==="red");
+          const tieneAmber=riesgos.some(r=>r.autoridad===key&&r.nivel==="amber");
+          return(
+            <button key={key} style={{background:activeAut===key?cfg.color:"#fff",color:activeAut===key?"#fff":cfg.color,border:"1px solid "+cfg.color,borderRadius:2,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",position:"relative"}} onClick={()=>{setActiveAut(key);setForm(perfiles[key]||{});setEditing(false);}}>
+              {cfg.icon} {key}
+              {(tieneRojo||tieneAmber)&&<span style={{position:"absolute",top:-4,right:-4,width:8,height:8,borderRadius:"50%",background:tieneRojo?"#C0392B":"#C9A84C",border:"1px solid #fff"}}/>}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{background:"#fff",border:"1px solid "+autConfig.color,borderRadius:4,borderTop:"3px solid "+autConfig.color}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #E2DDD6",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:14,fontFamily:"'Georgia',serif"}}>{autConfig.icon} {autConfig.label}</div>
+            {riesgos.filter(r=>r.autoridad===activeAut).length>0&&<div style={{fontSize:11,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginTop:2}}>{riesgos.filter(r=>r.autoridad===activeAut).length} alerta(s) en esta sección</div>}
+          </div>
+          {isAdmin&&!editing&&<button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>{setForm({...datosAut});setEditing(true);}}>Editar</button>}
+          {isAdmin&&editing&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {saved&&<span style={{fontSize:11,color:"#5A8A3C",fontFamily:"system-ui,sans-serif"}}>{saved}</span>}
+            <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setEditing(false)}>Cancelar</button>
+            <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={save}>Guardar</button>
+          </div>}
+        </div>
+        <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:14}}>
+          {autConfig.campos.map(campo=>{
+            const val=editing?(form[campo.id]||""):(datosAut[campo.id]||"");
+            const alerta=riesgos.find(r=>r.campo===campo.id&&r.autoridad===activeAut);
+            return(
+              <div key={campo.id}>
+                <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:alerta?"#C0392B":"#888880",fontFamily:"system-ui,sans-serif",marginBottom:5}}>{campo.label}{alerta?" ⚠":""}</div>
+                {editing
+                  ?campo.tipo==="select"
+                    ?<select style={{width:"100%",border:"1px solid "+(alerta?"#fca5a5":"#E2DDD6"),borderRadius:2,padding:"8px 10px",fontSize:13,background:"#fff",cursor:"pointer",boxSizing:"border-box",fontFamily:"system-ui,sans-serif"}} value={val} onChange={e=>setForm({...form,[campo.id]:e.target.value})}>
+                      <option value="">Sin datos</option>
+                      {campo.ops.map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                    :campo.tipo==="textarea"
+                    ?<textarea style={{width:"100%",border:"1px solid "+(alerta?"#fca5a5":"#E2DDD6"),borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"}} rows={2} value={val} onChange={e=>setForm({...form,[campo.id]:e.target.value})}/>
+                    :<input style={{width:"100%",border:"1px solid "+(alerta?"#fca5a5":"#E2DDD6"),borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type={campo.tipo} value={val} onChange={e=>setForm({...form,[campo.id]:e.target.value})}/>
+                  :<div style={{fontSize:13,fontFamily:"system-ui,sans-serif",color:val?"#1a1a1a":"#ccc",fontStyle:val?"normal":"italic"}}>
+                    {val||"Sin datos"}
+                    {alerta&&val&&<span style={{marginLeft:8,fontSize:10,padding:"2px 6px",borderRadius:2,background:alerta.nivel==="red"?"#fef2f2":"#fffbeb",color:alerta.nivel==="red"?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif"}}>{alerta.titulo}</span>}
+                  </div>
+                }
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+function RequestModal({client,onClose,onSubmit}){
+  const [type,setType]=useState("");const [notes,setNotes]=useState("");
+  const [sending,setSending]=useState(false);const [sent,setSent]=useState(false);
+  const dt=DOC_TYPES.find(d=>d.id===type);
+  async function submit(){
+    if(!type)return;setSending(true);
+    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({empresa:client.name,contacto:client.contact,email:client.email,documento:dt?.label||type,notas:notes||"—",_subject:`Solicitud: ${dt?.label} — ${client.name}`})});}catch(e){}
+    setSending(false);await onSubmit({type,label:dt?.label||type,notes});setSent(true);
+    setTimeout(()=>{setSent(false);onClose();},1500);
+  }
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}} onClick={onClose}>
+      <div style={{background:WHITE,padding:"2rem",width:"min(500px,90vw)",maxHeight:"80vh",overflowY:"auto",border:`1px solid ${BORDER}`}} onClick={e=>e.stopPropagation()}>
+        {sent?<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:28,color:GOLD,marginBottom:12}}>✓</div><div style={{fontWeight:400,fontSize:15,fontFamily:"'Georgia', serif"}}>Solicitud enviada</div><div style={{...s.muted,marginTop:6}}>Te contactamos en 48 hrs.</div></div>
+        :<><span style={{width:40,height:1,background:GOLD,display:"block",marginBottom:12}}/><div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:4}}>Solicitar documento</div><div style={{...s.muted,marginBottom:20}}>Tu solicitud llega al despacho por email y queda registrada.</div>
+        <span style={s.label}>Tipo de documento</span>
+        <select style={{...s.select,marginBottom:16}} value={type} onChange={e=>setType(e.target.value)}>
+          <option value="">Seleccionar...</option>
+          {Object.entries(CAT_LABELS).map(([cat,catLabel])=><optgroup key={cat} label={catLabel}>{DOC_TYPES.filter(d=>d.cat===cat).map(d=><option key={d.id} value={d.id}>{d.label}</option>)}</optgroup>)}
+        </select>
+        <span style={s.label}>Datos prellenados</span>
+        <div style={{...s.card,fontSize:13,marginBottom:16,fontFamily:"system-ui, sans-serif"}}>
+          <div><span style={s.muted}>Empresa: </span>{client.name}</div>
+          <div style={{marginTop:6}}><span style={s.muted}>Contacto: </span>{client.contact}</div>
+          <div style={{marginTop:6}}><span style={s.muted}>Correo: </span>{client.email||"—"}</div>
+        </div>
+        <span style={s.label}>Notas adicionales</span>
+        <textarea style={{...s.textarea,marginBottom:20}} rows={3} placeholder="Especificaciones, nombres, fechas..." value={notes} onChange={e=>setNotes(e.target.value)}/>
+        <div style={{...s.flex(),justifyContent:"flex-end"}}>
+          <button style={s.btn} onClick={onClose}>Cancelar</button>
+          <button style={s.btnPrimary} onClick={submit} disabled={!type||sending}>{sending?"Enviando...":"Enviar solicitud"}</button>
+        </div></>}
+      </div>
+    </div>
+  );
+}
+
+function ClientView({client,onLogout}){
+  const [tab,setTab]=useState("panel");const [docCat,setDocCat]=useState("poderes");
+  const [showReq,setShowReq]=useState(false);const [areas,setAreas]=useState([]);
+  const [documents,setDocuments]=useState([]);const [pendingDocs,setPendingDocs]=useState([]);
+  const [requests,setRequests]=useState([]);const [loading,setLoading]=useState(true);
+  const [showDiag,setShowDiag]=useState(false);const [diagDone,setDiagDone]=useState(false);
+  const [diagResult,setDiagResult]=useState(null);
+  const [showOnboarding,setShowOnboarding]=useState(false);
+
+  useEffect(()=>{
+    async function load(){
+      const [a,d,p,r,cl]=await Promise.all([
+        supabase.from("areas").select("*").eq("client_id",client.id),
+        supabase.from("documents").select("*").eq("client_id",client.id),
+        supabase.from("pending_docs").select("*").eq("client_id",client.id),
+        supabase.from("requests").select("*").eq("client_id",client.id),
+        supabase.from("clients").select("diagnostico_done").eq("id",client.id).single(),
+      ]);
+      setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
+      const done=cl.data?.diagnostico_done;setDiagDone(!!done);
+      if(!done&&(!a.data||a.data.length===0)){setShowOnboarding(true);}
+      setLoading(false);
+    }
+    load();
+  },[client.id]);
+
+  async function submitRequest(req){
+    const nr={id:"r"+Date.now(),client_id:client.id,label:req.label,type:req.type,notes:req.notes,status:"pendiente",date:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
+    await supabase.from("requests").insert(nr);setRequests(prev=>[...prev,nr]);
+  }
+
+  if(loading)return <div style={s.wrap}><Spinner/></div>;
+  if(showDiag)return <DiagnosticoForm client={client} onComplete={a=>{setDiagResult(a);setShowDiag(false);}}/>;
+  if(diagResult)return <DiagnosticoResult areas={diagResult} onContinue={()=>{setAreas(diagResult||[]);setDiagResult(null);setDiagDone(true);}}/>;
+
+  const score=scoreOf(areas);const scoreColor=score>=70?"#5A8A3C":score>=40?GOLD:"#C0392B";
+  const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
+  const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
+  const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
+  const tabs=[{id:"panel",label:"Panel"},{id:"compliance",label:"Compliance"},{id:"regulatorio",label:"Regulatorio"},{id:"personas",label:"Personas"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Resumen M&M"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitudes"}];
+
+  return(
+    <div style={{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      {/* TOP NAV */}
+      <div style={{background:BLACK,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui,sans-serif"}}>M&M Abogados</div>
+          <div style={{width:1,height:16,background:"rgba(255,255,255,.2)"}}/>
+          <div style={{fontSize:13,color:"rgba(255,255,255,.8)",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{client.name}</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
+          <NotifBell clientId={client.id}/>
+          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={onLogout}>Salir</button>
+        </div>
+      </div>
+      {/* TABS BAR */}
+      <div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"0 1rem",display:"flex",overflowX:"auto",flexShrink:0}}>
+        {tabs.map(t=><button key={t.id} style={{padding:"12px 14px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:tab===t.id?BLACK:GRAY,borderBottom:tab===t.id?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+      </div>
+      {/* CONTENT */}
+      <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
+
+      {tab==="panel"&&<>
+        <div style={{...s.flex(),marginBottom:24,gap:10}}>
+          <ScoreCard label="Índice" value={score} color={scoreColor}/>
+          <ScoreCard label="Críticos" value={areas.filter(a=>a.status==="red").length} color="#C0392B"/>
+          <ScoreCard label="Revisar" value={areas.filter(a=>a.status==="amber").length} color={GOLD}/>
+          <ScoreCard label="OK" value={areas.filter(a=>a.status==="green").length} color="#5A8A3C"/>
+        </div>
+        {["red","amber","green"].map(st=>{
+          const filtered=areas.filter(a=>a.status===st);if(!filtered.length)return null;
+          const lbl={red:"Riesgo crítico",amber:"Atención requerida",green:"Al corriente"}[st];
+          return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[a.status]}`}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
+                  {a.nota&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{a.nota}</div>}</div><Badge status={a.status}/></div></div>)}</div>;
+        })}
+        {!diagDone&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Diagnóstico pendiente</div><div style={{...s.muted,marginTop:4}}>Completa el diagnóstico para generar tu panel</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Iniciar →</button></div></div>}
+      </>}
+
+      {tab==="poderes"&&<>
+        {Object.keys(poderesPorPersona).length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin poderes registrados</div>
+        :Object.entries(poderesPorPersona).map(([persona,docs])=>(
+          <div key={persona} style={{marginBottom:20}}>
+            <span style={s.label}>{persona}</span>
+            <div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{DOC_TYPES.find(t=>t.id===doc.type)?.label||doc.type}</div><div style={s.muted}>{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}</div>
+          </div>
+        ))}
+        <div style={{textAlign:"right",marginTop:8}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar poder</button></div>
+      </>}
+
+      {tab==="docs"&&<>
+        <div style={{...s.flex(6),flexWrap:"wrap",marginBottom:16}}>
+          {Object.entries(CAT_LABELS).map(([cat,label])=><button key={cat} style={docCat===cat?{...s.btnPrimary,...s.btnSm}:{...s.btn,...s.btnSm}} onClick={()=>setDocCat(cat)}>{label}</button>)}
+        </div>
+        <div style={s.card}>
+          {catDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"1.5rem 0"}}>Sin documentos en esta categoría</div>
+          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
+        </div>
+        <div style={{textAlign:"right",marginTop:16}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar documento</button></div>
+      </>}
+
+      {tab==="asambleas"&&<AsambleasTab client={client} isAdmin={false}/>}
+
+      {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:`3px solid ${GOLD}`}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: ${p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
+      )}
+
+      {tab==="solicitudes"&&<>
+        <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+          <span style={{...s.label,margin:0}}>Mis solicitudes</span>
+          <button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Nueva solicitud</button>
+        </div>
+        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin solicitudes aún</div>
+        :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
+      </>}
+
+      {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
+      {tab==="contratos"&&<ContratosClientTab client={client}/>}
+      {tab==="historial"&&<HistorialClientTab client={client}/>}
+      {tab==="resumen"&&<ResumenClientTab client={client}/>}
+      {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);setShowDiag(true);}}/>}
+      {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
+      </div>
+    </div>
+  );
+}
+
+function UsersTab({clients,setClients,admins,setAdmins}){
+  const [editingClient,setEditingClient]=useState(null);const [editingAdmin,setEditingAdmin]=useState(null);
+  const [showNewAdmin,setShowNewAdmin]=useState(false);const [newAdmin,setNewAdmin]=useState({id:"",name:"",password:""});
+  const [saved,setSaved]=useState("");const [confirmDelete,setConfirmDelete]=useState(null);
+
+  async function saveClient(c){
+    await supabase.from("clients").update({name:c.name,contact:c.contact,email:c.email,password:c.password}).eq("id",c.id);
+    setClients(prev=>prev.map(x=>x.id===c.id?c:x));setEditingClient(null);
+    setSaved("Cliente actualizado ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function deleteClient(id){
+    await supabase.from("clients").delete().eq("id",id);
+    setClients(prev=>prev.filter(c=>c.id!==id));setConfirmDelete(null);
+    setSaved("Cliente eliminado");setTimeout(()=>setSaved(""),2000);
+  }
+  async function saveAdmin(a){
+    await supabase.from("admins").update({name:a.name,password:a.password}).eq("id",a.id);
+    setAdmins(prev=>prev.map(x=>x.id===a.id?a:x));setEditingAdmin(null);
+    setSaved("Usuario actualizado ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function addAdmin(){
+    if(!newAdmin.id||!newAdmin.password)return;
+    await supabase.from("admins").insert(newAdmin);setAdmins(prev=>[...prev,newAdmin]);
+    setShowNewAdmin(false);setNewAdmin({id:"",name:"",password:""});
+    setSaved("Usuario creado ✓");setTimeout(()=>setSaved(""),2000);
+  }
+  async function deleteAdmin(id){await supabase.from("admins").delete().eq("id",id);setAdmins(prev=>prev.filter(a=>a.id!==id));}
+
+  return(
+    <div>
+      {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui, sans-serif",marginBottom:12}}>{saved}</div>}
+      {confirmDelete&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
+          <div style={{background:WHITE,padding:"2rem",border:`1px solid ${BORDER}`,width:"min(400px,90vw)"}}>
+            <div style={{fontSize:16,fontFamily:"'Georgia', serif",marginBottom:8}}>Eliminar cliente</div>
+            <div style={{...s.muted,marginBottom:20}}>Se eliminarán todos los datos de <strong>{confirmDelete.name}</strong>. Esta acción no se puede deshacer.</div>
+            <div style={s.flex()}>
+              <button style={s.btn} onClick={()=>setConfirmDelete(null)}>Cancelar</button>
+              <button style={{background:"#dc2626",color:WHITE,border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer"}} onClick={()=>deleteClient(confirmDelete.id)}>Eliminar permanentemente</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <span style={s.label}>Usuarios del despacho</span>
+      <div style={{...s.flex(),justifyContent:"flex-end",marginBottom:8}}><button style={s.btnPrimary} onClick={()=>setShowNewAdmin(!showNewAdmin)}>+ Nuevo usuario</button></div>
+      {showNewAdmin&&<div style={{...s.card,...s.col(),marginBottom:12}}>
+        <div style={s.flex()}><input style={{...s.input,width:100}} placeholder="Usuario" value={newAdmin.id} onChange={e=>setNewAdmin({...newAdmin,id:e.target.value})}/><input style={s.input} placeholder="Nombre completo" value={newAdmin.name} onChange={e=>setNewAdmin({...newAdmin,name:e.target.value})}/></div>
+        <div style={s.flex()}><input style={s.input} type="password" placeholder="Contraseña" value={newAdmin.password} onChange={e=>setNewAdmin({...newAdmin,password:e.target.value})}/><button style={s.btnPrimary} onClick={addAdmin}>Crear</button></div>
+      </div>}
+      <div style={{...s.card,marginBottom:20}}>
+        {admins.map(a=>editingAdmin?.id===a.id
+          ?<div key={a.id} style={{...s.col(),padding:"12px 0",borderBottom:`1px solid ${BORDER}`}}>
+            <div style={s.flex()}><input style={{...s.input,width:100}} value={editingAdmin.id} disabled/><input style={s.input} placeholder="Nombre" value={editingAdmin.name} onChange={e=>setEditingAdmin({...editingAdmin,name:e.target.value})}/></div>
+            <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingAdmin.password} onChange={e=>setEditingAdmin({...editingAdmin,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveAdmin(editingAdmin)}>Guardar</button><button style={s.btn} onClick={()=>setEditingAdmin(null)}>Cancelar</button></div>
+          </div>
+          :<div key={a.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{a.name}</div><div style={s.muted}>@{a.id}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingAdmin({...a})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>deleteAdmin(a.id)}>×</button></div>
+        )}
+      </div>
+      <span style={s.label}>Clientes del sistema</span>
+      <div style={s.card}>
+        {clients.map(c=>editingClient?.id===c.id
+          ?<div key={c.id} style={{...s.col(),padding:"12px 0",borderBottom:`1px solid ${BORDER}`}}>
+            <div style={s.flex()}><input style={{...s.input,width:80}} value={editingClient.id} disabled/><input style={s.input} placeholder="Nombre empresa" value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})}/></div>
+            <div style={s.flex()}><input style={s.input} placeholder="Contacto" value={editingClient.contact} onChange={e=>setEditingClient({...editingClient,contact:e.target.value})}/><input style={s.input} placeholder="Email" value={editingClient.email} onChange={e=>setEditingClient({...editingClient,email:e.target.value})}/></div>
+            <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingClient.password} onChange={e=>setEditingClient({...editingClient,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveClient(editingClient)}>Guardar</button><button style={s.btn} onClick={()=>setEditingClient(null)}>Cancelar</button></div>
+          </div>
+          :<div key={c.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{c.name}</div><div style={s.muted}>Usuario: {c.id} · {c.contact}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingClient({...c,password:""})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>setConfirmDelete(c)}>Eliminar</button></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminView({onLogout,admin}){
+  const [clients,setClients]=useState([]);const [admins,setAdmins]=useState([]);
+  const [sel,setSel]=useState(null);const [tab,setTab]=useState("panel");
+  const [areas,setAreas]=useState([]);const [documents,setDocuments]=useState([]);
+  const [pendingDocs,setPendingDocs]=useState([]);const [requests,setRequests]=useState([]);
+  const [editing,setEditing]=useState(null);const [loading,setLoading]=useState(true);
+  const [saved,setSaved]=useState(false);const [showAddClient,setShowAddClient]=useState(false);
+  const [showAddDoc,setShowAddDoc]=useState(false);const [showAddPending,setShowAddPending]=useState(false);
+  const [newClient,setNewClient]=useState({id:"",name:"",contact:"",email:"",password:"",industria:"general"});
+  const [newDoc,setNewDoc]=useState({type:"",name:"",person:"",date:"",status:"vigente",drive_url:""});
+  const [newPending,setNewPending]=useState({name:"",due:"",note:""});
+
+  useEffect(()=>{
+    async function load(){
+      const [c,a]=await Promise.all([supabase.from("clients").select("*"),supabase.from("admins").select("*")]);
+      setClients(c.data||[]);setAdmins(a.data||[]);if(c.data?.length)setSel(c.data[0].id);setLoading(false);
+    }
+    load();
+  },[]);
+
+  useEffect(()=>{
+    if(!sel)return;
+    async function load(){
+      const [a,d,p,r]=await Promise.all([
+        supabase.from("areas").select("*").eq("client_id",sel),
+        supabase.from("documents").select("*").eq("client_id",sel),
+        supabase.from("pending_docs").select("*").eq("client_id",sel),
+        supabase.from("requests").select("*").eq("client_id",sel),
+      ]);
+      setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
+    }
+    load();
+  },[sel]);
+
+  const client=clients.find(c=>c.id===sel);
+
+  async function updateArea(areaId,field,val){
+    const prevArea=areas.find(a=>a.id===areaId);
+    setAreas(prev=>prev.map(a=>a.id===areaId?{...a,[field]:val}:a));
+    await supabase.from("areas").update({[field]:val}).eq("id",areaId);
+    if(field==="status"&&prevArea&&prevArea.status!==val){
+      await supabase.from("historial").insert({id:"h"+Date.now(),client_id:sel,area_name:prevArea.name,status_anterior:prevArea.status,status_nuevo:val,nota:"",admin_name:admin?.name||"Despacho",created_at:new Date().toISOString()});
+    }
+    setSaved(true);setTimeout(()=>setSaved(false),2000);
+  }
+  async function publishDraftAreas(){
+    await supabase.from("areas").update({draft:false,sub:"Validado por M&M Abogados"}).eq("client_id",sel).eq("draft",true);
+    setAreas(prev=>prev.map(a=>({...a,draft:false,sub:"Validado por M&M Abogados"})));
+    setSaved(true);setTimeout(()=>setSaved(false),2000);
+  }
+  async function addDoc(){
+    if(!newDoc.type||!newDoc.name)return;
+    const doc={id:"d"+Date.now(),client_id:sel,...newDoc};
+    await supabase.from("documents").insert(doc);setDocuments(prev=>[...prev,doc]);
+    setShowAddDoc(false);setNewDoc({type:"",name:"",person:"",date:"",status:"vigente",drive_url:""});
+  }
+  async function removeDoc(docId){await supabase.from("documents").delete().eq("id",docId);setDocuments(prev=>prev.filter(d=>d.id!==docId));}
+  async function addPending(){
+    if(!newPending.name)return;
+    const p={id:"p"+Date.now(),client_id:sel,...newPending};
+    await supabase.from("pending_docs").insert(p);setPendingDocs(prev=>[...prev,p]);
+    setShowAddPending(false);setNewPending({name:"",due:"",note:""});
+  }
+  async function removePending(pid){await supabase.from("pending_docs").delete().eq("id",pid);setPendingDocs(prev=>prev.filter(p=>p.id!==pid));}
+  async function resolveRequest(rid){await supabase.from("requests").update({status:"completado"}).eq("id",rid);setRequests(prev=>prev.map(r=>r.id===rid?{...r,status:"completado"}:r));}
+  async function addClient(){
+    if(!newClient.id||!newClient.name||!newClient.password)return;
+    const nc={...newClient,industria:newClient.industria||"general",updated_at:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
+    await supabase.from("clients").insert(nc);
+    const da=[
+      {id:"a1_"+newClient.id,client_id:newClient.id,name:"Estructura societaria",sub:"Pendiente de diagnóstico",status:"amber"},
+      {id:"a2_"+newClient.id,client_id:newClient.id,name:"Actas de asamblea",sub:"Pendiente de diagnóstico",status:"amber"},
+      {id:"a3_"+newClient.id,client_id:newClient.id,name:"Poderes notariales",sub:"Pendiente de diagnóstico",status:"amber"},
+      {id:"a4_"+newClient.id,client_id:newClient.id,name:"Contratos activos",sub:"Pendiente de diagnóstico",status:"amber"},
+      {id:"a5_"+newClient.id,client_id:newClient.id,name:"Arrendamientos",sub:"Pendiente de diagnóstico",status:"amber"},
+      {id:"a6_"+newClient.id,client_id:newClient.id,name:"Compromisos con M&M",sub:"En proceso",status:"green"},
+    ];
+    await supabase.from("areas").insert(da);
+    setClients(prev=>[...prev,nc]);setSel(newClient.id);setShowAddClient(false);
+    setNewClient({id:"",name:"",contact:"",email:"",password:""});
+  }
+
+  const hasDrafts=areas.some(a=>a.draft);
+  const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
+  const tareas_pendientes=0;
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Semáforos"},{id:"compliance",label:"Compliance"},{id:"regulatorio",label:"Regulatorio"},{id:"personas",label:"Personas"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"pagos",label:"Iguala"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Resumen M&M"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"}];
+
+  if(loading)return <div style={s.wrap}><Spinner/></div>;
+
+  return(
+    <div style={{fontFamily:"'Georgia', serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      {/* TOP NAV */}
+      <div style={{background:BLACK,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <div style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui,sans-serif"}}>M&M Abogados</div>
+          <div style={{width:1,height:16,background:"rgba(255,255,255,.2)"}}/>
+          <div style={{fontSize:13,color:"rgba(255,255,255,.8)",fontFamily:"system-ui,sans-serif"}}>Panel Administrativo</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {saved&&<span style={{fontSize:11,color:GOLD,fontFamily:"system-ui,sans-serif"}}>Guardado ✓</span>}
+          {client&&tab!=="usuarios"&&<button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
+          <AdminNotifBell/>
+          <button style={{...s.btn,...s.btnSm,color:"rgba(255,255,255,.7)",borderColor:"rgba(255,255,255,.2)"}} onClick={onLogout}>Salir</button>
+        </div>
+      </div>
+      {/* CLIENT SELECTOR */}
+      {tab!=="usuarios"&&tab!=="dashboard"&&<div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"10px 1.5rem",display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+        <select style={{...s.select,flex:1,maxWidth:400}} value={sel||""} onChange={e=>setSel(e.target.value)}>
+          {clients.map(c=><option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
+        </select>
+        <button style={{...s.btn,...s.btnSm}} onClick={()=>setShowAddClient(!showAddClient)}>+ Cliente</button>
+      </div>}
+
+      {showAddClient&&<div style={{...s.card,...s.col(),marginBottom:16}}>
+        <span style={{...s.label,margin:0}}>Nuevo cliente</span>
+        <div style={s.flex()}><input style={{...s.input,width:80}} placeholder="ID (002)" value={newClient.id} onChange={e=>setNewClient({...newClient,id:e.target.value})}/><input style={s.input} placeholder="Nombre empresa" value={newClient.name} onChange={e=>setNewClient({...newClient,name:e.target.value})}/></div>
+        <div style={s.flex()}><input style={s.input} placeholder="Contacto" value={newClient.contact} onChange={e=>setNewClient({...newClient,contact:e.target.value})}/><input style={s.input} placeholder="Email" value={newClient.email} onChange={e=>setNewClient({...newClient,email:e.target.value})}/></div>
+        <div style={s.flex()}>
+          <select style={{...s.select,flex:1}} value={newClient.industria} onChange={e=>setNewClient({...newClient,industria:e.target.value})}>
+            {Object.entries(INDUSTRIA_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        <div style={s.flex()}><input style={s.input} type="password" placeholder="Contraseña cliente" value={newClient.password} onChange={e=>setNewClient({...newClient,password:e.target.value})}/><button style={s.btnPrimary} onClick={addClient}>Crear</button></div>
+      </div>}
+
+      {/* TABS BAR */}
+      <div style={{background:WHITE,borderBottom:`1px solid ${BORDER}`,padding:"0 1rem",display:"flex",overflowX:"auto",flexShrink:0}}>
+        {tabs.map(t=><button key={t.id} style={{padding:"12px 14px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:tab===t.id?BLACK:GRAY,borderBottom:tab===t.id?`2px solid ${GOLD}`:"2px solid transparent",fontWeight:400,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+      </div>
+      {/* CONTENT */}
+      <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
+
+      {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
+
+      {tab==="panel"&&client&&<>
+        {hasDrafts&&<div style={{...s.card,borderLeft:`3px solid ${GOLD}`,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>Diagnóstico pendiente de validación</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
+        <div style={s.col()}>{areas.map(area=>(
+          <div key={area.id} style={{...s.card,borderLeft:`3px solid ${STATUS_COLORS[area.status]}`}}>
+            {editing===area.id
+            ?<div style={s.col()}>
+              <input style={s.input} value={area.name} onChange={e=>setAreas(prev=>prev.map(a=>a.id===area.id?{...a,name:e.target.value}:a))} onBlur={e=>updateArea(area.id,"name",e.target.value)}/>
+              <input style={s.input} value={area.sub} onChange={e=>setAreas(prev=>prev.map(a=>a.id===area.id?{...a,sub:e.target.value}:a))} onBlur={e=>updateArea(area.id,"sub",e.target.value)}/>
+              <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#FFFFFF",fontFamily:"system-ui, sans-serif",resize:"vertical"}} rows={2} placeholder="Nota visible para el cliente (opcional)" value={area.nota||""} onChange={e=>setAreas(prev=>prev.map(a=>a.id===area.id?{...a,nota:e.target.value}:a))} onBlur={e=>updateArea(area.id,"nota",e.target.value)}/>
+              <div style={s.flex()}>
+                <select style={{...s.select,flex:1}} value={area.status} onChange={e=>updateArea(area.id,"status",e.target.value)}>
+                  {["red","amber","green"].map(st=><option key={st} value={st}>{({red:"Riesgo alto",amber:"Revisar",green:"Al corriente"})[st]}</option>)}
+                </select>
+                <button style={s.btnPrimary} onClick={()=>setEditing(null)}>Listo</button>
+              </div>
+            </div>
+            :<div style={{...s.flex(),cursor:"pointer"}} onClick={()=>setEditing(area.id)}>
+              <div style={{flex:1}}><div style={{fontSize:14,fontFamily:"'Georgia', serif"}}>{area.name}</div><div style={s.muted}>{area.sub}{area.draft&&<span style={{...s.badge("amber"),marginLeft:8}}>Borrador</span>}</div></div>
+              <Badge status={area.status}/><span style={{fontSize:11,color:GRAY,marginLeft:8}}>✎</span>
+            </div>}
+          </div>
+        ))}</div>
+      </>}
+
+      {tab==="docs"&&client&&<>
+        <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+          <span style={{...s.label,margin:0}}>{documents.length} documentos</span>
+          <button style={s.btnPrimary} onClick={()=>setShowAddDoc(!showAddDoc)}>+ Documento</button>
+        </div>
+        {showAddDoc&&<div style={{...s.card,...s.col(),marginBottom:16}}>
+          <select style={s.select} value={newDoc.type} onChange={e=>{const dt=DOC_TYPES.find(d=>d.id===e.target.value);setNewDoc({...newDoc,type:e.target.value,name:dt?.label||""});}}>
+            <option value="">Tipo de documento...</option>
+            {Object.entries(CAT_LABELS).map(([cat,cl])=><optgroup key={cat} label={cl}>{DOC_TYPES.filter(d=>d.cat===cat).map(d=><option key={d.id} value={d.id}>{d.label}</option>)}</optgroup>)}
+          </select>
+          <input style={s.input} placeholder="Nombre del documento" value={newDoc.name} onChange={e=>setNewDoc({...newDoc,name:e.target.value})}/>
+          <div style={s.flex()}><input style={s.input} placeholder="Persona (si aplica)" value={newDoc.person} onChange={e=>setNewDoc({...newDoc,person:e.target.value})}/><input style={s.input} type="date" value={newDoc.date} onChange={e=>setNewDoc({...newDoc,date:e.target.value})}/></div>
+          <select style={s.select} value={newDoc.status} onChange={e=>setNewDoc({...newDoc,status:e.target.value})}>
+            {["vigente","por renovar","vencido"].map(st=><option key={st} value={st}>{st}</option>)}
+          </select>
+          <div style={s.col(4)}><span style={{...s.muted,fontSize:11}}>Link Google Drive</span><input style={s.input} placeholder="https://drive.google.com/file/d/..." value={newDoc.drive_url} onChange={e=>setNewDoc({...newDoc,drive_url:e.target.value})}/></div>
+          <button style={{...s.btnPrimary,alignSelf:"flex-start"}} onClick={addDoc}>Agregar</button>
+        </div>}
+        {Object.entries(CAT_LABELS).map(([cat,catLabel])=>{
+          const docs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===cat);if(!docs.length)return null;
+          return <div key={cat} style={{marginBottom:16}}><span style={s.label}>{catLabel}</span><div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status}/>{doc.drive_url&&<a href={doc.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:GOLD,marginLeft:8,fontFamily:"system-ui, sans-serif"}}>↗</a>}<button style={{...s.btnDanger,marginLeft:4}} onClick={()=>removeDoc(doc.id)}>×</button></div>)}</div></div>;
+        })}
+      </>}
+
+      {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
+      {tab==="compliance"&&client&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="personas"&&client&&<PersonasTab client={client} isAdmin={true}/>}
+      {tab==="contratos"&&client&&<AdminContratosTab client={client}/>}
+      {tab==="pagos"&&client&&<AdminPagosTab client={client}/>}
+      {tab==="tareas"&&client&&<AdminTareasTab client={client} admin={admin}/>}
+      {tab==="resumen"&&client&&<AdminResumenTab client={client}/>}
+      {tab==="asambleas"&&client&&<AsambleasTab client={client} isAdmin={true}/>}
+
+      {tab==="pendientes"&&client&&<>
+        <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+          <span style={{...s.label,margin:0}}>Pendientes del cliente</span>
+          <button style={s.btnPrimary} onClick={()=>setShowAddPending(!showAddPending)}>+ Pendiente</button>
+        </div>
+        {showAddPending&&<div style={{...s.card,...s.col(),marginBottom:16}}>
+          <input style={s.input} placeholder="Nombre del documento" value={newPending.name} onChange={e=>setNewPending({...newPending,name:e.target.value})}/>
+          <div style={s.flex()}><input style={s.input} placeholder="Fecha límite" value={newPending.due} onChange={e=>setNewPending({...newPending,due:e.target.value})}/><input style={s.input} placeholder="Nota" value={newPending.note} onChange={e=>setNewPending({...newPending,note:e.target.value})}/></div>
+          <button style={{...s.btnPrimary,alignSelf:"flex-start"}} onClick={addPending}>Agregar</button>
+        </div>}
+        {pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,...s.flex(),borderLeft:`3px solid ${GOLD}`,alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{p.name}</div><div style={s.muted}>{p.due?"Vence: "+p.due+" · ":""}{p.note}</div></div><button style={s.btnDanger} onClick={()=>removePending(p.id)}>×</button></div>)}
+      </>}
+
+      {tab==="solicitudes"&&client&&<>
+        <span style={s.label}>Solicitudes del cliente</span>
+        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin solicitudes</div>
+        :requests.map(r=><div key={r.id} style={{...s.card,...s.flex(),alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"'Georgia', serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div>{r.status==="pendiente"?<button style={s.btnPrimary} onClick={()=>resolveRequest(r.id)}>Marcar completado</button>:<Badge status="green" label="Completado"/>}</div>)}
+      </>}
+      </div>
+    </div>
+  );
+}
+
+function Login({onLogin}){
+  const [who,setWho]=useState("client");const [user,setUser]=useState("");
+  const [pass,setPass]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+
+  async function attempt(){
+    setErr("");setLoading(true);
+    if(who==="admin"){
+      const {data}=await supabase.from("admins").select("*").eq("id",user.toLowerCase()).single();
+      if(!data||data.password!==pass){setErr("Usuario o contraseña incorrectos");setLoading(false);return;}
+      onLogin({role:"admin",admin:data});return;
+    }
+    if(!user){setErr("Ingresa tu usuario");setLoading(false);return;}
+    const {data}=await supabase.from("clients").select("*").eq("id",user).single();
+    if(!data){setErr("Usuario no encontrado");setLoading(false);return;}
+    if(pass===data.password){onLogin({role:"client",client:data});return;}
+    setErr("Usuario o contraseña incorrectos");setLoading(false);
+  }
+
+  return(
+    <div style={s.loginWrap}>
+      <div style={s.loginBox}>
+        <div style={{textAlign:"center",marginBottom:8}}>
+          <div style={{fontSize:11,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:20}}>Millán & Martínez Abogados</div>
+          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Panel de Inmunidad</div>
+          <div style={{fontSize:28,fontFamily:"'Georgia', serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>Corporativa</div>
+          <div style={{width:40,height:2,background:GOLD,margin:"20px auto 0"}}/>
+        </div>
+        <div style={{...s.flex(),marginTop:8}}>
+          {["client","admin"].map(r=>(
+            <button key={r} style={{...s.btn,flex:1,borderColor:who===r?BLACK:BORDER,background:who===r?BLACK:"none",color:who===r?WHITE:GRAY}} onClick={()=>{setWho(r);setErr("");setUser("");setPass("");}}>
+              {r==="admin"?"Despacho":"Cliente"}
+            </button>
+          ))}
+        </div>
+        <input style={{...s.input,padding:"11px 12px",fontSize:13}} type="text" placeholder={who==="admin"?"Usuario (jesus, beto, carlos)":"Usuario (001, 002...)"} value={user} onChange={e=>setUser(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+        <input style={{...s.input,padding:"11px 12px",fontSize:13}} type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+        {err&&<div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui, sans-serif"}}>{err}</div>}
+        <button style={{...s.btnPrimary,padding:"12px 14px",fontSize:12,letterSpacing:".12em"}} onClick={attempt} disabled={loading}>{loading?"Verificando...":"Entrar"}</button>
+      </div>
+    </div>
+  );
+}
+
+export default function App(){
+  const [session,setSession]=useState(null);
+  if(!session)return <Login onLogin={setSession}/>;
+  if(session.role==="admin")return <AdminView onLogout={()=>setSession(null)} admin={session.admin}/>;
+  return <ClientView client={session.client} onLogout={()=>setSession(null)}/>;
+}

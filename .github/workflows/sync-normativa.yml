@@ -1,0 +1,15 @@
+name: Sync Normativa
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync-normativa endpoint
+        run: |
+          curl -X GET https://panel.mymabogados.mx/api/sync-normativa \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
