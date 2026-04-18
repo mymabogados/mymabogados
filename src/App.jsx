@@ -75,6 +75,204 @@ const MODULOS_CATALOG = [
 ];
 
 const TIER_COLORS = { 0:{bg:"#E8F0E8",color:"#4A5C45",label:"Base"}, 1:{bg:"#E6F3FA",color:"#2E6B8A",label:"Basico +$60"}, 2:{bg:"#FAF3E6",color:"#8A6B2E",label:"Avanzado +$90"}, 3:{bg:"#F3E6FA",color:"#7A2E6B",label:"Premium +$120"} };
+
+// ─── CATÁLOGO DE DOCUMENTOS Y CHECKLIST POR MÓDULO ──────────────────────────
+const MODULO_DOCS = {
+  "L-01": {
+    docs: [
+      {id:"contrato_individual",label:"Contrato Individual de Trabajo",requerido:true,desc:"Firmado por trabajador y patrón"},
+      {id:"contrato_colectivo",label:"Contrato Colectivo de Trabajo",requerido:false,desc:"Si aplica sindicato"},
+      {id:"contrato_confianza",label:"Contrato Empleado de Confianza",requerido:false,desc:"Para puestos directivos"},
+      {id:"contrato_temporal",label:"Contrato por Obra o Tiempo Determinado",requerido:false,desc:"Debe justificar temporalidad"},
+      {id:"aviso_alta_imss",label:"Aviso de Alta IMSS",requerido:true,desc:"Dentro de los primeros 5 días"},
+      {id:"alta_infonavit",label:"Alta INFONAVIT",requerido:true,desc:"Al inicio de la relación laboral"},
+      {id:"comprobante_ndiscriminacion",label:"Política de No Discriminación",requerido:true,desc:"NOM-135 obligatoria"},
+    ],
+    checklist: [
+      {id:"salario_min",label:"Salario igual o superior al mínimo vigente",riesgo:"alto"},
+      {id:"jornada_maxima",label:"Jornada no excede máximos legales (8/7/6 hrs)",riesgo:"alto"},
+      {id:"periodo_vacacional",label:"Vacaciones conforme a tabla LFT vigente",riesgo:"medio"},
+      {id:"aguinaldo",label:"Aguinaldo mínimo 15 días por año",riesgo:"alto"},
+      {id:"prima_vacacional",label:"Prima vacacional mínima 25%",riesgo:"medio"},
+      {id:"imss_alta",label:"100% trabajadores dados de alta en IMSS",riesgo:"critico"},
+      {id:"nomina_digital",label:"Nómina timbrada con CFDI",riesgo:"alto"},
+      {id:"ptl_derechos",label:"Trabajadores conocen sus derechos (cartilla)",riesgo:"bajo"},
+    ],
+    riesgos: [
+      {label:"Demanda laboral por despido injustificado",impacto:"3 meses + 20 días/año + partes proporcionales",nivel:"critico"},
+      {label:"Multa STPS por incumplimiento de contrato",impacto:"$318 a $3,180 UMAs por trabajador afectado",nivel:"alto"},
+      {label:"Créditos IMSS por omisión de alta",impacto:"Cuotas + recargos + multas desde inicio de relación laboral",nivel:"critico"},
+      {label:"Pérdida de deducibilidad de nómina",impacto:"Rechazo de CFDI y ajuste fiscal en declaración anual",nivel:"alto"},
+    ]
+  },
+  "L-02": {
+    docs: [
+      {id:"rit_vigente",label:"Reglamento Interior de Trabajo vigente",requerido:true,desc:"Depositado ante STPS o JLCA"},
+      {id:"rit_deposito",label:"Constancia de depósito ante autoridad",requerido:true,desc:"Sello de recibido de la autoridad"},
+      {id:"rit_difusion",label:"Acuse de difusión a trabajadores",requerido:true,desc:"Lista de asistencia o firma de conocimiento"},
+      {id:"nom035_politica",label:"Política de prevención NOM-035",requerido:true,desc:"Firmada por representante legal"},
+      {id:"nom035_evaluacion",label:"Evaluación del entorno organizacional",requerido:false,desc:"Requerida si más de 50 trabajadores"},
+    ],
+    checklist: [
+      {id:"deposito_stps",label:"Depositado ante STPS o Junta de Conciliación",riesgo:"alto"},
+      {id:"horas_extras",label:"Regulación de tiempo extra y pago correspondiente",riesgo:"medio"},
+      {id:"sanciones",label:"Régimen disciplinario y sanciones documentado",riesgo:"medio"},
+      {id:"nom035",label:"Incluye política NOM-035",riesgo:"alto"},
+      {id:"actualizacion",label:"Actualizado en los últimos 2 años",riesgo:"medio"},
+      {id:"modalidad_trabajo",label:"Contempla teletrabajo si aplica (NOM-037)",riesgo:"medio"},
+      {id:"acoso",label:"Protocolo contra acoso y hostigamiento",riesgo:"alto"},
+    ],
+    riesgos: [
+      {label:"Sin RIT no se pueden aplicar sanciones disciplinarias",impacto:"Reinstalación forzosa en despido disciplinario",nivel:"critico"},
+      {label:"Multa por ausencia de RIT",impacto:"$636 a $6,360 UMAs por inspección STPS",nivel:"alto"},
+      {label:"Incumplimiento NOM-035",impacto:"Multa $318 a $3,180 UMAs + contingencia laboral",nivel:"alto"},
+    ]
+  },
+  "L-03": {
+    docs: [
+      {id:"registro_repse",label:"Registro REPSE vigente",requerido:true,desc:"Portal del IMSS  -  renovación anual"},
+      {id:"contrato_servicios",label:"Contrato de prestación de servicios especializados",requerido:true,desc:"Con cada contratante"},
+      {id:"comprobante_imss",label:"Comprobantes de pago IMSS mensuales",requerido:true,desc:"Compartir con contratante dentro de 5 días"},
+      {id:"comprobante_infonavit",label:"Comprobantes de pago INFONAVIT mensuales",requerido:true,desc:"Compartir con contratante dentro de 5 días"},
+      {id:"sipare_informe",label:"Informe mensual SIPARE al IMSS",requerido:true,desc:"Primeros 17 días de cada mes"},
+    ],
+    checklist: [
+      {id:"registro_activo",label:"Registro REPSE activo y vigente",riesgo:"critico"},
+      {id:"objeto_social",label:"Objeto social acotado a servicios especializados",riesgo:"alto"},
+      {id:"contratos_firmados",label:"Contratos firmados con todos los contratantes",riesgo:"alto"},
+      {id:"informes_sipare",label:"Informes SIPARE presentados en tiempo",riesgo:"alto"},
+      {id:"comprobantes_compartidos",label:"Comprobantes compartidos con contratante mensualmente",riesgo:"medio"},
+      {id:"iva_retencion",label:"IVA retenido y enterado correctamente",riesgo:"alto"},
+    ],
+    riesgos: [
+      {label:"Sin REPSE el contratante no puede deducir ni acreditar IVA",impacto:"Rechazo de CFDI  -  pérdida total de deducción",nivel:"critico"},
+      {label:"Multa por no presentar informe SIPARE",impacto:"$3,180 a $6,360 UMAs por incumplimiento",nivel:"alto"},
+      {label:"Solidaridad en obligaciones laborales del contratante",impacto:"Responsabilidad solidaria ilimitada ante IMSS",nivel:"critico"},
+    ]
+  },
+  "L-04": {
+    docs: [
+      {id:"finiquito_firmado",label:"Finiquito firmado ante testigos",requerido:true,desc:"O ante Junta de Conciliación y Arbitraje"},
+      {id:"convenio_terminacion",label:"Convenio de terminación ratificado",requerido:false,desc:"Ante JLCA para mayor certeza jurídica"},
+      {id:"calculo_liquidacion",label:"Cálculo de liquidación documentado",requerido:true,desc:"Con desglose de todos los conceptos LFT"},
+      {id:"aviso_baja_imss",label:"Aviso de baja IMSS",requerido:true,desc:"Dentro de los 5 días siguientes"},
+      {id:"baja_infonavit",label:"Baja INFONAVIT",requerido:true,desc:"Al término de la relación laboral"},
+      {id:"carta_no_adeudo",label:"Carta de no adeudo o finiquito total",requerido:false,desc:"Recomendable para evitar reclamaciones futuras"},
+    ],
+    checklist: [
+      {id:"conceptos_completos",label:"Incluye todos los conceptos: 3 meses + 20 días/año + partes proporcionales",riesgo:"critico"},
+      {id:"prima_antiguedad",label:"Prima de antigüedad incluida si aplica",riesgo:"alto"},
+      {id:"baja_seguridad_social",label:"Baja en IMSS e INFONAVIT en tiempo",riesgo:"alto"},
+      {id:"convenio_jlca",label:"Convenio ratificado ante JLCA (mayor protección)",riesgo:"medio"},
+      {id:"carta_no_reinstalacion",label:"Trabajador elige no reinstalación expresamente",riesgo:"alto"},
+      {id:"cfdi_nomina_finiquito",label:"CFDI de nómina final timbrado",riesgo:"medio"},
+    ],
+    riesgos: [
+      {label:"Demanda por liquidación incompleta",impacto:"Pago de diferencias + salarios caídos desde despido",nivel:"critico"},
+      {label:"Nulidad de finiquito por vicios",impacto:"Finiquito sin valor  -  proceso como si no hubiera terminación",nivel:"alto"},
+      {label:"Multa por no dar baja en IMSS",impacto:"Cuotas posteriores + recargos desde fecha de baja real",nivel:"alto"},
+    ]
+  },
+  "L-05": {
+    docs: [
+      {id:"expediente_juicio",label:"Expediente del juicio laboral",requerido:true,desc:"Número, juzgado, fecha de inicio"},
+      {id:"contestacion_demanda",label:"Contestación de demanda",requerido:true,desc:"Firmada y presentada en tiempo"},
+      {id:"pruebas_ofrecidas",label:"Pruebas documentales ofrecidas",requerido:true,desc:"Contrato, recibos, asistencia, etc."},
+      {id:"poder_litigios",label:"Poder notarial para pleitos y cobranzas",requerido:true,desc:"A favor del abogado litigante"},
+      {id:"provision_contable",label:"Provisión contable registrada",requerido:false,desc:"Recomendado si probabilidad alta"},
+    ],
+    checklist: [
+      {id:"abogado_designado",label:"Abogado litigante designado con poder vigente",riesgo:"critico"},
+      {id:"contestacion_tiempo",label:"Contestación de demanda presentada en tiempo",riesgo:"critico"},
+      {id:"pruebas_resguardadas",label:"Pruebas documentales resguardadas y organizadas",riesgo:"alto"},
+      {id:"provision_registrada",label:"Provisión contable registrada (NIF C-9)",riesgo:"medio"},
+      {id:"seguro_riesgo",label:"Seguro de responsabilidad laboral contratado",riesgo:"bajo"},
+      {id:"audiencias_seguimiento",label:"Seguimiento puntual de audiencias y actuaciones",riesgo:"critico"},
+    ],
+    riesgos: [
+      {label:"Condena en rebeldía por falta de contestación",impacto:"Todas las prestaciones demandadas concedidas automáticamente",nivel:"critico"},
+      {label:"Prescripción de defensas por falta de pruebas",impacto:"Pérdida de excepciones y defensas disponibles",nivel:"alto"},
+      {label:"Embargo de cuentas por condena no provisionada",impacto:"Paralización operativa  -  embargo preventivo de activos",nivel:"critico"},
+    ]
+  },
+  "L-06": {
+    docs: [
+      {id:"politica_nom035",label:"Política de prevención de riesgos psicosociales",requerido:true,desc:"Firmada y difundida  -  todas las empresas"},
+      {id:"cuestionario_factores",label:"Cuestionario de identificación de factores de riesgo",requerido:false,desc:"Obligatorio si más de 50 trabajadores"},
+      {id:"evaluacion_entorno",label:"Evaluación del entorno organizacional (anual)",requerido:false,desc:"Obligatorio si más de 50 trabajadores"},
+      {id:"plan_accion",label:"Plan de acción con medidas correctivas",requerido:false,desc:"Si se identificaron factores de riesgo"},
+      {id:"registro_difusion",label:"Registro de difusión a trabajadores",requerido:true,desc:"Lista de asistencia o firma de recibido"},
+      {id:"nom037_politica",label:"Política de teletrabajo NOM-037",requerido:false,desc:"Si hay trabajadores en home office"},
+    ],
+    checklist: [
+      {id:"politica_vigente",label:"Política NOM-035 vigente y difundida",riesgo:"alto"},
+      {id:"evaluacion_anual",label:"Evaluación del entorno realizada en el último año",riesgo:"medio"},
+      {id:"factores_identificados",label:"Factores de riesgo identificados y documentados",riesgo:"medio"},
+      {id:"medidas_implementadas",label:"Medidas de control implementadas",riesgo:"medio"},
+      {id:"protocolo_acoso",label:"Protocolo contra acoso y hostigamiento vigente",riesgo:"alto"},
+      {id:"canal_denuncia",label:"Canal de denuncia confidencial disponible",riesgo:"medio"},
+    ],
+    riesgos: [
+      {label:"Multa por incumplimiento NOM-035",impacto:"$318 a $3,180 UMAs por inspección STPS",nivel:"alto"},
+      {label:"Demanda por acoso laboral no prevenido",impacto:"Indemnización + daño moral  -  responsabilidad solidaria del patrón",nivel:"critico"},
+      {label:"Contingencia laboral masiva por clima tóxico",impacto:"Rescisión por responsabilidad del patrón (art. 51 LFT)",nivel:"alto"},
+    ]
+  },
+  "L-07": {
+    docs: [
+      {id:"registro_patronal",label:"Registro patronal IMSS vigente",requerido:true,desc:"Para cada centro de trabajo"},
+      {id:"sua_pagos",label:"Comprobantes de pago SUA (últimos 3 meses)",requerido:true,desc:"Bimestral para cuotas IMSS"},
+      {id:"infonavit_pagos",label:"Comprobantes de pago INFONAVIT",requerido:true,desc:"Bimestral  -  aportaciones vivienda"},
+      {id:"dictamen_imss",label:"Dictamen IMSS (si aplica)",requerido:false,desc:"Empresas con más de 300 trabajadores"},
+      {id:"tabla_salarios",label:"Tabla de salarios integrados",requerido:true,desc:"Actualizada con percepciones variables"},
+      {id:"clasificacion_riesgo",label:"Clasificación de riesgo de trabajo IMSS",requerido:true,desc:"Declaración anual en febrero"},
+    ],
+    checklist: [
+      {id:"altas_tiempo",label:"Altas y bajas IMSS presentadas en tiempo (5 días)",riesgo:"critico"},
+      {id:"salario_integrado",label:"Salario integrado calculado correctamente",riesgo:"alto"},
+      {id:"cuotas_pagadas",label:"Cuotas patronales y obreras pagadas en tiempo",riesgo:"alto"},
+      {id:"prima_rt",label:"Prima de riesgo de trabajo actualizada anualmente",riesgo:"medio"},
+      {id:"infonavit_creditos",label:"Descuentos de créditos INFONAVIT aplicados",riesgo:"alto"},
+      {id:"sua_conciliado",label:"SUA conciliado con nómina mensualmente",riesgo:"medio"},
+    ],
+    riesgos: [
+      {label:"Créditos IMSS por omisión o subregistro salarial",impacto:"Diferencias de cuotas + 5 años hacia atrás + recargos",nivel:"critico"},
+      {label:"Embargo por adeudos IMSS o INFONAVIT",impacto:"Bloqueo de cuentas bancarias y embargo de activos",nivel:"critico"},
+      {label:"Multa por alta extemporánea",impacto:"$1,272 a $2,544 UMAs por trabajador",nivel:"alto"},
+    ]
+  },
+  "L-08": {
+    docs: [
+      {id:"contrato_directivo",label:"Contrato individual de trabajo directivo",requerido:true,desc:"Con cláusulas de confianza específicas"},
+      {id:"acuerdo_confidencialidad",label:"Acuerdo de confidencialidad (NDA)",requerido:true,desc:"Información estratégica y secretos industriales"},
+      {id:"no_competencia",label:"Pacto de no competencia post-empleo",requerido:false,desc:"6 a 24 meses  -  requiere contraprestación"},
+      {id:"plan_compensacion",label:"Plan de compensación variable documentado",requerido:false,desc:"Bonos, comisiones, opciones sobre acciones"},
+      {id:"acuerdo_permanencia",label:"Acuerdo de permanencia mínima",requerido:false,desc:"Con penalidad si hay renuncia anticipada"},
+      {id:"propiedad_intelectual",label:"Cesión de derechos de propiedad intelectual",requerido:true,desc:"Toda creación durante el empleo es del patrón"},
+      {id:"plan_sucesion",label:"Plan de sucesión del puesto",requerido:false,desc:"Recomendable para C-Suite"},
+    ],
+    checklist: [
+      {id:"contrato_confianza",label:"Contrato refleja carácter de confianza (no aplicable LFT sindical)",riesgo:"alto"},
+      {id:"nda_firmado",label:"NDA firmado y con alcance definido",riesgo:"alto"},
+      {id:"no_comp_remunerado",label:"No competencia tiene contraprestación económica",riesgo:"medio"},
+      {id:"pi_cedida",label:"Propiedad intelectual cedida expresamente",riesgo:"alto"},
+      {id:"severance_pactado",label:"Severance y condiciones de salida pactadas",riesgo:"medio"},
+      {id:"plan_variable_doc",label:"Plan variable documentado y auditado",riesgo:"medio"},
+    ],
+    riesgos: [
+      {label:"Fuga de información estratégica sin NDA",impacto:"Sin acción legal disponible  -  pérdida de ventaja competitiva",nivel:"critico"},
+      {label:"No competencia nula por falta de contraprestación",impacto:"Directivo puede trabajar para competidor inmediatamente",nivel:"alto"},
+      {label:"Demanda por bonus o comisiones no documentadas",impacto:"Pasivo laboral no provisionado  -  salarios caídos",nivel:"alto"},
+    ]
+  },
+};
+
+const RIESGO_COLORS = {
+  critico:{bg:"#FEF2F2",color:"#991B1B",label:"Crítico"},
+  alto:{bg:"#FFF7ED",color:"#9A3412",label:"Alto"},
+  medio:{bg:"#FFFBEB",color:"#92400E",label:"Medio"},
+  bajo:{bg:"#F0FDF4",color:"#166534",label:"Bajo"},
+};
 const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo"];
 
 function ModulosSelector({clientId, modulosActivos=[], onChange}){
@@ -2984,6 +3182,612 @@ function BrandingTab({client, onBrandingUpdate}){
     </div>
   );
 }
+
+function ModuloView({modId, client}){
+  const m = MODULOS_CATALOG.find(x=>x.id===modId);
+  if(!m) return null;
+  const tc = TIER_COLORS[m.tier];
+  const [activeTab,setActiveTab]=useState("datos");
+
+  return(
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:tc.bg,color:tc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{m.id}</span>
+        <div style={{fontSize:18,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{m.nombre}</div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:0,borderBottom:"1px solid "+BORDER,marginBottom:16}}>
+        {["datos","documentos","checklist","riesgos"].map(t=>(
+          <button key={t} onClick={()=>setActiveTab(t)} style={{padding:"8px 16px",fontSize:11,cursor:"pointer",border:"none",background:"none",color:activeTab===t?TEXT_DARK:GRAY,borderBottom:activeTab===t?"2px solid "+MUSGO:"2px solid transparent",fontWeight:activeTab===t?600:400,letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>
+            {t==="datos"?"Datos":t==="documentos"?"Documentos":t==="checklist"?"Cumplimiento":"Riesgos"}
+          </button>
+        ))}
+      </div>
+
+      {/* Content by tab */}
+      {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
+      {activeTab==="documentos"&&<ModuloViewDocs modId={modId} client={client} isAdmin={false}/>}
+      {activeTab==="checklist"&&<ModuloViewChecklist modId={modId} client={client}/>}
+      {activeTab==="riesgos"&&<ModuloViewRiesgos modId={modId}/>}
+    </div>
+  );
+}
+
+function ModuloViewDatos({modId, client}){
+  // Route to specific module data component
+  if(modId==="L-01") return <ModL01 client={client}/>;
+  if(modId==="L-02") return <ModL02 client={client}/>;
+  if(modId==="L-03") return <ModL03 client={client}/>;
+  if(modId==="L-04") return <ModL04 client={client}/>;
+  if(modId==="L-05") return <ModL05 client={client}/>;
+  if(modId==="L-06") return <ModL06 client={client}/>;
+  if(modId==="L-07") return <ModL07 client={client}/>;
+  if(modId==="L-08") return <ModL08 client={client}/>;
+  const tc = TIER_COLORS[MODULOS_CATALOG.find(x=>x.id===modId)?.tier||0];
+  return <div style={{...s.card,borderLeft:"3px solid "+tc.color}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>Datos del módulo disponibles próximamente.</div></div>;
+}
+
+function ModuloViewDocs({modId, client, isAdmin=false}){
+  const catalog = MODULO_DOCS[modId];
+  const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
+  const [uploading,setUploading]=useState(null);
+
+  useEffect(()=>{
+    supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId)
+      .then(({data:d})=>{setDocs(d||[]);setLoading(false);});
+  },[client.id,modId]);
+
+  async function uploadDoc(docId, driveUrl, name){
+    const existing = docs.find(d=>d.type===docId);
+    if(existing){
+      await supabase.from("documents").update({drive_url:driveUrl,status:"vigente",name:name||existing.name}).eq("id",existing.id);
+    } else {
+      await supabase.from("documents").insert({client_id:client.id,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)});
+    }
+    const {data:d}=await supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId);
+    setDocs(d||[]);
+    setUploading(null);
+  }
+
+  if(loading)return <Spinner/>;
+  if(!catalog)return <div style={s.muted}>Sin catálogo de documentos para este módulo.</div>;
+
+  const requeridos = catalog.docs.filter(d=>d.requerido);
+  const opcionales = catalog.docs.filter(d=>!d.requerido);
+  const completados = requeridos.filter(d=>docs.find(x=>x.type===d.id&&x.status!=="vencido")).length;
+
+  return(
+    <div>
+      {/* Progress */}
+      <div style={{...s.card,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>Documentos requeridos</div>
+          <Badge status={completados===requeridos.length?"green":completados>0?"amber":"red"} label={completados+"/"+requeridos.length+" completos"}/>
+        </div>
+        <div style={{background:BORDER,borderRadius:2,height:6}}><div style={{background:completados===requeridos.length?"#5A8A3C":GOLD,height:6,borderRadius:2,width:(completados/Math.max(requeridos.length,1)*100)+"%",transition:"width .3s"}}/></div>
+      </div>
+
+      {/* Required docs */}
+      <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8,textTransform:"uppercase",letterSpacing:".08em"}}>Documentos requeridos</div>
+      {requeridos.map(docDef=>{
+        const existing = docs.find(d=>d.type===docDef.id);
+        const status = existing?.status||"pendiente";
+        return(
+          <div key={docDef.id} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+(existing?"#5A8A3C":"#C0392B")}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontFamily:"Georgia, serif",marginBottom:2}}>{docDef.label}</div>
+                <div style={s.muted}>{docDef.desc}</div>
+                {existing?.date&&<div style={{...s.muted,marginTop:2}}>Subido: {existing.date}</div>}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                <Badge status={existing?"green":"red"} label={existing?"Disponible":"Pendiente"}/>
+                {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
+                {(isAdmin||!existing)&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>Subir</button>}
+              </div>
+            </div>
+            {uploading===docDef.id&&(
+              <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
+                <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)}/>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Optional docs */}
+      {opcionales.length>0&&<>
+        <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8,marginTop:16,textTransform:"uppercase",letterSpacing:".08em"}}>Documentos opcionales / complementarios</div>
+        {opcionales.map(docDef=>{
+          const existing = docs.find(d=>d.type===docDef.id);
+          return(
+            <div key={docDef.id} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+(existing?"#5A8A3C":BORDER)}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontFamily:"Georgia, serif",marginBottom:2}}>{docDef.label}</div>
+                  <div style={s.muted}>{docDef.desc}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                  <Badge status={existing?"green":"amber"} label={existing?"Disponible":"Opcional"}/>
+                  {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
+                  <button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>Subir</button>
+                </div>
+              </div>
+              {uploading===docDef.id&&(
+                <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
+                  <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)}/>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </>}
+    </div>
+  );
+}
+
+function UploadDocForm({onSubmit, onCancel}){
+  const [url,setUrl]=useState("");const [name,setName]=useState("");
+  return(
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <input style={{...s.input,flex:2,minWidth:200}} placeholder="Nombre del documento" value={name} onChange={e=>setName(e.target.value)}/>
+      <input style={{...s.input,flex:3,minWidth:200}} placeholder="URL de Google Drive o enlace" value={url} onChange={e=>setUrl(e.target.value)}/>
+      <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>url&&onSubmit(url,name)} disabled={!url}>Guardar</button>
+      <button style={{...s.btn,...s.btnSm}} onClick={onCancel}>Cancelar</button>
+    </div>
+  );
+}
+
+function ModuloViewChecklist({modId, client}){
+  const catalog = MODULO_DOCS[modId];
+  const [checks,setChecks]=useState({});const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId)
+      .then(({data:d})=>{
+        const map={};
+        (d||[]).forEach(x=>{map[x.regla_id]=x.status;});
+        setChecks(map);setLoading(false);
+      });
+  },[client.id,modId]);
+
+  async function toggleCheck(id, currentStatus){
+    const newStatus = currentStatus==="cumple"?"no_cumple":currentStatus==="no_cumple"?"parcial":"cumple";
+    setSaving(true);
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:id,status:newStatus},{onConflict:"client_id,modulo,regla_id"});
+    setChecks(prev=>({...prev,[id]:newStatus}));
+    setSaving(false);
+  }
+
+  if(loading)return <Spinner/>;
+  if(!catalog)return <div style={s.muted}>Sin checklist para este módulo.</div>;
+
+  const items = catalog.checklist;
+  const cumple = items.filter(x=>checks[x.id]==="cumple").length;
+  const noCumple = items.filter(x=>checks[x.id]==="no_cumple").length;
+  const parcial = items.filter(x=>checks[x.id]==="parcial").length;
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:16}}>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:24,fontWeight:400,color:"#5A8A3C",fontFamily:"Georgia, serif"}}>{cumple}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Cumple</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:24,fontWeight:400,color:GOLD,fontFamily:"Georgia, serif"}}>{parcial}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Parcial</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:24,fontWeight:400,color:"#C0392B",fontFamily:"Georgia, serif"}}>{noCumple}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>No cumple</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:24,fontWeight:400,color:GRAY,fontFamily:"Georgia, serif"}}>{items.length-cumple-parcial-noCumple}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Sin revisar</div></div>
+      </div>
+
+      <div style={s.card}>
+        {items.map((item,i)=>{
+          const st = checks[item.id]||"sin_revisar";
+          const rc = RIESGO_COLORS[item.riesgo]||RIESGO_COLORS.bajo;
+          const stColor = st==="cumple"?"#5A8A3C":st==="no_cumple"?"#C0392B":st==="parcial"?GOLD:GRAY;
+          const stLabel = st==="cumple"?"Cumple":st==="no_cumple"?"No cumple":st==="parcial"?"Parcial":"Sin revisar";
+          return(
+            <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:i<items.length-1?"1px solid "+BORDER:"none"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,marginBottom:3}}>{item.label}</div>
+                <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif"}}>{rc.label}</span>
+              </div>
+              <button onClick={()=>toggleCheck(item.id,st)} disabled={saving} style={{fontSize:11,padding:"4px 12px",borderRadius:4,border:"1.5px solid "+stColor,background:"none",color:stColor,cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,minWidth:90}}>{stLabel}</button>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{...s.muted,marginTop:8,textAlign:"center"}}>Haz clic en el estatus para cambiar entre: Cumple → No cumple → Parcial</div>
+    </div>
+  );
+}
+
+function ModuloViewRiesgos({modId}){
+  const catalog = MODULO_DOCS[modId];
+  if(!catalog)return <div style={s.muted}>Sin análisis de riesgos para este módulo.</div>;
+
+  return(
+    <div>
+      {catalog.riesgos.map((riesgo,i)=>{
+        const rc = RIESGO_COLORS[riesgo.nivel]||RIESGO_COLORS.bajo;
+        return(
+          <div key={i} style={{...s.card,borderLeft:"3px solid "+rc.color,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{rc.label}</span>
+              <div style={{fontSize:14,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{riesgo.label}</div>
+            </div>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_MED,padding:"8px 10px",background:"#F5F8F5",borderRadius:4}}>
+              <span style={{fontWeight:600,color:TEXT_DARK}}>Impacto: </span>{riesgo.impacto}
+            </div>
+          </div>
+        );
+      })}
+      <div style={{...s.card,borderLeft:"3px solid "+MUSGO,marginTop:8}}>
+        <div style={{fontSize:11,color:MUSGO,fontFamily:"system-ui,sans-serif",fontWeight:600,marginBottom:4}}>NOTA DEL DESPACHO</div>
+        <div style={{fontSize:12,color:GRAY,fontFamily:"system-ui,sans-serif"}}>El despacho monitorea estos riesgos continuamente. Ante cualquier alerta crítica te notificaremos directamente.</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── L-01 CONTRATOS DE TRABAJO ───────────────────────────────────────────────
+function ModL01({client}){
+  const [data,setData]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("contratos").select("*").eq("client_id",client.id)
+      .in("tipo",["laboral","individual","colectivo","confianza","temporal","honorarios"])
+      .order("vencimiento",{ascending:true})
+      .then(({data:d})=>{setData(d||[]);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  const vigentes=data.filter(x=>x.status==="vigente"||x.status==="activo");
+  const porVencer=data.filter(x=>{
+    if(!x.vencimiento)return false;
+    const dias=Math.ceil((new Date(x.vencimiento)-new Date())/(1000*60*60*24));
+    return dias>=0&&dias<=90;
+  });
+  const vencidos=data.filter(x=>x.status==="vencido"||x.status==="expirado");
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#5A8A3C",fontFamily:"Georgia, serif"}}>{vigentes.length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Vigentes</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:GOLD,fontFamily:"Georgia, serif"}}>{porVencer.length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Por vencer 90d</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#C0392B",fontFamily:"Georgia, serif"}}>{vencidos.length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Vencidos</div></div>
+      </div>
+      {porVencer.length>0&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginBottom:12}}>
+        <div style={{fontSize:11,fontWeight:600,color:GOLD,fontFamily:"system-ui,sans-serif",marginBottom:8}}>CONTRATOS POR VENCER</div>
+        {porVencer.map(x=>{
+          const dias=Math.ceil((new Date(x.vencimiento)-new Date())/(1000*60*60*24));
+          return <div key={x.id} style={s.row}><span style={s.dot("por renovar")}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.nombre||x.tipo}</div><div style={s.muted}>{x.contraparte?" · "+x.contraparte:""}</div></div><Badge status="amber" label={dias+" días"}/></div>;
+        })}
+      </div>}
+      {data.length===0
+        ?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>No hay contratos laborales registrados</div>
+        :<div style={s.card}>
+          <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>TODOS LOS CONTRATOS</div>
+          {data.map(x=><div key={x.id} style={s.row}><span style={s.dot(x.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.nombre||x.tipo}</div><div style={s.muted}>{x.contraparte||""}{x.vencimiento?" · Vence: "+x.vencimiento:""}</div></div><Badge status={x.status} label={x.status}/></div>)}
+        </div>
+      }
+    </div>
+  );
+}
+
+// ─── L-02 REGLAMENTO INTERIOR DE TRABAJO ─────────────────────────────────────
+function ModL02({client}){
+  const [data,setData]=useState(null);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("documents").select("*").eq("client_id",client.id)
+      .in("type",["reglamento_interior","reglamento_trabajo","rit"])
+      .order("date",{ascending:false}).limit(1)
+      .then(({data:d})=>{setData(d&&d[0]?d[0]:null);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  const fechaActual = data?.date ? new Date(data.date) : null;
+  const anios = fechaActual ? Math.floor((new Date()-fechaActual)/(1000*60*60*24*365)) : null;
+  const status = !data?"sin_registro":anios>2?"desactualizado":"vigente";
+  const statusColor = status==="vigente"?"#5A8A3C":status==="desactualizado"?GOLD:"#C0392B";
+
+  return(
+    <div>
+      <div style={{...s.card,borderLeft:"3px solid "+statusColor,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontSize:16,fontFamily:"Georgia, serif"}}>Reglamento Interior de Trabajo</div>
+          <Badge status={status==="vigente"?"green":status==="desactualizado"?"amber":"red"} label={status==="vigente"?"Vigente":status==="desactualizado"?"Requiere actualización":"Sin registro"}/>
+        </div>
+        {data
+          ?<><div style={s.muted}>Última versión: {data.date}</div>
+            {anios>2&&<div style={{fontSize:12,color:GOLD,fontFamily:"system-ui,sans-serif",marginTop:8}}>El reglamento tiene más de {anios} años. La STPS recomienda actualizarlo para reflejar cambios en NOM-035 y reformas laborales recientes.</div>}
+            {data.drive_url&&<button style={{...s.btnGold,...s.btnSm,marginTop:10}} onClick={()=>window.open(data.drive_url,"_blank")}>Ver documento ↗</button>}
+          </>
+          :<div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginTop:4}}>No se ha registrado el Reglamento Interior de Trabajo. Sin este documento, la empresa no puede aplicar sanciones disciplinarias ni acreditar condiciones de trabajo ante la STPS.</div>
+        }
+      </div>
+      <div style={s.card}>
+        <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:12}}>CHECKLIST DE CUMPLIMIENTO</div>
+        {[
+          {label:"Depósito ante STPS o Junta de Conciliación",ok:!!data},
+          {label:"Contiene disciplina y sanciones",ok:!!data},
+          {label:"Incluye NOM-035 (riesgo psicosocial)",ok:data&&anios<=2},
+          {label:"Actualizado en últimos 2 años",ok:data&&anios<=2},
+          {label:"Firmado y conocido por trabajadores",ok:!!data},
+        ].map((item,i)=>(
+          <div key={i} style={{...s.flex(),gap:8,padding:"8px 0",borderBottom:"1px solid "+BORDER}}>
+            <div style={{width:18,height:18,borderRadius:9,background:item.ok?"#5A8A3C":"#C0392B",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{color:"#fff",fontSize:11}}>{item.ok?"✓":"×"}</span>
+            </div>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:item.ok?TEXT_DARK:GRAY}}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── L-03 REPSE Y SUBCONTRATACIÓN ─────────────────────────────────────────────
+function ModL03({client}){
+  const [repse,setRepse]=useState(null);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("perfil_regulatorio").select("*").eq("client_id",client.id)
+      .then(({data:d})=>{
+        const r=(d||[]).find(x=>x.autoridad==="REPSE"||x.tipo==="repse");
+        setRepse(r||null);setLoading(false);
+      });
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  return(
+    <div>
+      <div style={{...s.card,borderLeft:"3px solid "+(repse?"#5A8A3C":"#C0392B"),marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:16,fontFamily:"Georgia, serif"}}>Registro REPSE</div>
+          <Badge status={repse?"green":"red"} label={repse?"Registrado":"Sin registro"}/>
+        </div>
+        {repse
+          ?<><div style={s.muted}>Folio: {repse.numero||" - "}</div>
+            <div style={s.muted}>Vencimiento: {repse.vencimiento||" - "}</div>
+          </>
+          :<div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginTop:4}}>Sin registro REPSE. Las empresas que prestan servicios especializados o ejecutan obras especializadas deben estar inscritas. Sin este registro, los contratos de subcontratación no son deducibles y el cliente final pierde el derecho a acreditar el IVA.</div>
+        }
+      </div>
+      <div style={s.card}>
+        <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:12}}>OBLIGACIONES MENSUALES REPSE</div>
+        {[
+          {label:"Informar contratos al IMSS (SIPARE)",desc:"Dentro de los primeros 17 días del mes"},
+          {label:"Retener y enterar ISR e IVA",desc:"Si aplica régimen de subcontratación"},
+          {label:"Compartir comprobantes de pago IMSS/INFONAVIT",desc:"Al contratante dentro de los 5 días siguientes"},
+          {label:"Actualizar información en portal REPSE",desc:"Ante cualquier cambio de actividad o socios"},
+        ].map((item,i)=>(
+          <div key={i} style={{padding:"10px 0",borderBottom:"1px solid "+BORDER}}>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",fontWeight:500,color:TEXT_DARK}}>{item.label}</div>
+            <div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",marginTop:2}}>{item.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── L-04 TERMINACIONES Y LIQUIDACIONES ───────────────────────────────────────
+function ModL04({client}){
+  const [data,setData]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("historial").select("*").eq("client_id",client.id)
+      .ilike("tipo","%terminacion%")
+      .order("created_at",{ascending:false})
+      .then(({data:d})=>{setData(d||[]);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#5A8A3C",fontFamily:"Georgia, serif"}}>{data.filter(x=>x.status==="completado").length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Concluidas</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:GOLD,fontFamily:"Georgia, serif"}}>{data.filter(x=>x.status==="pendiente"||x.status==="en_proceso").length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>En proceso</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#C0392B",fontFamily:"Georgia, serif"}}>{data.filter(x=>x.status==="litigio"||x.status==="demanda").length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>En litigio</div></div>
+      </div>
+      {data.length===0
+        ?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>No hay terminaciones registradas</div>
+        :<div style={s.card}>
+          {data.map(x=><div key={x.id} style={s.row}>
+            <span style={s.dot(x.status==="completado"?"vigente":x.status==="litigio"?"vencido":"por renovar")}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.titulo||x.tipo}</div>
+              <div style={s.muted}>{x.fecha||x.created_at?.slice(0,10)}{x.monto?" · "+x.monto:""}</div>
+            </div>
+            <Badge status={x.status==="completado"?"green":x.status==="litigio"?"red":"amber"} label={x.status||"pendiente"}/>
+          </div>)}
+        </div>
+      }
+      <div style={{...s.card,marginTop:12,borderLeft:"3px solid "+GOLD}}>
+        <div style={{fontSize:11,fontWeight:600,color:GOLD,fontFamily:"system-ui,sans-serif",marginBottom:8}}>CONCEPTOS DE LIQUIDACIÓN (LFT)</div>
+        {["3 meses de salario integrado","20 días por año trabajado","Partes proporcionales (vacaciones, aguinaldo, prima vacacional)","Prima de antigüedad (12 días/año en despido injustificado)"].map((item,i)=>(
+          <div key={i} style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,padding:"5px 0",borderBottom:i<3?"1px solid "+BORDER:"none"}}>{item}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── L-05 LITIGIOS LABORALES ──────────────────────────────────────────────────
+function ModL05({client}){
+  const [data,setData]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("historial").select("*").eq("client_id",client.id)
+      .in("tipo",["litigio_laboral","demanda_laboral","juicio_laboral","amparo_laboral"])
+      .order("created_at",{ascending:false})
+      .then(({data:d})=>{setData(d||[]);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  const activos=data.filter(x=>x.status!=="concluido"&&x.status!=="archivado");
+  const riesgoTotal=data.reduce((sum,x)=>sum+(parseFloat(x.monto)||0),0);
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#C0392B",fontFamily:"Georgia, serif"}}>{activos.length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Activos</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:20,fontWeight:400,color:"#C0392B",fontFamily:"Georgia, serif"}}>{riesgoTotal>0?"$"+riesgoTotal.toLocaleString():" - "}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Riesgo total estimado</div></div>
+      </div>
+      {data.length===0
+        ?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin litigios laborales registrados</div>
+        :<div style={s.card}>
+          {data.map(x=><div key={x.id} style={{...s.row,alignItems:"flex-start"}}>
+            <span style={{...s.dot(x.status==="concluido"?"vigente":"vencido"),marginTop:4}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.titulo||x.tipo}</div>
+              <div style={s.muted}>{x.autoridad||"JFCA"}{x.expediente?" · Exp: "+x.expediente:""}</div>
+              {x.proxima_fecha&&<div style={{fontSize:11,color:GOLD,fontFamily:"system-ui,sans-serif",marginTop:2}}>Próxima actuación: {x.proxima_fecha}</div>}
+              {x.monto&&<div style={{fontSize:11,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginTop:2}}>Riesgo: ${parseFloat(x.monto).toLocaleString()}</div>}
+            </div>
+            <Badge status={x.status==="concluido"?"green":"red"} label={x.status||"activo"}/>
+          </div>)}
+        </div>
+      }
+    </div>
+  );
+}
+
+// ─── L-06 NOM-035 Y CLIMA LABORAL ─────────────────────────────────────────────
+function ModL06({client}){
+  const [data,setData]=useState(null);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("areas").select("*").eq("client_id",client.id).eq("id","a_nom035")
+      .then(({data:d})=>{setData(d&&d[0]?d[0]:null);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  const items=[
+    {label:"Política de prevención de riesgos psicosociales",clave:"politica"},
+    {label:"Identificación y análisis de factores de riesgo (más de 50 trabajadores)",clave:"identificacion"},
+    {label:"Medidas de control implementadas",clave:"medidas"},
+    {label:"Difusión entre trabajadores",clave:"difusion"},
+    {label:"Evaluación del entorno organizacional (anual)",clave:"evaluacion"},
+  ];
+
+  return(
+    <div>
+      <div style={{...s.card,borderLeft:"3px solid "+(data?.status==="vigente"?"#5A8A3C":GOLD),marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:16,fontFamily:"Georgia, serif"}}>NOM-035-STPS-2018</div>
+          <Badge status={data?.status==="vigente"?"green":"amber"} label={data?.status==="vigente"?"Cumple":"Revisar"}/>
+        </div>
+        <div style={s.muted}>Factores de riesgo psicosocial y entorno organizacional favorable</div>
+        {data?.sub&&<div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,marginTop:8}}>{data.sub}</div>}
+      </div>
+      <div style={s.card}>
+        <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:12}}>OBLIGACIONES POR TAMAÑO DE EMPRESA</div>
+        <div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8,padding:"6px 10px",background:"#F5F8F5",borderRadius:4}}>Hasta 15 trabajadores: política + difusión | 16-50: + medidas de control | +50: + evaluación del entorno</div>
+        {items.map((item,i)=>(
+          <div key={i} style={{...s.flex(),gap:8,padding:"8px 0",borderBottom:i<items.length-1?"1px solid "+BORDER:"none"}}>
+            <div style={{width:18,height:18,borderRadius:9,background:GOLD,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{color:"#fff",fontSize:10}}>!</span>
+            </div>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK}}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── L-07 SEGURIDAD SOCIAL ESTRATÉGICA ────────────────────────────────────────
+function ModL07({client}){
+  const [data,setData]=useState(null);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("perfil_regulatorio").select("*").eq("client_id",client.id)
+      .then(({data:d})=>{
+        const imss=(d||[]).find(x=>x.autoridad==="IMSS");
+        setData(imss||null);setLoading(false);
+      });
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  return(
+    <div>
+      <div style={{...s.card,borderLeft:"3px solid "+(data?.status==="vigente"?"#5A8A3C":"#C0392B"),marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:16,fontFamily:"Georgia, serif"}}>Registro Patronal IMSS</div>
+          <Badge status={data?.status==="vigente"?"green":"red"} label={data?.status||"Sin datos"}/>
+        </div>
+        {data
+          ?<><div style={s.muted}>Registro: {data.numero||" - "}</div>
+            <div style={s.muted}>Representante IMSS: {data.representante||" - "}</div>
+          </>
+          :<div style={{fontSize:12,color:GRAY,fontFamily:"system-ui,sans-serif",marginTop:4}}>Sin información registrada. El despacho actualizará este módulo con los datos de tu registro patronal.</div>
+        }
+      </div>
+      <div style={s.card}>
+        <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:12}}>CUOTAS PATRONALES (2024)</div>
+        {[
+          {concepto:"Enfermedad y Maternidad (cuota fija)",patron:"20.40%",trabajador:"0%"},
+          {concepto:"Invalidez y Vida",patron:"1.75%",trabajador:"0.625%"},
+          {concepto:"Retiro (SAR)",patron:"2.0%",trabajador:" - "},
+          {concepto:"Cesantía y Vejez",patron:"3.150%",trabajador:"1.125%"},
+          {concepto:"Guarderías y Prestaciones",patron:"1.0%",trabajador:" - "},
+          {concepto:"Riesgo de Trabajo (variable)",patron:"0.54% - 7.59%",trabajador:" - "},
+        ].map((row,i)=>(
+          <div key={i} style={{display:"flex",gap:8,padding:"8px 0",borderBottom:i<5?"1px solid "+BORDER:"none",fontSize:11,fontFamily:"system-ui,sans-serif"}}>
+            <div style={{flex:2,color:TEXT_DARK}}>{row.concepto}</div>
+            <div style={{flex:1,color:"#C0392B",textAlign:"right"}}>P: {row.patron}</div>
+            <div style={{flex:1,color:GOLD,textAlign:"right"}}>T: {row.trabajador}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── L-08 DIRECTIVOS CLAVE Y RETENCIÓN ────────────────────────────────────────
+function ModL08({client}){
+  const [data,setData]=useState([]);const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    supabase.from("personas").select("*").eq("client_id",client.id)
+      .in("tipo",["director","directivo","clave","gerente_general","cfo","coo"])
+      .order("nombre",{ascending:true})
+      .then(({data:d})=>{setData(d||[]);setLoading(false);});
+  },[client.id]);
+
+  if(loading)return <Spinner/>;
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:MUSGO,fontFamily:"Georgia, serif"}}>{data.length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Directivos registrados</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:"#5A8A3C",fontFamily:"Georgia, serif"}}>{data.filter(x=>x.contrato_clave).length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Con contrato clave</div></div>
+        <div style={{...s.scoreCard,flex:1}}><div style={{fontSize:28,fontWeight:400,color:GOLD,fontFamily:"Georgia, serif"}}>{data.filter(x=>!x.contrato_clave).length}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui,sans-serif"}}>Sin contrato clave</div></div>
+      </div>
+      {data.length===0
+        ?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>No hay directivos clave registrados</div>
+        :<div style={s.card}>
+          {data.map(x=><div key={x.id} style={s.row}>
+            <span style={s.dot(x.contrato_clave?"vigente":"por renovar")}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.nombre}</div>
+              <div style={s.muted}>{x.cargo||x.tipo}</div>
+            </div>
+            <Badge status={x.contrato_clave?"green":"amber"} label={x.contrato_clave?"Contrato vigente":"Sin contrato clave"}/>
+          </div>)}
+        </div>
+      }
+      <div style={{...s.card,marginTop:12,borderLeft:"3px solid "+MUSGO}}>
+        <div style={{fontSize:11,fontWeight:600,color:MUSGO,fontFamily:"system-ui,sans-serif",marginBottom:8}}>ELEMENTOS CLAVE DEL CONTRATO DIRECTIVO</div>
+        {["Cláusula de no competencia (6-24 meses post-empleo)","Acuerdo de confidencialidad y propiedad intelectual","Plan de compensación variable documentado","Severance y golden parachute negociado","Acuerdo de permanencia mínima (si aplica)"].map((item,i)=>(
+          <div key={i} style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,padding:"5px 0",borderBottom:i<4?"1px solid "+BORDER:"none"}}>{item}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RequestModal({client,onClose,onSubmit}){
   const [type,setType]=useState("");const [notes,setNotes]=useState("");
   const [sending,setSending]=useState(false);const [sent,setSent]=useState(false);
@@ -3078,6 +3882,18 @@ function ClientView({client,onLogout}){
           {tabs.slice(3,9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
           <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Despacho</div>
           {tabs.slice(9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          {(client.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).length>0&&<>
+            <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Módulos activos</div>
+            {(client.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).map(id=>{
+              const m=MODULOS_CATALOG.find(x=>x.id===id);
+              if(!m)return null;
+              const tc=TIER_COLORS[m.tier];
+              return <button key={id} onClick={()=>setTab("mod_"+id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab==="mod_"+id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab==="mod_"+id?"rgba(255,255,255,.12)":"none",borderLeft:tab==="mod_"+id?"2px solid "+tc.color:"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                <span style={{fontSize:9,padding:"1px 4px",borderRadius:2,background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.5)",flexShrink:0}}>{id}</span>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{m.nombre}</span>
+              </button>;
+            })}
+          </>}
           <div style={{marginTop:"auto",padding:"16px 18px",borderTop:"1px solid rgba(255,255,255,.1)"}}>
             <button style={{width:"100%",background:"rgba(0,0,0,.15)",border:"none",borderRadius:8,padding:"10px 12px",textAlign:"left",cursor:"pointer"}} onClick={onLogout}>
               <div style={{fontSize:9,color:"rgba(240,244,238,.38)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Sesión activa</div>
@@ -3161,10 +3977,122 @@ function ClientView({client,onLogout}){
       {tab==="historial"&&<HistorialClientTab client={client}/>}
       {tab==="resumen"&&<ResumenClientTab client={client}/>}
       {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);setShowDiag(true);}}/>}
+      {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={client}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
           </div>
         </div>
       </div>
+  );
+}
+
+
+function AdminModulosTab({clients}){
+  const [selClient,setSelClient]=useState(null);
+  const [selMod,setSelMod]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const [saved,setSaved]=useState("");
+
+  const client = clients.find(x=>x.id===selClient);
+  const modActivos = client ? (client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);
+    return m&&m.tier>0;
+  }) : [];
+
+  return(
+    <div style={{display:"flex",gap:16,height:"100%"}}>
+      {/* Client list */}
+      <div style={{width:200,flexShrink:0}}>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>Cliente</div>
+        {clients.map(cl=>(
+          <button key={cl.id} onClick={()=>{setSelClient(cl.id);setSelMod(null);}} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:4,border:"1px solid "+(selClient===cl.id?MUSGO:BORDER),background:selClient===cl.id?"#E8F0E8":"#fff",cursor:"pointer",marginBottom:4,fontFamily:"system-ui,sans-serif",fontSize:12,color:selClient===cl.id?MUSGO:TEXT_DARK}}>
+            <div style={{fontWeight:600}}>{cl.name}</div>
+            <div style={{fontSize:10,color:GRAY}}>{(cl.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).length} módulos activos</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Module list */}
+      {client&&<div style={{width:220,flexShrink:0}}>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>Módulos activos</div>
+        {modActivos.length===0
+          ?<div style={{fontSize:12,color:GRAY,fontFamily:"system-ui,sans-serif",padding:"1rem 0"}}>Sin módulos adicionales activos</div>
+          :modActivos.map(id=>{
+            const m=MODULOS_CATALOG.find(x=>x.id===id);
+            const tc=TIER_COLORS[m.tier];
+            return(
+              <button key={id} onClick={()=>setSelMod(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:4,border:"1px solid "+(selMod===id?tc.color:BORDER),background:selMod===id?tc.bg:"#fff",cursor:"pointer",marginBottom:4,fontFamily:"system-ui,sans-serif",fontSize:12,color:TEXT_DARK}}>
+                <div style={{fontSize:9,color:tc.color,fontWeight:600,marginBottom:2}}>{id}</div>
+                <div>{m.nombre}</div>
+              </button>
+            );
+          })
+        }
+      </div>}
+
+      {/* Module editor */}
+      {client&&selMod&&<div style={{flex:1}}>
+        <AdminModuloEditor client={client} modId={selMod} onSaved={msg=>{setSaved(msg);setTimeout(()=>setSaved(""),2000);}}/>
+        {saved&&<div style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginTop:8}}>{saved}</div>}
+      </div>}
+
+      {!client&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center",color:GRAY,fontFamily:"system-ui,sans-serif"}}>
+          <div style={{fontSize:32,marginBottom:8}}>⚡</div>
+          <div style={{fontSize:14}}>Selecciona un cliente para gestionar sus módulos</div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function AdminModuloEditor({client, modId, onSaved}){
+  const m = MODULOS_CATALOG.find(x=>x.id===modId);
+  const [nota,setNota]=useState("");
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    // Load existing note from historial
+    supabase.from("historial").select("*").eq("client_id",client.id)
+      .eq("tipo","modulo_nota_"+modId).order("created_at",{ascending:false}).limit(1)
+      .then(({data:d})=>{if(d&&d[0])setNota(d[0].detalle||"");});
+  },[client.id,modId]);
+
+  async function saveNota(){
+    setSaving(true);
+    await supabase.from("historial").upsert({
+      client_id:client.id, tipo:"modulo_nota_"+modId,
+      titulo:"Nota módulo "+m.nombre, detalle:nota,
+      fecha:new Date().toISOString().slice(0,10)
+    });
+    setSaving(false);
+    onSaved&&onSaved("Guardado ✓");
+  }
+
+  const tc = TIER_COLORS[m.tier];
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:tc.bg,color:tc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{m.id}</span>
+        <div style={{fontSize:16,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{m.nombre}</div>
+        <Badge status="green" label={m.cat}/>
+      </div>
+
+      {/* Live data view */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>Vista del cliente</div>
+        <div style={{border:"1px solid "+BORDER,borderRadius:8,padding:16,background:"#FAFCF8"}}>
+          <ModuloViewDocs modId={modId} client={client} isAdmin={true}/>
+        </div>
+      </div>
+
+      {/* Nota del despacho */}
+      <div>
+        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>Nota del despacho para el cliente</div>
+        <textarea style={{...{width:"100%",border:"1px solid "+BORDER,borderRadius:4,padding:"9px 12px",fontSize:12,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif",resize:"vertical"},height:100}} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Agrega contexto, recomendaciones o actualizaciones para el cliente sobre este módulo..."/>
+        <button style={{...{background:MUSGO,color:"#F0F4EE",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"},marginTop:8}} onClick={saveNota} disabled={saving}>{saving?"Guardando...":"Guardar nota"}</button>
+      </div>
+    </div>
   );
 }
 
@@ -3327,7 +4255,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"}];
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"}];
 
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
@@ -3397,6 +4325,7 @@ function AdminView({onLogout,admin}){
       <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
 
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
+      {tab==="modulos"&&<AdminModulosTab clients={clients}/>}
 
       {tab==="panel"&&client&&<>
         {hasDrafts&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Resultados pendientes de revisión</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}
