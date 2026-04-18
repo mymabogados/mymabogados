@@ -3022,6 +3022,7 @@ function RequestModal({client,onClose,onSubmit}){
 }
 
 function ClientView({client,onLogout}){
+  const [sidebarOpen,setSidebarOpen]=useState(true);
   const [tab,setTab]=useState("panel");const [docCat,setDocCat]=useState("poderes");
   const [showReq,setShowReq]=useState(false);const [areas,setAreas]=useState([]);
   const [documents,setDocuments]=useState([]);const [pendingDocs,setPendingDocs]=useState([]);
@@ -3065,7 +3066,7 @@ function ClientView({client,onLogout}){
   return(
     <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
         {/* SIDEBAR */}
-        <div style={{width:204,background:(client.branding?.color||MUSGO),borderRight:"1px solid rgba(0,0,0,.15)",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+        <div style={{width:sidebarOpen?204:0,background:(client.branding?.color||MUSGO),borderRight:sidebarOpen?"1px solid rgba(0,0,0,.15)":"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
           <div style={{padding:"22px 18px 14px"}}>
             {client.branding?.logo?<img src={client.branding.logo} style={{height:24,maxWidth:140,objectFit:"contain",filter:"brightness(0) invert(1)"}} alt="logo"/>:<div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>}
             <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.branding?.nombre_portal||"Panel corporativo"}</div>
@@ -3089,7 +3090,7 @@ function ClientView({client,onLogout}){
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
           {/* TOPBAR */}
           <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-            <div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
             <div style={{display:"flex",gap:8}}>
               <button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
               <NotifBell clientId={client.id}/>
@@ -3241,6 +3242,7 @@ function UsersTab({clients,setClients,admins,setAdmins}){
 }
 
 function AdminView({onLogout,admin}){
+  const [sidebarOpen,setSidebarOpen]=useState(true);
   const [clients,setClients]=useState([]);const [admins,setAdmins]=useState([]);
   const [sel,setSel]=useState(null);const [tab,setTab]=useState("panel");
   const [areas,setAreas]=useState([]);const [documents,setDocuments]=useState([]);
@@ -3335,7 +3337,7 @@ function AdminView({onLogout,admin}){
       {/* SIDEBAR + MAIN */}
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {/* SIDEBAR */}
-        <div style={{width:204,background:MUSGO,borderRight:"1px solid "+MUSGO_DARK,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+        <div style={{width:sidebarOpen?204:0,background:MUSGO,borderRight:sidebarOpen?"1px solid "+MUSGO_DARK:"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
           <div style={{padding:"22px 18px 14px"}}>
             <div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>
             <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>Panel administrativo</div>
