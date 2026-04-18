@@ -1,0 +1,14 @@
+const fs = require('fs');
+let c = fs.readFileSync('src/App.jsx', 'utf8');
+c = c.replace(/fontFamily:"'Georgia', serif"/g, 'fontFamily:"Georgia, serif"');
+c = c.replace('fontWeight:400,color,fontFamily', 'fontWeight:400,color:color,fontFamily');
+c = c.replace("border:`1px solid #fca5a5`", 'border:"1px solid #fca5a5"');
+c = c.replace("borderBottom:active?`2px solid ${GOLD}`", 'borderBottom:active?"2px solid "+GOLD');
+c = c.replace(/`2px solid \${([^}]+)}`/g, (m,v) => '"2px solid "+'+v);
+c = c.replace(/`1px solid \${([^}]+)}`/g, (m,v) => '"1px solid "+'+v);
+c = c.replace(/`3px solid \${([^}]+)}`/g, (m,v) => '"3px solid "+'+v);
+c = c.replace(/`\${([^}]+)}%`/g, (m,v) => v+'+"%" ');
+c = c.replace(/\u2014/g, ' - ');
+c = c.replace(/doc\.save\(`([^`]*)\$\{([^}]+)\}([^`]*)\`\)/g, (m,a,v,b) => 'doc.save("'+a+'"+'+v+'+"'+b+'")');
+fs.writeFileSync('src/App.jsx', c);
+console.log('Done');

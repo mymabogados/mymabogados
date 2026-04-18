@@ -22,6 +22,141 @@ const STATUS_COLORS = {
   pendiente:"#C9A84C",red:"#C0392B",amber:"#C9A84C",green:"#5A8A3C"
 };
 
+
+const MODULOS_CATALOG = [
+  { id:"B-01", nombre:"Gobierno Corporativo", cat:"Base", tier:0 },
+  { id:"B-02", nombre:"Cumplimiento Corporativo", cat:"Base", tier:0 },
+  { id:"B-03", nombre:"Equipo Directivo y Poderes", cat:"Base", tier:0 },
+  { id:"B-04", nombre:"Contratos Corporativos", cat:"Base", tier:0 },
+  { id:"B-05", nombre:"Asambleas Corporativas", cat:"Base", tier:0 },
+  { id:"B-06", nombre:"Perfil ante Autoridades", cat:"Base", tier:0 },
+  { id:"B-07", nombre:"Alertas Críticas Operativas", cat:"Base", tier:0 },
+  { id:"B-08", nombre:"Análisis de Estatutos con IA", cat:"Base", tier:0 },
+  { id:"C-01", nombre:"Reestructura Societaria", cat:"Corporativo", tier:2, precio:90 },
+  { id:"C-02", nombre:"Due Diligence Legal", cat:"Corporativo", tier:2, precio:90 },
+  { id:"C-03", nombre:"Capital Privado y Pactos", cat:"Corporativo", tier:3, precio:120 },
+  { id:"C-04", nombre:"Startups y Rondas de Inversión", cat:"Corporativo", tier:2, precio:90 },
+  { id:"C-05", nombre:"Gobierno de Datos y Privacidad", cat:"Corporativo", tier:1, precio:60 },
+  { id:"C-06", nombre:"Concesiones y Permisos Federales", cat:"Corporativo", tier:2, precio:90 },
+  { id:"C-07", nombre:"Sector Financiero Regulado", cat:"Corporativo", tier:3, precio:120 },
+  { id:"C-08", nombre:"Sucesión y Patrimonio Empresarial", cat:"Corporativo", tier:2, precio:90 },
+  { id:"L-01", nombre:"Contratos de Trabajo", cat:"Laboral", tier:1, precio:60 },
+  { id:"L-02", nombre:"Reglamento Interior de Trabajo", cat:"Laboral", tier:1, precio:60 },
+  { id:"L-03", nombre:"REPSE y Subcontratación", cat:"Laboral", tier:2, precio:90 },
+  { id:"L-04", nombre:"Terminaciones y Liquidaciones", cat:"Laboral", tier:2, precio:90 },
+  { id:"L-05", nombre:"Litigios Laborales", cat:"Laboral", tier:3, precio:120 },
+  { id:"L-06", nombre:"NOM-035 y Clima Laboral", cat:"Laboral", tier:1, precio:60 },
+  { id:"L-07", nombre:"Seguridad Social Estratégica", cat:"Laboral", tier:2, precio:90 },
+  { id:"L-08", nombre:"Directivos Clave y Retención", cat:"Laboral", tier:2, precio:90 },
+  { id:"F-01", nombre:"Cumplimiento Fiscal Básico", cat:"Fiscal", tier:1, precio:60 },
+  { id:"F-02", nombre:"Facturación y CFDI", cat:"Fiscal", tier:1, precio:60 },
+  { id:"F-03", nombre:"Defensa Fiscal", cat:"Fiscal", tier:3, precio:120 },
+  { id:"F-04", nombre:"Precios de Transferencia", cat:"Fiscal", tier:3, precio:120 },
+  { id:"F-05", nombre:"Planeación Fiscal Corporativa", cat:"Fiscal", tier:3, precio:120 },
+  { id:"F-06", nombre:"Comercio Exterior Fiscal", cat:"Fiscal", tier:2, precio:90 },
+  { id:"F-07", nombre:"Obligaciones Informativas", cat:"Fiscal", tier:1, precio:60 },
+  { id:"F-08", nombre:"Sector Financiero Fiscal", cat:"Fiscal", tier:3, precio:120 },
+  { id:"A-01", nombre:"Arbitraje Comercial", cat:"Arbitraje", tier:3, precio:120 },
+  { id:"A-02", nombre:"Mediación y Negociación", cat:"Arbitraje", tier:2, precio:90 },
+  { id:"A-03", nombre:"Litigios Civiles y Mercantiles", cat:"Arbitraje", tier:3, precio:120 },
+  { id:"A-04", nombre:"Amparo Corporativo", cat:"Arbitraje", tier:3, precio:120 },
+  { id:"A-05", nombre:"Contingencias y Provisiones", cat:"Arbitraje", tier:2, precio:90 },
+  { id:"A-06", nombre:"Competencia Económica", cat:"Arbitraje", tier:3, precio:120 },
+  { id:"O-01", nombre:"Propiedad Intelectual", cat:"Operativo", tier:2, precio:90 },
+  { id:"O-02", nombre:"Contratos con Proveedores", cat:"Operativo", tier:1, precio:60 },
+  { id:"O-03", nombre:"Distribución y Agencia", cat:"Operativo", tier:1, precio:60 },
+  { id:"O-04", nombre:"Franquicias", cat:"Operativo", tier:2, precio:90 },
+  { id:"O-05", nombre:"Tecnología y SaaS", cat:"Operativo", tier:2, precio:90 },
+  { id:"O-06", nombre:"Comercio Electrónico", cat:"Operativo", tier:1, precio:60 },
+  { id:"O-07", nombre:"Inmuebles Corporativos", cat:"Operativo", tier:1, precio:60 },
+  { id:"O-08", nombre:"Medio Ambiente y NOM", cat:"Operativo", tier:1, precio:60 },
+  { id:"O-09", nombre:"Sector Salud", cat:"Operativo", tier:2, precio:90 },
+  { id:"O-10", nombre:"Operaciones Transfronterizas", cat:"Operativo", tier:2, precio:90 },
+];
+
+const TIER_COLORS = { 0:{bg:"#E8F0E8",color:"#4A5C45",label:"Base"}, 1:{bg:"#E6F3FA",color:"#2E6B8A",label:"Basico +$60"}, 2:{bg:"#FAF3E6",color:"#8A6B2E",label:"Avanzado +$90"}, 3:{bg:"#F3E6FA",color:"#7A2E6B",label:"Premium +$120"} };
+const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo"];
+
+function ModulosSelector({clientId, modulosActivos=[], onChange}){
+  const [open,setOpen]=useState(false);
+  const [selected,setSelected]=useState(new Set(modulosActivos));
+  const [saving,setSaving]=useState(false);
+
+  const totalMensual=600+Array.from(selected).reduce((sum,id)=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);
+    return sum+(m?.precio||0);
+  },0);
+
+  async function save(){
+    setSaving(true);
+    const arr=Array.from(selected);
+    await supabase.from("clients").update({modulos:arr}).eq("id",clientId);
+    onChange(arr);
+    setSaving(false);
+    setOpen(false);
+  }
+
+  function toggle(id){
+    const m=MODULOS_CATALOG.find(x=>x.id===id);
+    if(m?.tier===0)return;
+    setSelected(prev=>{const n=new Set(prev);if(n.has(id))n.delete(id);else n.add(id);return n;});
+  }
+
+  const adicionales=Array.from(selected).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;});
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,color:"#1E2B1A",fontFamily:"system-ui,sans-serif"}}>
+            <span style={{fontWeight:600}}>{adicionales.length}</span> módulos adicionales activos
+            <span style={{marginLeft:12,color:"#4A5C45",fontWeight:600}}>{totalMensual.toLocaleString()} USD/mes</span>
+          </div>
+          <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>Base USD600 + {adicionales.length} modulos adicionales</div>
+        </div>
+        <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 14px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setOpen(!open)}>
+          {open?"Cerrar":"Gestionar módulos"}
+        </button>
+      </div>
+
+      {open&&<div style={{background:"#fff",border:"1px solid #DDE4D8",borderRadius:8,padding:16,marginTop:8}}>
+        {MODULOS_CATS.map(cat=>{
+          const mods=MODULOS_CATALOG.filter(m=>m.cat===cat);
+          return(
+            <div key={cat} style={{marginBottom:16}}>
+              <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:8,fontWeight:600}}>{cat}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {mods.map(m=>{
+                  const isBase=m.tier===0;
+                  const active=selected.has(m.id)||isBase;
+                  const tc=TIER_COLORS[m.tier];
+                  return(
+                    <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:5,background:active?"#F5F8F5":"#FAFCF8",border:"1px solid "+(active?"#DDE4D8":"#EEF0EC"),cursor:isBase?"default":"pointer",opacity:isBase?.6:1}} onClick={()=>toggle(m.id)}>
+                      <div style={{width:16,height:16,borderRadius:3,border:"1.5px solid "+(active?"#4A5C45":"#C0CFC0"),background:active?"#4A5C45":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {active&&<span style={{color:"#fff",fontSize:11,lineHeight:1}}>✓</span>}
+                      </div>
+                      <div style={{flex:1,fontSize:12,color:"#1E2B1A",fontFamily:"system-ui,sans-serif"}}>{m.id}  -  {m.nombre}</div>
+                      <span style={{fontSize:10,padding:"2px 7px",borderRadius:3,background:tc.bg,color:tc.color,fontFamily:"system-ui,sans-serif",fontWeight:600,whiteSpace:"nowrap"}}>{tc.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,paddingTop:12,borderTop:"1px solid #DDE4D8"}}>
+          <div style={{fontSize:13,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>
+            Total mensual: <span style={{fontWeight:700,color:"#4A5C45"}}>{totalMensual.toLocaleString()} USD</span>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{background:"none",border:"1px solid #DDE4D8",borderRadius:4,padding:"6px 14px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setOpen(false)}>Cancelar</button>
+            <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 14px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={save} disabled={saving}>{saving?"Guardando...":"Guardar cambios"}</button>
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
+}
 const DOC_TYPES = [
   {id:"poder_general",label:"Poder General",cat:"poderes"},
   {id:"poder_dominio",label:"Poder para Actos de Dominio",cat:"poderes"},
@@ -118,7 +253,7 @@ function generatePDF(client,areas,documents,pendingDocs){
   y=42;doc.setTextColor(26,26,26);doc.setFontSize(16);doc.setFont("helvetica","bold");
   doc.text(client.name,margin,y);y+=7;
   doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
-  doc.text(`Cliente ${client.id}  ·  ${client.contact}`,margin,y);y+=14;
+  doc.text(`Cliente {client.id}  ·  {client.contact}`,margin,y);y+=14;
   const cW=(contentW-9)/4;const sC=score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
   [{label:"Salud corporativa",value:String(score),color:sC},{label:"Riesgos críticos",value:String(areas.filter(a=>a.status==="red").length),color:[192,57,43]},{label:"Revisar pronto",value:String(areas.filter(a=>a.status==="amber").length),color:[201,168,76]},{label:"En orden",value:String(areas.filter(a=>a.status==="green").length),color:[90,138,60]}].forEach((c,i)=>{
     const x=margin+i*(cW+3);doc.setFillColor(245,242,237);doc.roundedRect(x,y,cW,22,2,2,"F");
@@ -146,7 +281,7 @@ function generatePDF(client,areas,documents,pendingDocs){
       checkPage(10);const rgb=d.status==="vigente"?[90,138,60]:d.status==="vencido"?[192,57,43]:[201,168,76];
       doc.setFillColor(...rgb);doc.circle(margin+2,y+2.5,1.5,"F");
       doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(d.name,margin+6,y+4);
-      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(d.person?`${d.person}  ·  ${d.date}`:d.date,margin+6,y+9);
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(d.person?`${d.person}  ·  {d.date}`:d.date,margin+6,y+9);
       doc.setTextColor(...rgb);doc.setFontSize(7);doc.setFont("helvetica","bold");doc.text(d.status.toUpperCase(),pageW-margin-2,y+5,{align:"right"});y+=12;
     });y+=4;
   });
@@ -156,7 +291,7 @@ function generatePDF(client,areas,documents,pendingDocs){
     pendingDocs.forEach(p=>{
       checkPage(12);doc.setFillColor(201,168,76);doc.circle(margin+2,y+2.5,1.5,"F");
       doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(p.name,margin+6,y+4);
-      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(p.due?`Vence: ${p.due}  ·  ${p.note}`:p.note,margin+6,y+9);y+=12;
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(p.due?`Vence: {p.due}  ·  {p.note}`:p.note,margin+6,y+9);y+=12;
     });
   }
   const pc=doc.getNumberOfPages();
@@ -165,7 +300,7 @@ function generatePDF(client,areas,documents,pendingDocs){
     doc.setFillColor(201,168,76);doc.rect(0,284,pageW,0.8,"F");
     doc.setTextColor(180,180,180);doc.setFontSize(7);doc.setFont("helvetica","normal");
     doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx",margin,292);
-    doc.text(`Página ${i} de ${pc}`,pageW-margin,292,{align:"right"});
+    doc.text(`Página {i} de {pc}`,pageW-margin,292,{align:"right"});
   }
   var dt=new Date().toISOString().slice(0,10);doc.save("MM_Inmunidadprotegida._"+client.id+"_"+dt+".pdf");
 }
@@ -196,13 +331,13 @@ const s={
   row:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid "+BORDER},
   flex:(gap=8)=>({display:"flex",gap,alignItems:"center"}),
   col:(gap=8)=>({display:"flex",flexDirection:"column",gap}),
-  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:CONTENT_BG,padding:"1rem"},
-  loginBox:{background:CARD_BG,border:"1px solid "+BORDER,padding:"2.5rem 2rem",width:"min(480px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"0 8px 40px rgba(74,92,69,.1)"},
+  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"stretch",justifyContent:"center",background:CONTENT_BG,padding:0},
+  loginBox:{background:CARD_BG,border:"none",padding:"3rem 3.5rem",width:"min(520px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"none",margin:"auto",justifyContent:"center"},
 };
 
 function Badge({status,label}){return <span style={s.badge(status)}>{label||status}</span>;}
 function ScoreCard({label,value,color}){
-  return <div style={s.scoreCard}><div style={{fontSize:26,fontWeight:400,color,fontFamily:"Georgia, serif"}}>{value}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>{label}</div></div>;
+  return <div style={s.scoreCard}><div style={{fontSize:26,fontWeight:400,color:color,fontFamily:"Georgia, serif"}}>{value}</div><div style={{fontSize:10,color:GRAY,marginTop:4,letterSpacing:".08em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>{label}</div></div>;
 }
 function Spinner(){return <div style={{textAlign:"center",padding:"3rem",color:GRAY,fontSize:12,letterSpacing:".1em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"}}>Cargando...</div>;}
 
@@ -289,7 +424,7 @@ function SolicitudAsambleaModal({client,onClose,onSaved}){
       lugar:form.lugar||"-",presidente:form.presidente||"-",secretario:form.secretario||"-",
       escrutador:form.escrutador||"-",delegados:form.delegados||"-",
       socios:sociosTxt||"-",orden:ordenTxt,notas:form.notas||"-",
-      _subject:`Solicitud de Asamblea: ${form.tipo} - ${client.name}`
+      _subject:`Solicitud de Asamblea: {form.tipo} - {client.name}`
     })});}catch(e){}
     setSending(false);setSent(true);onSaved(data);
     setTimeout(()=>{setSent(false);onClose();},1500);
@@ -1060,7 +1195,7 @@ function UsoPoderesModal({persona,client,onClose}){
     const u={id:"uso"+Date.now(),persona_id:persona.id,client_id:client.id,...form,created_at:new Date().toISOString()};
     await supabase.from("uso_poderes").insert(u);
     // Notify admins via notificaciones table (client_id=null means for all admins)
-    const msg=`${persona.nombre} usó poder: ${form.tipo_acto}${form.descripcion?"  -  "+form.descripcion:""}`;
+    const msg=`${persona.nombre} usó poder: {form.tipo_acto}${form.descripcion?"  -  "+form.descripcion:""}`;
     // Store as notificacion for the client (despacho lo ve en solicitudes)
     await supabase.from("notificaciones").insert({
       id:"notif"+Date.now(),
@@ -1478,7 +1613,7 @@ function PersonasTab({client,isAdmin=false}){
               }
               {p.tipo==="apoderado"&&<ConstanciasInline personaId={p.id}/>}
               {p.industria_extra&&Object.keys(p.industria_extra).length>0&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>
-                {Object.entries(p.industria_extra).map(([k,v])=>v?`${k}: ${v}`:"").filter(Boolean).join(" · ")}
+                {Object.entries(p.industria_extra).map(([k,v])=>v?`${k}: {v}`:"").filter(Boolean).join(" · ")}
               </div>}
             </div>
             <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
@@ -1538,7 +1673,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "kyc_" + p.id,
         tipo: "kyc",
         nivel: "red",
-        titulo: `Falta documentación de ${p.nombre}`,
+        titulo: `Falta documentación de {p.nombre}`,
         detalle: `${pendientes.length} documento(s) sin entregar al despacho`,
         accion: "Ir a Personas",
         tab: "personas",
@@ -1552,7 +1687,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "pep_" + p.id,
       tipo: "pep",
       nivel: "red",
-      titulo: `Representante con cargo público sin declarar - ${p.nombre}`,
+      titulo: `Representante con cargo público sin declarar - {p.nombre}`,
       detalle: "Uno de tus representantes tiene o tuvo un cargo público y no está documentado. Esto puede afectar tus operaciones bancarias.",
       accion: "Completar perfil",
       tab: "personas",
@@ -1567,7 +1702,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "origen_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `¿De dónde vienen los recursos? - ${p.nombre}`,
+        titulo: `¿De dónde vienen los recursos? - {p.nombre}`,
         detalle: "Tu industria requiere documentar el origen de los recursos de tus socios y representantes. Sin esto, los bancos pueden cuestionarte.",
         accion: "Completar perfil",
         tab: "personas",
@@ -1636,7 +1771,7 @@ async function calcComplianceAlerts(clientId, industria) {
       tipo: "asamblea",
       nivel: "amber",
       titulo: "Tu última asamblea fue hace más de un año",
-      detalle: `Última asamblea ordinaria: ${new Date(ultOrd.fecha).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
+      detalle: `Última asamblea ordinaria: {new Date(ultOrd.fecha).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
       accion: "Solicitar nueva asamblea",
       tab: "asambleas",
     });
@@ -1649,8 +1784,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_vencido_" + c.id,
       tipo: "contrato",
       nivel: "red",
-      titulo: `Contrato vencido y sin renovar - ${c.nombre}`,
-      detalle: `Venció el ${new Date(c.vencimiento).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
+      titulo: `Contrato vencido y sin renovar - {c.nombre}`,
+      detalle: `Venció el {new Date(c.vencimiento).toLocaleDateString("es-MX", {day:"numeric",month:"short",year:"numeric"})}`,
       accion: "Ver contratos",
       tab: "contratos",
     });
@@ -1663,8 +1798,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "ctr_pronto_" + c.id,
       tipo: "contrato",
       nivel: dias <= 7 ? "red" : "amber",
-      titulo: `Contrato próximo a vencer - ${c.nombre}`,
-      detalle: `Vence en ${dias} día${dias !== 1 ? "s" : ""}`,
+      titulo: `Contrato próximo a vencer - {c.nombre}`,
+      detalle: `Vence en {dias} día${dias !== 1 ? "s" : ""}`,
       accion: "Ver contratos",
       tab: "contratos",
     });
@@ -1677,7 +1812,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "area_red_" + a.id,
       tipo: "semaforo",
       nivel: "amber",
-      titulo: `El despacho aún no ha explicado este riesgo - ${a.name}`,
+      titulo: `El despacho aún no ha explicado este riesgo - {a.name}`,
       detalle: "Tu despacho detectó un problema aquí pero aún no ha agregado una explicación. Solicítala.",
       accion: "Agregar nota",
       tab: "panel",
@@ -1696,7 +1831,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "sin_usos_" + p.id,
         tipo: "compliance",
         nivel: "amber",
-        titulo: `Poder sin actividad registrada - ${p.nombre}`,
+        titulo: `Poder sin actividad registrada - {p.nombre}`,
         detalle: "Este representante tiene poderes activos pero no hay registro de que los haya usado. Verifica si sigue siendo necesario.",
         accion: "Ver apoderado",
         tab: "personas",
@@ -1708,8 +1843,8 @@ async function calcComplianceAlerts(clientId, industria) {
           id: "uso_antiguo_" + p.id,
           tipo: "compliance",
           nivel: "amber",
-          titulo: `Poder sin uso reciente - ${p.nombre}`,
-      detalle: `Último uso: ${ultimo.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}`,
+          titulo: `Poder sin uso reciente - {p.nombre}`,
+      detalle: `Último uso: {ultimo.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}`,
           accion: "Ver apoderado",
           tab: "personas",
         });
@@ -1740,7 +1875,7 @@ async function calcComplianceAlerts(clientId, industria) {
       id: "alcance_sat_" + p.id,
       tipo: "regulatorio",
       nivel: "amber",
-      titulo: `Representante ante el SAT sin RFC registrado - ${p.nombre}`,
+      titulo: `Representante ante el SAT sin RFC registrado - {p.nombre}`,
       detalle: "Este representante hace trámites fiscales pero no tenemos su RFC. Es un riesgo ante cualquier revisión del SAT.",
       accion: "Completar perfil",
       tab: "personas",
@@ -1755,7 +1890,7 @@ async function calcComplianceAlerts(clientId, industria) {
         id: "alcance_fin_" + p.id,
         tipo: "kyc",
         nivel: "red",
-        titulo: `Representante bancario sin documentos - ${p.nombre}`,
+        titulo: `Representante bancario sin documentos - {p.nombre}`,
         detalle: "Este representante puede operar cuentas bancarias pero no ha entregado su identificación. Tu banco puede bloquearte.",
         accion: "Ver KYC",
         tab: "personas",
@@ -1771,8 +1906,8 @@ async function calcComplianceAlerts(clientId, industria) {
       id:"const_rev_"+c.id,
       tipo:"regulatorio",
       nivel:"amber",
-      titulo:`Representación revocada - ${c.institucion}`,
-      detalle:`${persona?.nombre||"Apoderado"} ya no tiene representación activa ante ${c.institucion}`,
+      titulo:`Representación revocada - {c.institucion}`,
+      detalle:`${persona?.nombre||"Apoderado"} ya no tiene representación activa ante {c.institucion}`,
       accion:"Ver constancias",
       tab:"personas",
     });
@@ -1871,9 +2006,9 @@ function AdminNotifBell(){
     const cMap=Object.fromEntries((allClients.data||[]).map(c=>[c.id,c.name]));
     const pMap=Object.fromEntries((allPersonas.data||[]).map(p=>[p.id,p.nombre]));
     const items=[];
-    (reqs.data||[]).forEach(r=>items.push({id:"req_"+r.id,tipo:"solicitud",icon:"✉️",texto:`${cMap[r.client_id]||r.client_id} - ${r.label}`,sub:r.notes||"",fecha:r.date,client_id:r.client_id}));
-    (usos.data||[]).forEach(u=>items.push({id:"uso_"+u.id,tipo:"poder",icon:"📋",texto:`${cMap[u.client_id]||u.client_id} - Uso de poder: ${u.tipo_acto}`,sub:pMap[u.persona_id]||"",fecha:new Date(u.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:u.client_id}));
-    (diags.data||[]).filter(n=>n.tipo!=="poder").forEach(n=>items.push({id:"notif_"+n.id,tipo:n.tipo,icon:"🔔",texto:`${cMap[n.client_id]||n.client_id} - ${n.mensaje}`,sub:"",fecha:new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:n.client_id}));
+    (reqs.data||[]).forEach(r=>items.push({id:"req_"+r.id,tipo:"solicitud",icon:"✉️",texto:`${cMap[r.client_id]||r.client_id} - {r.label}`,sub:r.notes||"",fecha:r.date,client_id:r.client_id}));
+    (usos.data||[]).forEach(u=>items.push({id:"uso_"+u.id,tipo:"poder",icon:"📋",texto:`${cMap[u.client_id]||u.client_id} - Uso de poder: {u.tipo_acto}`,sub:pMap[u.persona_id]||"",fecha:new Date(u.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:u.client_id}));
+    (diags.data||[]).filter(n=>n.tipo!=="poder").forEach(n=>items.push({id:"notif_"+n.id,tipo:n.tipo,icon:"🔔",texto:`${cMap[n.client_id]||n.client_id} - {n.mensaje}`,sub:"",fecha:new Date(n.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"}),client_id:n.client_id}));
     items.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
     setNotifs(items);setLoading(false);
   }
@@ -2336,23 +2471,23 @@ async function calcConsecuencias(clientId, industria) {
   // CSD vencido
   if (sat.csd_vencimiento && new Date(sat.csd_vencimiento) < hoy) {
     alertas.push({ ...CONSECUENCIAS_MAP.csd_vencido, id: "cons_csd_vencido",
-      detalle: `CSD venció el ${new Date(sat.csd_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+      detalle: `CSD venció el {new Date(sat.csd_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
   }
   // e.firma vencida
   if (sat.efirma_vencimiento && new Date(sat.efirma_vencimiento) < hoy) {
     alertas.push({ ...CONSECUENCIAS_MAP.efirma_vencida, id: "cons_efirma_vencida",
-      detalle: `e.firma venció el ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+      detalle: `e.firma venció el {new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
   }
   // e.firma por vencer
   else if (sat.efirma_vencimiento && new Date(sat.efirma_vencimiento) >= hoy && new Date(sat.efirma_vencimiento) <= en30) {
     const dias = Math.ceil((new Date(sat.efirma_vencimiento) - hoy) / (1000*60*60*24));
     alertas.push({ ...CONSECUENCIAS_MAP.efirma_por_vencer, id: "cons_efirma_pronto",
-      detalle: `e.firma vence en ${dias} días - ${new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+      detalle: `e.firma vence en {dias} días - {new Date(sat.efirma_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
   }
   // Opinión negativa
   if (sat.opinion_cumplimiento === "Negativa" || sat.opinion_cumplimiento === "No vigente" || sat.opinion_cumplimiento === "No consultada" || !sat.opinion_cumplimiento) {
     alertas.push({ ...CONSECUENCIAS_MAP.opinion_negativa, id: "cons_opinion",
-      detalle: sat.opinion_cumplimiento ? `Estatus actual: ${sat.opinion_cumplimiento}` : "Sin datos de opinión de cumplimiento" });
+      detalle: sat.opinion_cumplimiento ? `Estatus actual: {sat.opinion_cumplimiento}` : "Sin datos de opinión de cumplimiento" });
   }
   // Buzón inactivo
   if (!sat.buzon_tributario || sat.buzon_tributario === "Inactivo" || sat.buzon_tributario === "No configurado") {
@@ -2367,7 +2502,7 @@ async function calcConsecuencias(clientId, industria) {
   // IMSS adeudo
   if (imss.estatus_imss === "Adeudo menor" || imss.estatus_imss === "Adeudo significativo") {
     alertas.push({ ...CONSECUENCIAS_MAP.credito_fiscal_imss, id: "cons_imss_adeudo",
-      detalle: `Estatus IMSS: ${imss.estatus_imss}` });
+      detalle: `Estatus IMSS: {imss.estatus_imss}` });
   }
   // Sin registro patronal
   if (!imss.registro_patronal) {
@@ -2382,7 +2517,7 @@ async function calcConsecuencias(clientId, industria) {
   // INFONAVIT adeudo
   if (infonavit.estatus_infonavit === "Adeudo menor" || infonavit.estatus_infonavit === "Adeudo significativo") {
     alertas.push({ ...CONSECUENCIAS_MAP.credito_fiscal_infonavit, id: "cons_infonavit",
-      detalle: `Estatus INFONAVIT: ${infonavit.estatus_infonavit}` });
+      detalle: `Estatus INFONAVIT: {infonavit.estatus_infonavit}` });
   }
   // PLD - KYC incompleto en apoderados bancarios
   const apoderadosBancarios = ps.filter(p => p.tipo === "apoderado" && p.alcance && p.alcance.some(a => a.includes("bancari") || a.includes("CNBV") || a.includes("crédito")));
@@ -2406,7 +2541,7 @@ async function calcConsecuencias(clientId, industria) {
     const dos = new Date(hoy); dos.setFullYear(hoy.getFullYear() - 2);
     if (new Date(se.folio_actualizacion) < dos) {
       alertas.push({ ...CONSECUENCIAS_MAP.folio_cancelado, id: "cons_folio",
-        detalle: `Última actualización: ${new Date(se.folio_actualizacion).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
+        detalle: `Última actualización: {new Date(se.folio_actualizacion).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}` });
     }
   } else if (!se.folio_mercantil) {
     alertas.push({ ...CONSECUENCIAS_MAP.folio_cancelado, id: "cons_folio_ausente",
@@ -2725,13 +2860,137 @@ function AdminEstatutosTab({client}){
     </div>
   );
 }
+
+function BrandingTab({client, onBrandingUpdate}){
+  const [branding, setBranding] = useState(client.branding || {});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState("");
+  const logoRef = React.useRef(null);
+  const coverRef = React.useRef(null);
+
+  async function uploadImage(file, key) {
+    const ext = file.name.split(".").pop();
+    const path = client.id + "/" + key + "." + ext;
+    const { error } = await supabase.storage.from("branding").upload(path, file, { contentType: file.type, upsert: true });
+    if (error) { alert("Error al subir imagen: " + error.message); return null; }
+    const { data } = supabase.storage.from("branding").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function handleLogo(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = await uploadImage(file, "logo");
+    if (url) { const nb = { ...branding, logo: url }; setBranding(nb); await save(nb); }
+  }
+
+  async function handleCover(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = await uploadImage(file, "cover");
+    if (url) { const nb = { ...branding, cover: url }; setBranding(nb); await save(nb); }
+  }
+
+  async function save(b) {
+    setSaving(true);
+    const data = b || branding;
+    await supabase.from("clients").update({ branding: data }).eq("id", client.id);
+    onBrandingUpdate && onBrandingUpdate(data);
+    setSaving(false);
+    setSaved("Guardado ✓");
+    setTimeout(() => setSaved(""), 2000);
+  }
+
+  const MUSGO_DEF = "#4A5C45";
+
+  return (
+    <div>
+      <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Personalización del portal</div>
+
+      {/* Preview */}
+      <div style={{background:"#F2F4F0",borderRadius:8,padding:16,marginBottom:20,border:"1px solid #DDE4D8"}}>
+        <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:8,textTransform:"uppercase",letterSpacing:".08em"}}>Vista previa del sidebar</div>
+        <div style={{width:180,background:branding.color||MUSGO_DEF,borderRadius:6,padding:"14px 12px",display:"flex",flexDirection:"column",gap:8}}>
+          {branding.logo
+            ? <img src={branding.logo} style={{height:28,objectFit:"contain",filter:"brightness(0) invert(1)",alignSelf:"flex-start"}} alt="logo"/>
+            : <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.9)",fontFamily:"system-ui,sans-serif"}}>{branding.nombre||client.name}</div>
+          }
+          <div style={{fontSize:9,color:"rgba(255,255,255,.45)",fontFamily:"system-ui,sans-serif"}}>{branding.nombre_portal||"Panel corporativo"}</div>
+          <div style={{height:1,background:"rgba(255,255,255,.12)"}}/>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.6)",fontFamily:"system-ui,sans-serif"}}>Mi empresa</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.6)",fontFamily:"system-ui,sans-serif"}}>Alertas críticas</div>
+          <div style={{height:1,background:"rgba(255,255,255,.12)",marginTop:4}}/>
+          <div style={{fontSize:8,color:"rgba(255,255,255,.3)",fontFamily:"system-ui,sans-serif"}}>Powered by M&M Abogados</div>
+        </div>
+      </div>
+
+      {/* Fields */}
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+        {/* Logo */}
+        <div>
+          <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Logo de la empresa</div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            {branding.logo
+              ? <img src={branding.logo} style={{height:36,border:"1px solid #DDE4D8",borderRadius:4,padding:4,background:"#fff"}} alt="logo"/>
+              : <div style={{width:60,height:36,border:"1px dashed #DDE4D8",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Sin logo</div>
+            }
+            <input ref={logoRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleLogo}/>
+            <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>logoRef.current?.click()}>Subir logo</button>
+            {branding.logo && <button style={{background:"none",border:"1px solid #DDE4D8",borderRadius:4,padding:"6px 10px",fontSize:11,cursor:"pointer",color:"#C0392B"}} onClick={()=>{const nb={...branding};delete nb.logo;setBranding(nb);save(nb);}}>Quitar</button>}
+          </div>
+          <div style={{fontSize:10,color:"#AAA",fontFamily:"system-ui,sans-serif",marginTop:4}}>PNG o SVG con fondo transparente recomendado. Se mostrará en blanco sobre el color del sidebar.</div>
+        </div>
+
+        {/* Color */}
+        <div>
+          <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Color principal del portal</div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <input type="color" value={branding.color||MUSGO_DEF} onChange={e=>setBranding({...branding,color:e.target.value})} style={{width:40,height:32,border:"1px solid #DDE4D8",borderRadius:4,cursor:"pointer",padding:2}}/>
+            <input style={{...{width:"100%",border:"1px solid #DDE4D8",borderRadius:4,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff",fontFamily:"system-ui,sans-serif"},width:120}} value={branding.color||MUSGO_DEF} onChange={e=>setBranding({...branding,color:e.target.value})} placeholder="#4A5C45"/>
+            <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>save()}>Aplicar</button>
+          </div>
+        </div>
+
+        {/* Nombre portal */}
+        <div>
+          <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Nombre del portal</div>
+          <div style={{display:"flex",gap:8}}>
+            <input style={{flex:1,border:"1px solid #DDE4D8",borderRadius:4,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff",fontFamily:"system-ui,sans-serif"}} value={branding.nombre_portal||""} onChange={e=>setBranding({...branding,nombre_portal:e.target.value})} placeholder="Panel corporativo"/>
+            <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>save()}>Guardar</button>
+          </div>
+          <div style={{fontSize:10,color:"#AAA",fontFamily:"system-ui,sans-serif",marginTop:4}}>Aparece debajo del logo en el sidebar.</div>
+        </div>
+
+        {/* Cover */}
+        <div>
+          <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Imagen de portada del login</div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            {branding.cover
+              ? <img src={branding.cover} style={{height:52,width:80,objectFit:"cover",borderRadius:4,border:"1px solid #DDE4D8"}} alt="cover"/>
+              : <div style={{width:80,height:52,border:"1px dashed #DDE4D8",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",textAlign:"center"}}>Sin imagen</div>
+            }
+            <input ref={coverRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleCover}/>
+            <div>
+              <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"6px 12px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}} onClick={()=>coverRef.current?.click()}>Subir imagen</button>
+              {branding.cover && <button style={{background:"none",border:"1px solid #DDE4D8",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",color:"#C0392B"}} onClick={()=>{const nb={...branding};delete nb.cover;setBranding(nb);save(nb);}}>Quitar</button>}
+            </div>
+          </div>
+          <div style={{fontSize:10,color:"#AAA",fontFamily:"system-ui,sans-serif",marginTop:4}}>Se muestra en el panel izquierdo del login. Recomendado: 800x600px mínimo.</div>
+        </div>
+
+        {saved&&<div style={{fontSize:12,color:"#4A5C45",fontFamily:"system-ui,sans-serif",textAlign:"center"}}>{saved}</div>}
+      </div>
+    </div>
+  );
+}
 function RequestModal({client,onClose,onSubmit}){
   const [type,setType]=useState("");const [notes,setNotes]=useState("");
   const [sending,setSending]=useState(false);const [sent,setSent]=useState(false);
   const dt=DOC_TYPES.find(d=>d.id===type);
   async function submit(){
     if(!type)return;setSending(true);
-    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({empresa:client.name,contacto:client.contact,email:client.email,documento:dt?.label||type,notas:notes||"-",_subject:`Solicitud: ${dt?.label}  -  ${client.name}`})});}catch(e){}
+    try{await fetch(FORMSPREE,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({empresa:client.name,contacto:client.contact,email:client.email,documento:dt?.label||type,notas:notes||"-",_subject:`Solicitud: {dt?.label}  -  {client.name}`})});}catch(e){}
     setSending(false);await onSubmit({type,label:dt?.label||type,notes});setSent(true);
     setTimeout(()=>{setSent(false);onClose();},1500);
   }
@@ -2801,18 +3060,15 @@ function ClientView({client,onLogout}){
   const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
   const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
   const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
-  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
+  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
 
   return(
-    <div style={{fontFamily:"Georgia, serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      {/* TOP NAV */}
-      {/* SIDEBAR + MAIN */}
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+    <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
         {/* SIDEBAR */}
-        <div style={{width:204,background:MUSGO,borderRight:"1px solid "+MUSGO_DARK,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+        <div style={{width:204,background:(client.branding?.color||MUSGO),borderRight:"1px solid rgba(0,0,0,.15)",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
           <div style={{padding:"22px 18px 14px"}}>
-            <div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>
-            <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.name}</div>
+            {client.branding?.logo?<img src={client.branding.logo} style={{height:24,maxWidth:140,objectFit:"contain",filter:"brightness(0) invert(1)"}} alt="logo"/>:<div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>}
+            <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.branding?.nombre_portal||"Panel corporativo"}</div>
           </div>
           <div style={{height:1,background:"rgba(255,255,255,.12)",margin:"0 18px"}}/>
           <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Principal</div>
@@ -2826,6 +3082,7 @@ function ClientView({client,onLogout}){
               <div style={{fontSize:9,color:"rgba(240,244,238,.38)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Sesión activa</div>
               <div style={{fontSize:11,color:MUSGO_TEXT,fontWeight:500}}>Cerrar sesión</div>
             </button>
+            <div style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"system-ui,sans-serif",marginTop:8,textAlign:"center"}}>Powered by M&M Abogados</div>
           </div>
         </div>
         {/* MAIN AREA */}
@@ -2882,7 +3139,7 @@ function ClientView({client,onLogout}){
       {tab==="asambleas"&&<AsambleasTab client={client} isAdmin={false}/>}
 
       {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
-        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: ${p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: {p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
       )}
 
       {tab==="solicitudes"&&<>
@@ -2897,6 +3154,7 @@ function ClientView({client,onLogout}){
       {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
       {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
       {tab==="regulatorio"&&<PerfilRegulatorioTab client={client} isAdmin={false}/>}
+      {tab==="marca"&&<BrandingTab client={client} onBrandingUpdate={b=>setBranding&&setBranding(b)}/>}
       {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
       {tab==="contratos"&&<ContratosClientTab client={client}/>}
       {tab==="historial"&&<HistorialClientTab client={client}/>}
@@ -2906,7 +3164,6 @@ function ClientView({client,onLogout}){
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
@@ -2916,7 +3173,7 @@ function UsersTab({clients,setClients,admins,setAdmins}){
   const [saved,setSaved]=useState("");const [confirmDelete,setConfirmDelete]=useState(null);
 
   async function saveClient(c){
-    await supabase.from("clients").update({name:c.name,contact:c.contact,email:c.email,password:c.password}).eq("id",c.id);
+    await supabase.from("clients").update({name:c.name,contact:c.contact,email:c.email,password:c.password,modulos:c.modulos||[]}).eq("id",c.id);
     setClients(prev=>prev.map(x=>x.id===c.id?c:x));setEditingClient(null);
     setSaved("Cliente actualizado ✓");setTimeout(()=>setSaved(""),2000);
   }
@@ -2972,7 +3229,7 @@ function UsersTab({clients,setClients,admins,setAdmins}){
       <div style={s.card}>
         {clients.map(c=>editingClient?.id===c.id
           ?<div key={c.id} style={{...s.col(),padding:"12px 0",borderBottom:"1px solid "+BORDER}}>
-            <div style={s.flex()}><input style={{...s.input,width:80}} value={editingClient.id} disabled/><input style={s.input} placeholder="Nombre empresa" value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})}/></div>
+            <ModulosSelector clientId={editingClient.id} modulosActivos={editingClient.modulos||[]} onChange={mods=>setEditingClient({...editingClient,modulos:mods})}/><div style={s.flex()}><input style={{...s.input,width:80}} value={editingClient.id} disabled/><input style={s.input} placeholder="Nombre empresa" value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} placeholder="Contacto" value={editingClient.contact} onChange={e=>setEditingClient({...editingClient,contact:e.target.value})}/><input style={s.input} placeholder="Email" value={editingClient.email} onChange={e=>setEditingClient({...editingClient,email:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingClient.password} onChange={e=>setEditingClient({...editingClient,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveClient(editingClient)}>Guardar</button><button style={s.btn} onClick={()=>setEditingClient(null)}>Cancelar</button></div>
           </div>
@@ -3246,12 +3503,20 @@ function Login({onLogin}){
 
   return(
     <div style={s.loginWrap}>
+      {/* Left panel - brand */}
+      <div style={{background:MUSGO,flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4rem",minHeight:"100vh",backgroundSize:"cover",backgroundPosition:"center",position:"relative"}}>
+        <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,244,238,.5)",fontFamily:"system-ui,sans-serif",marginBottom:32}}>Millán & Martínez Abogados</div>
+        <div style={{fontSize:42,fontFamily:"Georgia, serif",fontWeight:400,color:MUSGO_TEXT,lineHeight:1.15,marginBottom:8}}>Tu empresa,</div>
+        <div style={{fontSize:42,fontFamily:"Georgia, serif",fontWeight:400,color:"rgba(240,244,238,.6)",fontStyle:"italic",lineHeight:1.15,marginBottom:32}}>protegida.</div>
+        <div style={{width:48,height:2,background:"rgba(240,244,238,.3)",marginBottom:32}}/>
+        <div style={{fontSize:14,color:"rgba(240,244,238,.5)",fontFamily:"system-ui,sans-serif",lineHeight:1.7,maxWidth:380}}>Panel de gestión corporativa para empresas que tienen demasiado construido para dejarlo en manos equivocadas.</div>
+      </div>
+      {/* Right panel - login form */}
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:CONTENT_BG,minHeight:"100vh"}}>
       <div style={s.loginBox}>
-        <div style={{textAlign:"center",marginBottom:8}}>
-          <div style={{fontSize:11,letterSpacing:".2em",textTransform:"uppercase",color:GOLD,fontFamily:"system-ui, sans-serif",marginBottom:20}}>Millán & Martínez Abogados</div>
-          <div style={{fontSize:28,fontFamily:"Georgia, serif",fontWeight:400,color:BLACK,lineHeight:1.2}}>Tu empresa,</div>
-          <div style={{fontSize:28,fontFamily:"Georgia, serif",fontWeight:400,color:BLACK,fontStyle:"italic",lineHeight:1.2}}>protegida.</div>
-          <div style={{width:40,height:2,background:GOLD,margin:"20px auto 0"}}/>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:22,fontFamily:"Georgia, serif",fontWeight:400,color:TEXT_DARK,lineHeight:1.2,marginBottom:6}}>Acceder</div>
+          <div style={{fontSize:13,color:TEXT_MED,fontFamily:"system-ui,sans-serif"}}>Ingresa tus credenciales para continuar</div>
         </div>
         <div style={{...s.flex(),marginTop:8}}>
           {["client","admin"].map(r=>(
@@ -3264,6 +3529,7 @@ function Login({onLogin}){
         <input style={{...s.input,padding:"11px 12px",fontSize:13}} type="password" placeholder="Contraseña" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
         {err&&<div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui, sans-serif"}}>{err}</div>}
         <button style={{...s.btnPrimary,padding:"12px 14px",fontSize:12,letterSpacing:".12em"}} onClick={attempt} disabled={loading}>{loading?"Verificando...":"Entrar"}</button>
+      </div>
       </div>
     </div>
   );
