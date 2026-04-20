@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./ModulosArbitraje";
 import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
 import { ModO01,ModO02,ModO03,ModO04,ModO05,ModO06,ModO07,ModO08,ModO09,ModO10,OPERATIVO_DOCS } from "./ModulosOperativo";
+import { ModM01,ModM02,ModM03,ModM04,ModM05,MIGRATORIO_DOCS } from "./ModulosMigratorio";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -75,6 +76,16 @@ const MODULOS_CATALOG = [
   { id:"O-08", nombre:"Medio Ambiente y NOM", cat:"Operativo", tier:1, precio:60 },
   { id:"O-09", nombre:"Sector Salud", cat:"Operativo", tier:2, precio:90 },
   { id:"O-10", nombre:"Operaciones Transfronterizas", cat:"Operativo", tier:2, precio:90 },
+  { id:"M-01", nombre:"Visas de Trabajo", cat:"Migratorio", tier:2, precio:90 },
+  { id:"M-02", nombre:"Transferencias Intracompañía", cat:"Migratorio", tier:3, precio:120 },
+  { id:"M-03", nombre:"Representantes e Inversionistas", cat:"Migratorio", tier:2, precio:90 },
+  { id:"M-04", nombre:"Cumplimiento INM", cat:"Migratorio", tier:1, precio:60 },
+  { id:"M-05", nombre:"Extranjeros en Nómina", cat:"Migratorio", tier:2, precio:90 },
+  { id:"M-01", nombre:"Visas de Trabajo", cat:"Migratorio", tier:2, precio:90 },
+  { id:"M-02", nombre:"Transferencias Internacionales", cat:"Migratorio", tier:2, precio:90 },
+  { id:"M-03", nombre:"Visa de Inversionista", cat:"Migratorio", tier:3, precio:120 },
+  { id:"M-04", nombre:"Cumplimiento INM", cat:"Migratorio", tier:1, precio:60 },
+  { id:"M-05", nombre:"Personal Extranjero en Nomina", cat:"Migratorio", tier:2, precio:90 },
 ];
 
 const TIER_COLORS = { 0:{bg:"#E8F0E8",color:"#4A5C45",label:"Base"}, 1:{bg:"#E6F3FA",color:"#2E6B8A",label:"Basico +$60"}, 2:{bg:"#FAF3E6",color:"#8A6B2E",label:"Avanzado +$90"}, 3:{bg:"#F3E6FA",color:"#7A2E6B",label:"Premium +$120"} };
@@ -453,7 +464,8 @@ const MODULO_DOCS = {
   },
   ...ARBITRAJE_DOCS,
   ...CORPORATIVO_DOCS,
-  ...OPERATIVO_DOCS};
+  ...OPERATIVO_DOCS,
+  ...MIGRATORIO_DOCS};
 
 const RIESGO_COLORS = {
   critico:{bg:"#FEF2F2",color:"#991B1B",label:"Crítico"},
@@ -461,7 +473,7 @@ const RIESGO_COLORS = {
   medio:{bg:"#FFFBEB",color:"#92400E",label:"Medio"},
   bajo:{bg:"#F0FDF4",color:"#166534",label:"Bajo"},
 };
-const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo"];
+const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio"];
 
 function ModulosSelector({clientId, modulosActivos=[], onChange}){
   const [open,setOpen]=useState(false);
@@ -3445,6 +3457,16 @@ function ModuloViewDatos({modId, client}){
   if(modId==="O-08") return <ModO08 client={client}/>;
   if(modId==="O-09") return <ModO09 client={client}/>;
   if(modId==="O-10") return <ModO10 client={client}/>;
+  if(modId==="M-01") return <ModM01 client={client}/>;
+  if(modId==="M-02") return <ModM02 client={client}/>;
+  if(modId==="M-03") return <ModM03 client={client}/>;
+  if(modId==="M-04") return <ModM04 client={client}/>;
+  if(modId==="M-05") return <ModM05 client={client}/>;
+  if(modId==="M-01") return <ModM01 client={client}/>;
+  if(modId==="M-02") return <ModM02 client={client}/>;
+  if(modId==="M-03") return <ModM03 client={client}/>;
+  if(modId==="M-04") return <ModM04 client={client}/>;
+  if(modId==="M-05") return <ModM05 client={client}/>;
   const tc = TIER_COLORS[MODULOS_CATALOG.find(x=>x.id===modId)?.tier||0];
   return <div style={{...s.card,borderLeft:"3px solid "+tc.color}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>Datos del módulo disponibles próximamente.</div></div>;
 }
