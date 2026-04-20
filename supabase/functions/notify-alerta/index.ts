@@ -1,0 +1,72 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SB_SERVICE_KEY = Deno.env.get("SB_SERVICE_KEY")!;
+const ADMIN_EMAIL = "jmartinez@mymabogados.mx";
+
+serve(async (req) => {
+  try {
+    const payload = await req.json();
+    const record = payload.record;
+
+    if (!record) return new Response("ok", { status: 200 });
+
+    const supabase = createClient(SUPABASE_URL, SB_SERVICE_KEY);
+
+    let clientEmail = null;
+    let clientName = "Cliente";
+    if (record.client_id) {
+      const { data: client } = await supabase
+        .from("clients")
+        .select("email, name")
+        .eq("id", record.client_id)
+        .single();
+      if (client) { clientEmail = client.email; clientName = client.name; }
+    }
+
+    const mensaje = record.mensaje || "Nueva alerta en tu panel corporativo.";
+    const tipo = record.tipo || "alerta";
+
+    const htmlEmail = `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:32px;background:#F2F4F0;">
+        <div style="background:#4A5C45;padding:24px 32px;border-radius:4px 4px 0 0;">
+          <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(240,244,238,.6);margin-bottom:8px;">Millán & Martínez Abogados</div>
+          <div style="font-size:22px;color:#F0F4EE;font-weight:400;">Nueva alerta corporativa</div>
+        </div>
+        <div style="background:#FAFCF8;padding:32px;border-radius:0 0 4px 4px;border:1px solid #DDE4D8;border-top:none;">
+          <div style="font-size:13px;color:#1E2B1A;margin-bottom:16px;">Se registró una nueva notificación en el panel de <strong>${clientName}</strong>:</div>
+          <div style="background:#F2F4F0;border-left:3px solid #A8C89A;padding:16px;border-radius:2px;font-size:13px;color:#1E2B1A;margin-bottom:24px;">${mensaje}</div>
+          <div style="font-size:12px;color:#7A9070;margin-bottom:24px;">Tipo: ${tipo} · ${new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}</div>
+          <a href="https://panel.mymabogados.mx" style="background:#4A5C45;color:#F0F4EE;padding:10px 20px;text-decoration:none;border-radius:4px;font-size:12px;letter-spacing:.1em;font-family:system-ui,sans-serif;">Ver panel →</a>
+        </div>
+      </div>
+    `;
+
+    const to = [ADMIN_EMAIL];
+    if (clientEmail && clientEmail !== ADMIN_EMAIL) to.push(clientEmail);
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "M&M Abogados <notificaciones@mymabogados.mx>",
+        to,
+        subject: `⚠️ Alerta corporativa — ${clientName}`,
+        html: htmlEmail,
+      }),
+    });
+
+    const resendData = await resendRes.json();
+    console.log("Resend response:", JSON.stringify(resendData));
+
+    return new Response("ok", { status: 200 });
+  } catch (err) {
+    console.error("Error:", err);
+    return new Response("error", { status: 500 });
+  }
+});
