@@ -3529,6 +3529,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
                 <Badge status={existing?"green":"red"} label={existing?"Disponible":"Pendiente"}/>
                 {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
                 {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>{existing?"Actualizar":"Subir"}</button>}
+                {isAdmin&&<BtnNotificar clientId={client.id} mensaje={"Documento pendiente: "+docDef.label+(existing?" — favor de actualizar":" — favor de entregar al despacho")}/>}
               </div>
             </div>
             {uploading===docDef.id&&(
@@ -3617,6 +3618,24 @@ function ModuloViewChecklist({modId, client}){
     await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:id,status:newStatus},{onConflict:"client_id,modulo,regla_id"});
     setChecks(prev=>({...prev,[id]:newStatus}));
     setSaving(false);
+    if(newStatus==="no_cumple"){
+      const item = catalog.checklist.find(x=>x.id===id);
+      if(item && (item.riesgo==="critico"||item.riesgo==="alto")){
+        const notifId = "compliance_"+client.id+"_"+modId+"_"+id;
+        const {data:existe}=await supabase.from("notificaciones").select("id").eq("id",notifId).single();
+        if(!existe){
+          const modNombre = MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+          await supabase.from("notificaciones").insert({
+            id: notifId,
+            client_id: client.id,
+            tipo: "alerta_critica",
+            mensaje: modNombre+" — "+item.label+" marcado como No cumple (riesgo: "+item.riesgo+")",
+            leida: false,
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+    }
   }
 
   if(loading)return <Spinner/>;
@@ -4591,6 +4610,259 @@ function AdminModulosTab({clients}){
   );
 }
 
+
+function AdminModuloTabs({modId, client}){
+  const [activeTab,setActiveTab]=useState("documentos");
+  const tabs=[{id:"documentos",label:"Documentos"},{id:"cumplimiento",label:"Cumplimiento"},{id:"riesgos",label:"Riesgos"}];
+  return(
+    <div style={{marginBottom:16}}>
+      <div style={{display:"flex",gap:4,marginBottom:12}}>
+        {tabs.map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{fontSize:11,padding:"5px 14px",borderRadius:4,border:"1.5px solid "+(activeTab===t.id?BLACK:BORDER),background:activeTab===t.id?BLACK:"none",color:activeTab===t.id?WHITE:GRAY,cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{t.label}</button>
+        ))}
+      </div>
+      <div style={{border:"1px solid "+BORDER,borderRadius:8,padding:16,background:"#FAFCF8"}}>
+        {activeTab==="documentos"&&<ModuloViewDocs modId={modId} client={client} isAdmin={true}/>}
+        {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client}/>}
+        {activeTab==="riesgos"&&<ModuloViewRiesgos modId={modId}/>}
+      </div>
+    </div>
+  );
+}
+
+
+// ── ADMIN COMPLIANCE GENERAL ─────────────────────────────────────────────────
+
+function BtnNotificar({clientId, mensaje, label="🔔 Notificar"}){
+  const [sent,setSent]=useState(false);
+  const [sending,setSending]=useState(false);
+  async function notificar(){
+    if(sending||sent)return;
+    setSending(true);
+    await supabase.from("notificaciones").insert({
+      id:"manual_"+Date.now(),
+      client_id:clientId,
+      tipo:"manual",
+      mensaje:mensaje,
+      leida:false,
+      created_at:new Date().toISOString()
+    });
+    setSending(false);setSent(true);
+    setTimeout(()=>setSent(false),4000);
+  }
+  return(
+    <button onClick={notificar} disabled={sending||sent} style={{fontSize:10,padding:"3px 10px",borderRadius:3,border:"1px solid "+(sent?"#5A8A3C":"#C9A84C"),background:sent?"#f0fdf4":"#fffbeb",color:sent?"#5A8A3C":"#92400E",cursor:sending||sent?"default":"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>
+      {sent?"✓ Enviado":sending?"...":label}
+    </button>
+  );
+}
+
+function AdminComplianceGeneral({client}){
+  const modulosActivos = (client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);
+    return m && MODULO_DOCS[id]?.checklist;
+  });
+  const [checks,setChecks]=useState({});
+  const [riesgos,setRiesgos]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(null);
+  const [expanded,setExpanded]=useState(null);
+
+  useEffect(()=>{
+    supabase.from("reglas_compliance").select("*").eq("client_id",client.id)
+      .then(({data:d})=>{
+        const cm={};const rm={};
+        (d||[]).forEach(x=>{cm[x.modulo+"_"+x.regla_id]=x.status;if(x.nivel_riesgo)rm[x.modulo+"_"+x.regla_id]=x.nivel_riesgo;});
+        setChecks(cm);setRiesgos(rm);setLoading(false);
+      });
+  },[client.id]);
+
+  async function toggleStatus(modId,itemId,current){
+    const key=modId+"_"+itemId;
+    const newStatus=current==="cumple"?"no_cumple":current==="no_cumple"?"parcial":"cumple";
+    setSaving(key);
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,status:newStatus},{onConflict:"client_id,modulo,regla_id"});
+    setChecks(prev=>({...prev,[key]:newStatus}));
+    setSaving(null);
+    if(newStatus==="no_cumple"){
+      const item=MODULO_DOCS[modId]?.checklist?.find(x=>x.id===itemId);
+      const nivel=riesgos[key]||item?.riesgo||"bajo";
+      if(nivel==="critico"||nivel==="alto"){
+        const notifId="compliance_"+client.id+"_"+modId+"_"+itemId;
+        const {data:existe}=await supabase.from("notificaciones").select("id").eq("id",notifId).single();
+        if(!existe){
+          const modNombre=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+          await supabase.from("notificaciones").insert({
+            id:notifId,client_id:client.id,tipo:"alerta_critica",
+            mensaje:modNombre+" — "+(item?.label||itemId)+" marcado como No cumple (riesgo: "+nivel+")",
+            leida:false,created_at:new Date().toISOString()
+          });
+        }
+      }
+    }
+  }
+
+  async function changeRiesgo(modId,itemId,nuevoNivel){
+    const key=modId+"_"+itemId;
+    setSaving(key+"_r");
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar"},{onConflict:"client_id,modulo,regla_id"});
+    setRiesgos(prev=>({...prev,[key]:nuevoNivel}));
+    setSaving(null);
+  }
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:GRAY,fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando cumplimiento...</div>;
+  if(modulosActivos.length===0)return <div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin módulos con checklist activos para este cliente.</div>;
+
+  return(
+    <div>
+      {modulosActivos.map(modId=>{
+        const m=MODULOS_CATALOG.find(x=>x.id===modId);
+        const items=MODULO_DOCS[modId].checklist;
+        const cumple=items.filter(x=>checks[modId+"_"+x.id]==="cumple").length;
+        const noCumple=items.filter(x=>checks[modId+"_"+x.id]==="no_cumple").length;
+        const parcial=items.filter(x=>checks[modId+"_"+x.id]==="parcial").length;
+        const sinRevisar=items.length-cumple-noCumple-parcial;
+        const semaforo=noCumple>0?"#C0392B":sinRevisar===items.length?"#888":parcial>0?"#C9A84C":"#5A8A3C";
+        const isOpen=expanded===modId;
+        return(
+          <div key={modId} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+semaforo}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setExpanded(isOpen?null:modId)}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:"#f3f4f6",color:GRAY,fontFamily:"system-ui,sans-serif"}}>{modId}</span>
+                  <span style={{fontSize:13,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{m?.nombre}</span>
+                </div>
+                <div style={{display:"flex",gap:12,marginTop:6}}>
+                  <span style={{fontSize:11,color:"#5A8A3C",fontFamily:"system-ui,sans-serif"}}>✓ {cumple} cumple</span>
+                  {noCumple>0&&<span style={{fontSize:11,color:"#C0392B",fontFamily:"system-ui,sans-serif"}}>✗ {noCumple} no cumple</span>}
+                  {parcial>0&&<span style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif"}}>◑ {parcial} parcial</span>}
+                  {sinRevisar>0&&<span style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif"}}>○ {sinRevisar} sin revisar</span>}
+                </div>
+              </div>
+              <span style={{fontSize:11,color:GRAY}}>{isOpen?"▲":"▼"}</span>
+            </div>
+            {isOpen&&<div style={{marginTop:12,borderTop:"1px solid "+BORDER,paddingTop:12}}>
+              {items.map(item=>{
+                const key=modId+"_"+item.id;
+                const st=checks[key]||"sin_revisar";
+                const nivel=riesgos[key]||item.riesgo||"bajo";
+                const rc=RIESGO_COLORS[nivel]||RIESGO_COLORS.bajo;
+                const stColor=st==="cumple"?"#5A8A3C":st==="no_cumple"?"#C0392B":st==="parcial"?GOLD:GRAY;
+                const stLabel=st==="cumple"?"Cumple":st==="no_cumple"?"No cumple":st==="parcial"?"Parcial":"Sin revisar";
+                return(
+                  <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"1px solid "+BORDER,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:200}}>
+                      <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK}}>{item.label}</div>
+                    </div>
+                    <select
+                      value={nivel}
+                      onChange={e=>changeRiesgo(modId,item.id,e.target.value)}
+                      disabled={saving===key+"_r"}
+                      style={{fontSize:10,padding:"3px 6px",borderRadius:3,border:"1px solid "+BORDER,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif",cursor:"pointer"}}
+                    >
+                      <option value="critico">Crítico</option>
+                      <option value="alto">Alto</option>
+                      <option value="medio">Medio</option>
+                      <option value="bajo">Bajo</option>
+                    </select>
+                    <button
+                      onClick={()=>toggleStatus(modId,item.id,st)}
+                      disabled={saving===key}
+                      style={{fontSize:11,padding:"4px 12px",borderRadius:4,border:"1.5px solid "+stColor,background:"none",color:stColor,cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,minWidth:90}}
+                    >{saving===key?"...":stLabel}</button>
+                    <BtnNotificar clientId={client.id} mensaje={(m?.nombre||modId)+" — "+item.label+" ("+stLabel+")"} />
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ADMIN ALERTAS CRITICAS ────────────────────────────────────────────────────
+function AdminAlertasCriticas({client}){
+  const modulosActivos=(client.modulos||[]).filter(id=>MODULO_DOCS[id]?.checklist);
+  const [checks,setChecks]=useState({});
+  const [riesgos,setRiesgos]=useState({});
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    supabase.from("reglas_compliance").select("*").eq("client_id",client.id)
+      .then(({data:d})=>{
+        const cm={};const rm={};
+        (d||[]).forEach(x=>{cm[x.modulo+"_"+x.regla_id]=x.status;if(x.nivel_riesgo)rm[x.modulo+"_"+x.regla_id]=x.nivel_riesgo;});
+        setChecks(cm);setRiesgos(rm);setLoading(false);
+      });
+  },[client.id]);
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:GRAY,fontSize:12,fontFamily:"system-ui,sans-serif"}}>Analizando alertas...</div>;
+
+  const alertas=[];
+  modulosActivos.forEach(modId=>{
+    const items=MODULO_DOCS[modId]?.checklist||[];
+    const modNombre=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+    items.forEach(item=>{
+      const key=modId+"_"+item.id;
+      const st=checks[key];
+      const nivel=riesgos[key]||item.riesgo||"bajo";
+      if(st==="no_cumple"||(nivel==="critico"&&st&&st!=="cumple")){
+        alertas.push({modId,modNombre,item,st,nivel,key});
+      }
+    });
+  });
+
+  const criticas=alertas.filter(a=>a.nivel==="critico");
+  const altas=alertas.filter(a=>a.nivel==="alto"&&a.st==="no_cumple");
+
+  if(alertas.length===0)return(
+    <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"2rem",textAlign:"center"}}>
+      <div style={{fontSize:28,marginBottom:8}}>✓</div>
+      <div style={{fontSize:15,fontFamily:"Georgia, serif",color:"#166534"}}>Sin alertas críticas detectadas</div>
+      <div style={{fontSize:12,color:GRAY,fontFamily:"system-ui,sans-serif",marginTop:4}}>Todos los módulos revisados están en orden</div>
+    </div>
+  );
+
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <div style={{...s.scoreCard,flex:1,borderTop:"3px solid #C0392B"}}>
+          <div style={{fontSize:28,color:"#C0392B",fontFamily:"Georgia, serif"}}>{criticas.length}</div>
+          <div style={{fontSize:10,color:GRAY,marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Críticas</div>
+        </div>
+        <div style={{...s.scoreCard,flex:1,borderTop:"3px solid #C9A84C"}}>
+          <div style={{fontSize:28,color:"#C9A84C",fontFamily:"Georgia, serif"}}>{altas.length}</div>
+          <div style={{fontSize:10,color:GRAY,marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Altas</div>
+        </div>
+        <div style={{...s.scoreCard,flex:2}}>
+          <div style={{fontSize:13,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{modulosActivos.length} módulos activos</div>
+          <div style={{fontSize:10,color:GRAY,marginTop:4,fontFamily:"system-ui,sans-serif"}}>{alertas.length} items requieren atención</div>
+        </div>
+      </div>
+      {[...criticas,...altas].map(({modId,modNombre,item,st,nivel,key})=>{
+        const rc=RIESGO_COLORS[nivel]||RIESGO_COLORS.bajo;
+        return(
+          <div key={key} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+(nivel==="critico"?"#C0392B":"#C9A84C")}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:3}}>{modId} · {modNombre}</div>
+                <div style={{fontSize:13,fontFamily:"Georgia, serif",color:TEXT_DARK}}>{item.label}</div>
+                <div style={{marginTop:6}}>
+                  <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{rc.label}</span>
+                  <span style={{fontSize:10,padding:"2px 7px",borderRadius:2,background:"#FEF2F2",color:"#C0392B",fontFamily:"system-ui,sans-serif",marginLeft:6}}>No cumple</span>
+                </div>
+              </div>
+              <BtnNotificar clientId={client.id} mensaje={modNombre+" — "+item.label+" — requiere atención inmediata"}/>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AdminModuloEditor({client, modId, onSaved}){
   const m = MODULOS_CATALOG.find(x=>x.id===modId);
   const [nota,setNota]=useState("");
@@ -4624,13 +4896,8 @@ function AdminModuloEditor({client, modId, onSaved}){
         <Badge status="green" label={m.cat}/>
       </div>
 
-      {/* Live data view */}
-      <div style={{marginBottom:16}}>
-        <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8}}>Vista del cliente</div>
-        <div style={{border:"1px solid "+BORDER,borderRadius:8,padding:16,background:"#FAFCF8"}}>
-          <ModuloViewDocs modId={modId} client={client} isAdmin={true}/>
-        </div>
-      </div>
+      {/* Live data view — tabs */}
+      <AdminModuloTabs modId={modId} client={client}/>
 
       {/* Nota del despacho */}
       <div>
@@ -4922,8 +5189,8 @@ function AdminView({onLogout,admin}){
       </>}
 
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
-      {tab==="riesgos"&&client&&<ConsecuenciasTab client={client} isAdmin={true} onNavigate={t=>setTab(t)}/>}
-      {tab==="compliance"&&client&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="riesgos"&&client&&<AdminAlertasCriticas client={client}/>}
+      {tab==="compliance"&&client&&<AdminComplianceGeneral client={client}/>}
       {tab==="regulatorio"&&client&&<PerfilRegulatorioTab client={client} isAdmin={true}/>}
       {tab==="personas"&&client&&<PersonasTab client={client} isAdmin={true}/>}
       {tab==="contratos"&&client&&<AdminContratosTab client={client}/>}
