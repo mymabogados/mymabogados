@@ -3,26 +3,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SB_SERVICE_KEY = Deno.env.get("SB_SERVICE_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ADMIN_EMAIL = "jmartinez@mymabogados.mx";
 
 serve(async (req) => {
   try {
     const payload = await req.json();
     const record = payload.record;
-
     if (!record) return new Response("ok", { status: 200 });
 
-    const supabase = createClient(SUPABASE_URL, SB_SERVICE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     let clientEmail = null;
     let clientName = "Cliente";
     if (record.client_id) {
-      const { data: client } = await supabase
+      const { data: client, error } = await supabase
         .from("clients")
         .select("email, name")
         .eq("id", record.client_id)
         .single();
+      console.log("client query:", JSON.stringify({client, error}));
       if (client) { clientEmail = client.email; clientName = client.name; }
     }
 
@@ -46,6 +46,7 @@ serve(async (req) => {
 
     const to = [ADMIN_EMAIL];
     if (clientEmail && clientEmail !== ADMIN_EMAIL) to.push(clientEmail);
+    console.log("enviando a:", JSON.stringify(to));
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
