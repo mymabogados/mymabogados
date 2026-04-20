@@ -3528,7 +3528,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
               <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
                 <Badge status={existing?"green":"red"} label={existing?"Disponible":"Pendiente"}/>
                 {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
-                {(isAdmin||!existing)&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>Subir</button>}
+                {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>{existing?"Actualizar":"Subir"}</button>}
               </div>
             </div>
             {uploading===docDef.id&&(
