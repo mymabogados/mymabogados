@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./ModulosArbitraje";
+import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
+import { ModO01,ModO02,ModO03,ModO04,ModO05,ModO06,ModO07,ModO08,ModO09,ModO10,OPERATIVO_DOCS } from "./ModulosOperativo";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -448,7 +451,9 @@ const MODULO_DOCS = {
       {label:"Incumplimiento FATCA",impacto:"Sanciones del IRS y restricciones bancarias internacionales",nivel:"alto"},
     ]
   },
-};
+  ...ARBITRAJE_DOCS,
+  ...CORPORATIVO_DOCS,
+  ...OPERATIVO_DOCS};
 
 const RIESGO_COLORS = {
   critico:{bg:"#FEF2F2",color:"#991B1B",label:"Crítico"},
@@ -3416,6 +3421,30 @@ function ModuloViewDatos({modId, client}){
   if(modId==="F-06") return <ModF06 client={client}/>;
   if(modId==="F-07") return <ModF07 client={client}/>;
   if(modId==="F-08") return <ModF08 client={client}/>;
+  if(modId==="A-01") return <ModA01 client={client}/>;
+  if(modId==="A-02") return <ModA02 client={client}/>;
+  if(modId==="A-03") return <ModA03 client={client}/>;
+  if(modId==="A-04") return <ModA04 client={client}/>;
+  if(modId==="A-05") return <ModA05 client={client}/>;
+  if(modId==="A-06") return <ModA06 client={client}/>;
+  if(modId==="C-01") return <ModC01 client={client}/>;
+  if(modId==="C-02") return <ModC02 client={client}/>;
+  if(modId==="C-03") return <ModC03 client={client}/>;
+  if(modId==="C-04") return <ModC04 client={client}/>;
+  if(modId==="C-05") return <ModC05 client={client}/>;
+  if(modId==="C-06") return <ModC06 client={client}/>;
+  if(modId==="C-07") return <ModC07 client={client}/>;
+  if(modId==="C-08") return <ModC08 client={client}/>;
+  if(modId==="O-01") return <ModO01 client={client}/>;
+  if(modId==="O-02") return <ModO02 client={client}/>;
+  if(modId==="O-03") return <ModO03 client={client}/>;
+  if(modId==="O-04") return <ModO04 client={client}/>;
+  if(modId==="O-05") return <ModO05 client={client}/>;
+  if(modId==="O-06") return <ModO06 client={client}/>;
+  if(modId==="O-07") return <ModO07 client={client}/>;
+  if(modId==="O-08") return <ModO08 client={client}/>;
+  if(modId==="O-09") return <ModO09 client={client}/>;
+  if(modId==="O-10") return <ModO10 client={client}/>;
   const tc = TIER_COLORS[MODULOS_CATALOG.find(x=>x.id===modId)?.tier||0];
   return <div style={{...s.card,borderLeft:"3px solid "+tc.color}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>Datos del módulo disponibles próximamente.</div></div>;
 }
