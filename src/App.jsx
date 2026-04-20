@@ -3,6 +3,7 @@ import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./Modu
 import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
 import { ModO01,ModO02,ModO03,ModO04,ModO05,ModO06,ModO07,ModO08,ModO09,ModO10,OPERATIVO_DOCS } from "./ModulosOperativo";
 import { ModM01,ModM02,ModM03,ModM04,ModM05,MIGRATORIO_DOCS } from "./ModulosMigratorio";
+import { DriveUploader } from "./DriveUploader";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -3532,7 +3533,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
             </div>
             {uploading===docDef.id&&(
               <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
-                <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)}/>
+                <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
               </div>
             )}
           </div>
@@ -3559,7 +3560,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
               </div>
               {uploading===docDef.id&&(
                 <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
-                  <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)}/>
+                  <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
                 </div>
               )}
             </div>
@@ -3570,14 +3571,28 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   );
 }
 
-function UploadDocForm({onSubmit, onCancel}){
+function UploadDocForm({onSubmit, onCancel, clientId, clientName, modId, modNombre, docLabel}){
   const [url,setUrl]=useState("");const [name,setName]=useState("");
   return(
-    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-      <input style={{...s.input,flex:2,minWidth:200}} placeholder="Nombre del documento" value={name} onChange={e=>setName(e.target.value)}/>
-      <input style={{...s.input,flex:3,minWidth:200}} placeholder="URL de Google Drive o enlace" value={url} onChange={e=>setUrl(e.target.value)}/>
-      <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>url&&onSubmit(url,name)} disabled={!url}>Guardar</button>
-      <button style={{...s.btn,...s.btnSm}} onClick={onCancel}>Cancelar</button>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <DriveUploader
+          clientId={clientId||"cliente"}
+          clientName={clientName||"Cliente"}
+          modId={modId}
+          modNombre={modNombre}
+          docLabel={docLabel}
+          label="Subir archivo a Drive"
+          onUploaded={(driveUrl,fileName)=>{setUrl(driveUrl);setName(fileName);}}
+        />
+        <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>o pega un enlace:</span>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <input style={{...s.input,flex:2,minWidth:200}} placeholder="Nombre del documento" value={name} onChange={e=>setName(e.target.value)}/>
+        <input style={{...s.input,flex:3,minWidth:200}} placeholder="URL de Google Drive" value={url} onChange={e=>setUrl(e.target.value)}/>
+        <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>url&&onSubmit(url,name)} disabled={!url}>Guardar</button>
+        <button style={{...s.btn,...s.btnSm}} onClick={onCancel}>Cancelar</button>
+      </div>
     </div>
   );
 }
@@ -4998,8 +5013,22 @@ function Login({onLogin}){
 }
 
 export default function App(){
-  const [session,setSession]=useState(null);
-  if(!session)return <Login onLogin={setSession}/>;
-  if(session.role==="admin")return <AdminView onLogout={()=>setSession(null)} admin={session.admin}/>;
-  return <ClientView client={session.client} onLogout={()=>setSession(null)}/>;
+  const [session,setSession]=useState(()=>{
+    try{const s=localStorage.getItem("mm_session");return s?JSON.parse(s):null;}
+    catch{return null;}
+  });
+
+  function login(s){
+    try{localStorage.setItem("mm_session",JSON.stringify(s));}catch{}
+    setSession(s);
+  }
+
+  function logout(){
+    try{localStorage.removeItem("mm_session");}catch{}
+    setSession(null);
+  }
+
+  if(!session)return <Login onLogin={login}/>;
+  if(session.role==="admin")return <AdminView onLogout={logout} admin={session.admin}/>;
+  return <ClientView client={session.client} onLogout={logout}/>;
 }
