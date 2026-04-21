@@ -637,6 +637,164 @@ function scoreOf(areas){
   return Math.round(areas.reduce((s,a)=>s+(w[a.status]??0),0)/areas.length);
 }
 
+
+async function generateReporteEjecutivo(client){
+  const jsPDFLib = (await import("jspdf")).default;
+  const doc = new jsPDFLib({orientation:"portrait",unit:"mm",format:"a4"});
+  const today = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
+  const pageW=210; const margin=20; const contentW=pageW-margin*2; let y=0;
+
+  // Cargar datos de Supabase
+  const modulosActivos = (client.modulos||[]).filter(id=>MODULO_DOCS[id]?.checklist);
+  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id);
+  const {data:docsData} = await supabase.from("documents").select("*").eq("client_id",client.id);
+  const checks = {};
+  const riesgosData = {};
+  (checksData||[]).forEach(x=>{
+    checks[x.modulo+"_"+x.regla_id]=x.status;
+    if(x.nivel_riesgo) riesgosData[x.modulo+"_"+x.regla_id]=x.nivel_riesgo;
+  });
+
+  // Calcular score
+  let totalItems=0; let cumpleItems=0; const alertasCriticas=[];
+  modulosActivos.forEach(modId=>{
+    const items = MODULO_DOCS[modId]?.checklist||[];
+    items.forEach(item=>{
+      totalItems++;
+      const st = checks[modId+"_"+item.id];
+      const nivel = riesgosData[modId+"_"+item.id]||item.riesgo||"bajo";
+      if(st==="cumple") cumpleItems++;
+      if(st==="no_cumple"&&(nivel==="critico"||nivel==="alto")){
+        const modNombre = MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+        alertasCriticas.push({modId,modNombre,label:item.label,nivel});
+      }
+    });
+  });
+  const score = totalItems>0?Math.round((cumpleItems/totalItems)*100):0;
+  const scoreColor = score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
+
+  // Documentos pendientes (requeridos sin archivo)
+  const docsPendientes=[];
+  modulosActivos.forEach(modId=>{
+    const requeridos = (MODULO_DOCS[modId]?.docs||[]).filter(d=>d.requerido);
+    requeridos.forEach(doc=>{
+      const existe = (docsData||[]).find(d=>d.modulo===modId&&d.tipo===doc.id&&d.drive_url);
+      if(!existe) docsPendientes.push({modId,modNombre:MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId,label:doc.label});
+    });
+  });
+
+  function checkPage(n=20){if(y+n>272){doc.addPage();y=20;}}
+
+  // ── HEADER ──
+  doc.setFillColor(26,26,26); doc.rect(0,0,pageW,32,"F");
+  doc.setFillColor(201,168,76); doc.rect(0,30,pageW,1.5,"F");
+  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+  doc.text("MILLÁN & MARTÍNEZ ABOGADOS",margin,13);
+  doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(201,168,76);
+  doc.text("REPORTE EJECUTIVO DE INMUNIDAD CORPORATIVA",margin,22);
+  doc.setTextColor(180,180,180); doc.text(today,pageW-margin,22,{align:"right"});
+  y=44;
+
+  // ── CLIENTE ──
+  doc.setTextColor(26,26,26); doc.setFontSize(16); doc.setFont("helvetica","bold");
+  doc.text(client.name,margin,y); y+=7;
+  doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.setTextColor(136,136,128);
+  doc.text("Cliente "+client.id+(client.contact?" · "+client.contact:""),margin,y); y+=14;
+
+  // ── SCORE CARDS ──
+  const cW=(contentW-9)/4;
+  [
+    {label:"Salud corporativa",value:String(score)+"%",color:scoreColor},
+    {label:"Módulos activos",value:String(modulosActivos.length),color:[74,92,69]},
+    {label:"Alertas críticas",value:String(alertasCriticas.length),color:[192,57,43]},
+    {label:"Docs pendientes",value:String(docsPendientes.length),color:[201,168,76]},
+  ].forEach((card,i)=>{
+    const x=margin+i*(cW+3);
+    doc.setFillColor(245,242,237); doc.roundedRect(x,y,cW,22,2,2,"F");
+    doc.setTextColor(...card.color); doc.setFontSize(18); doc.setFont("helvetica","bold");
+    doc.text(card.value,x+cW/2,y+13,{align:"center"});
+    doc.setTextColor(136,136,128); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text(card.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
+  }); y+=30;
+
+  // ── ESTADO POR MÓDULO ──
+  doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
+  doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
+  doc.text("ESTADO DE CUMPLIMIENTO POR MÓDULO",margin,y); y+=6;
+
+  modulosActivos.forEach(modId=>{
+    checkPage(14);
+    const items = MODULO_DOCS[modId]?.checklist||[];
+    const modNombre = MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+    const cumple = items.filter(x=>checks[modId+"_"+x.id]==="cumple").length;
+    const noCumple = items.filter(x=>checks[modId+"_"+x.id]==="no_cumple").length;
+    const pct = items.length>0?Math.round((cumple/items.length)*100):0;
+    const rgb = noCumple>0?[253,245,245]:pct>=70?[245,251,240]:[253,250,240];
+    const lineColor = noCumple>0?[192,57,43]:pct>=70?[90,138,60]:[201,168,76];
+    doc.setFillColor(...rgb); doc.roundedRect(margin,y,contentW,12,1,1,"F");
+    doc.setFillColor(...lineColor); doc.rect(margin,y,2.5,12,"F");
+    doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text(modId+" · "+modNombre,margin+6,y+5);
+    doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(136,136,128);
+    doc.text(cumple+"/"+items.length+" ítems en cumplimiento",margin+6,y+10);
+    doc.setTextColor(...lineColor); doc.setFontSize(8); doc.setFont("helvetica","bold");
+    doc.text(String(pct)+"%",pageW-margin-2,y+7,{align:"right"}); y+=14;
+  }); y+=4;
+
+  // ── ALERTAS CRÍTICAS ──
+  if(alertasCriticas.length>0){
+    checkPage(20);
+    doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
+    doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
+    doc.text("ALERTAS QUE REQUIEREN ATENCIÓN INMEDIATA",margin,y); y+=6;
+    alertasCriticas.slice(0,8).forEach(a=>{
+      checkPage(12);
+      const rgb = a.nivel==="critico"?[253,245,245]:[253,250,240];
+      const lc = a.nivel==="critico"?[192,57,43]:[201,168,76];
+      doc.setFillColor(...rgb); doc.roundedRect(margin,y,contentW,12,1,1,"F");
+      doc.setFillColor(...lc); doc.rect(margin,y,2.5,12,"F");
+      doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
+      const labelText = doc.splitTextToSize(a.label, contentW-40);
+      doc.text(labelText[0],margin+6,y+5);
+      doc.setFontSize(7); doc.setTextColor(136,136,128);
+      doc.text(a.modId+" · "+a.modNombre,margin+6,y+10);
+      doc.setTextColor(...lc); doc.setFont("helvetica","bold");
+      doc.text(a.nivel.toUpperCase(),pageW-margin-2,y+7,{align:"right"}); y+=14;
+    }); y+=4;
+  }
+
+  // ── DOCUMENTOS PENDIENTES ──
+  if(docsPendientes.length>0){
+    checkPage(20);
+    doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
+    doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
+    doc.text("DOCUMENTOS PENDIENTES DE ENTREGA",margin,y); y+=6;
+    docsPendientes.slice(0,10).forEach(d=>{
+      checkPage(10);
+      doc.setFillColor(253,250,240); doc.roundedRect(margin,y,contentW,10,1,1,"F");
+      doc.setFillColor(201,168,76); doc.circle(margin+4,y+5,1.5,"F");
+      doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
+      doc.text(d.label,margin+9,y+4.5);
+      doc.setFontSize(7); doc.setTextColor(136,136,128);
+      doc.text(d.modId+" · "+d.modNombre,margin+9,y+9); y+=12;
+    });
+  }
+
+  // ── FOOTER ──
+  const pc=doc.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);
+    doc.setFillColor(26,26,26); doc.rect(0,285,pageW,12,"F");
+    doc.setFillColor(201,168,76); doc.rect(0,284,pageW,0.8,"F");
+    doc.setTextColor(180,180,180); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx  ·  jmartinez@mymabogados.mx",margin,292);
+    doc.text("Página "+i+" de "+pc,pageW-margin,292,{align:"right"});
+  }
+
+  const dt=new Date().toISOString().slice(0,10);
+  doc.save("MM_Reporte_"+client.name.replace(/\s+/g,"_")+"_"+dt+".pdf");
+}
+
 function generatePDF(client,areas,documents,pendingDocs){
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const today=new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
@@ -5110,7 +5268,7 @@ function AdminView({onLogout,admin}){
             <div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Dashboard"}</div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {saved&&<span style={{fontSize:11,color:"#3A7A30",fontFamily:"system-ui,sans-serif"}}>Guardado ✓</span>}
-              {client&&tab!=="usuarios"&&<button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
+              {client&&tab!=="usuarios"&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(client)}>↓ Reporte ejecutivo</button></> }
               <AdminNotifBell/>
             </div>
           </div>
