@@ -3688,6 +3688,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
                 {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
                 {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>{existing?"Actualizar":"Subir"}</button>}
                 {isAdmin&&<BtnNotificar clientId={client.id} mensaje={"Documento pendiente: "+docDef.label+(existing?" — favor de actualizar":" — favor de entregar al despacho")}/>}
+                {isAdmin&&<FechaVencimiento docId={existing?.id} clientId={client.id} modId={modId} tipoId={docDef.id} fechaActual={existing?.fecha_vencimiento}/>}
               </div>
             </div>
             {uploading===docDef.id&&(
@@ -4693,6 +4694,7 @@ function ClientView({client,onLogout}){
 
       {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
       {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="calendario"&&<CalendarioVencimientos client={client}/>}
       {tab==="regulatorio"&&<PerfilRegulatorioTab client={client} isAdmin={false}/>}
       {tab==="marca"&&<BrandingTab client={client} onBrandingUpdate={b=>setBranding&&setBranding(b)}/>}
       {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
@@ -4790,6 +4792,203 @@ function AdminModuloTabs({modId, client}){
 
 
 // ── ADMIN COMPLIANCE GENERAL ─────────────────────────────────────────────────
+
+
+// ── FECHA VENCIMIENTO INLINE ──────────────────────────────────────────────────
+function FechaVencimiento({docId, clientId, modId, tipoId, fechaActual}){
+  const [fecha, setFecha] = useState(fechaActual||"");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function guardar(val){
+    setFecha(val);
+    setSaving(true);
+    if(docId){
+      await supabase.from("documents").update({fecha_vencimiento:val||null}).eq("id",docId);
+    } else {
+      await supabase.from("documents").upsert({
+        client_id:clientId, modulo:modId, tipo:tipoId,
+        fecha_vencimiento:val||null
+      },{onConflict:"client_id,modulo,tipo"});
+    }
+    setSaving(false); setSaved(true);
+    setTimeout(()=>setSaved(false),2000);
+  }
+
+  const hoy = new Date();
+  const vence = fecha ? new Date(fecha+"T12:00:00") : null;
+  const diasRestantes = vence ? Math.ceil((vence-hoy)/(1000*60*60*24)) : null;
+  const color = diasRestantes===null?"#888":diasRestantes<0?"#C0392B":diasRestantes<=7?"#C0392B":diasRestantes<=30?"#C9A84C":"#5A8A3C";
+
+  const [diasAlerta, setDiasAlerta] = useState(fechaActual?.dias_alerta||30);
+
+  async function guardarDiasAlerta(val){
+    const n = parseInt(val)||30;
+    setDiasAlerta(n);
+    if(docId){
+      await supabase.from("documents").update({dias_alerta:n}).eq("id",docId);
+    }
+  }
+
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+      <input
+        type="date"
+        value={fecha}
+        onChange={e=>guardar(e.target.value)}
+        style={{fontSize:10,padding:"3px 6px",borderRadius:3,border:"1px solid #DDE4D8",fontFamily:"system-ui,sans-serif",color:color,background:"none",cursor:"pointer"}}
+      />
+      {diasRestantes!==null&&(
+        <span style={{fontSize:10,color,fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>
+          {diasRestantes<0?"Vencido hace "+Math.abs(diasRestantes)+"d":diasRestantes===0?"Vence hoy":""+diasRestantes+"d"}
+        </span>
+      )}
+      <div style={{display:"flex",alignItems:"center",gap:3}}>
+        <span style={{fontSize:10,color:"#888",fontFamily:"system-ui,sans-serif"}}>🔔</span>
+        <input
+          type="number"
+          value={diasAlerta}
+          min={1}
+          max={365}
+          onChange={e=>guardarDiasAlerta(e.target.value)}
+          style={{fontSize:10,padding:"3px 4px",borderRadius:3,border:"1px solid #DDE4D8",fontFamily:"system-ui,sans-serif",width:40,textAlign:"center"}}
+          title="Días antes del vencimiento para recibir alerta"
+        />
+        <span style={{fontSize:10,color:"#888",fontFamily:"system-ui,sans-serif"}}>d</span>
+      </div>
+      {saving&&<span style={{fontSize:10,color:"#888",fontFamily:"system-ui,sans-serif"}}>...</span>}
+      {saved&&<span style={{fontSize:10,color:"#5A8A3C",fontFamily:"system-ui,sans-serif"}}>✓</span>}
+    </div>
+  );
+}
+
+// ── CALENDARIO DE VENCIMIENTOS ────────────────────────────────────────────────
+function CalendarioVencimientos({client}){
+  const [eventos, setEventos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mesActual, setMesActual] = useState(new Date());
+
+  useEffect(()=>{
+    const query = client
+      ? supabase.from("documents").select("*").eq("client_id",client.id).not("fecha_vencimiento","is",null)
+      : supabase.from("documents").select("*,clients(name)").not("fecha_vencimiento","is",null);
+    query.then(({data:d})=>{
+      setEventos(d||[]);
+      setLoading(false);
+    });
+  },[client?.id]);
+
+  if(loading) return <div style={{textAlign:"center",padding:"3rem",color:"#888",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando calendario...</div>;
+
+  const year = mesActual.getFullYear();
+  const month = mesActual.getMonth();
+  const primerDia = new Date(year,month,1).getDay();
+  const diasEnMes = new Date(year,month+1,0).getDate();
+  const hoy = new Date();
+
+  function eventosDelDia(dia){
+    const fecha = new Date(year,month,dia);
+    return eventos.filter(e=>{
+      const v = new Date(e.fecha_vencimiento+"T12:00:00");
+      return v.getFullYear()===year && v.getMonth()===month && v.getDate()===dia;
+    });
+  }
+
+  function colorEvento(e){
+    const v = new Date(e.fecha_vencimiento+"T12:00:00");
+    const dias = Math.ceil((v-hoy)/(1000*60*60*24));
+    return dias<0?"#C0392B":dias<=7?"#E74C3C":dias<=30?"#C9A84C":"#5A8A3C";
+  }
+
+  const nombreMes = mesActual.toLocaleDateString("es-MX",{month:"long",year:"numeric"});
+  const dias = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+  // Eventos próximos (30 días)
+  const proximos = eventos
+    .map(e=>({...e,vence:new Date(e.fecha_vencimiento+"T12:00:00")}))
+    .filter(e=>{ const d=Math.ceil((e.vence-hoy)/(1000*60*60*24)); return d>=-7 && d<=30; })
+    .sort((a,b)=>a.vence-b.vence);
+
+  return(
+    <div>
+      {/* Header mes */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <button onClick={()=>setMesActual(new Date(year,month-1,1))} style={{...s.btn,...s.btnSm}}>‹</button>
+        <div style={{fontSize:14,fontFamily:"Georgia,serif",color:"#1E2B1A",textTransform:"capitalize"}}>{nombreMes}</div>
+        <button onClick={()=>setMesActual(new Date(year,month+1,1))} style={{...s.btn,...s.btnSm}}>›</button>
+      </div>
+
+      {/* Grid días semana */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+        {dias.map(d=><div key={d} style={{textAlign:"center",fontSize:10,color:"#888",fontFamily:"system-ui,sans-serif",padding:"4px 0"}}>{d}</div>)}
+      </div>
+
+      {/* Grid calendario */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+        {Array(primerDia).fill(null).map((_,i)=><div key={"e"+i}/>)}
+        {Array(diasEnMes).fill(null).map((_,i)=>{
+          const dia = i+1;
+          const esHoy = hoy.getFullYear()===year && hoy.getMonth()===month && hoy.getDate()===dia;
+          const evs = eventosDelDia(dia);
+          return(
+            <div key={dia} style={{
+              minHeight:52, padding:4, borderRadius:4,
+              background: esHoy?"#4A5C45":evs.length>0?"#FFFBEB":"#FAFCF8",
+              border:"1px solid "+(esHoy?"#4A5C45":evs.length>0?"#DDE4D8":"#F0EDE8"),
+              position:"relative"
+            }}>
+              <div style={{fontSize:11,fontFamily:"system-ui,sans-serif",color:esHoy?"#fff":"#1E2B1A",fontWeight:esHoy?"700":"400"}}>{dia}</div>
+              {evs.map((e,idx)=>{
+                const modNombre = MODULOS_CATALOG.find(x=>x.id===e.modulo)?.nombre||e.modulo||"";
+                const docDef = MODULO_DOCS[e.modulo]?.docs?.find(d=>d.id===e.tipo);
+                return(
+                  <div key={idx} style={{
+                    fontSize:9, background:colorEvento(e), color:"#fff",
+                    borderRadius:2, padding:"1px 4px", marginTop:2,
+                    fontFamily:"system-ui,sans-serif",
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                    maxWidth:"100%"
+                  }} title={(docDef?.label||e.tipo)+" — "+modNombre}>
+                    {docDef?.label||e.tipo}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Próximos vencimientos */}
+      {proximos.length>0&&<div style={{marginTop:20}}>
+        <div style={{fontSize:11,letterSpacing:".1em",textTransform:"uppercase",color:"#888",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Próximos 30 días</div>
+        {proximos.map((e,i)=>{
+          const dias = Math.ceil((e.vence-hoy)/(1000*60*60*24));
+          const color = dias<0?"#C0392B":dias<=7?"#E74C3C":dias<=30?"#C9A84C":"#5A8A3C";
+          const docDef = MODULO_DOCS[e.modulo]?.docs?.find(d=>d.id===e.tipo);
+          const modNombre = MODULOS_CATALOG.find(x=>x.id===e.modulo)?.nombre||e.modulo;
+          const clientNombre = e.clients?.name||client?.name||"";
+          return(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #F0EDE8"}}>
+              <div style={{width:36,textAlign:"center"}}>
+                <div style={{fontSize:14,fontFamily:"Georgia,serif",color,fontWeight:600}}>{Math.abs(dias)}</div>
+                <div style={{fontSize:9,color:"#888",fontFamily:"system-ui,sans-serif"}}>{dias<0?"días":"días"}</div>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{docDef?.label||e.tipo}</div>
+                <div style={{fontSize:11,color:"#888",fontFamily:"system-ui,sans-serif"}}>{modNombre}{clientNombre?" · "+clientNombre:""}</div>
+              </div>
+              <div style={{fontSize:10,color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>
+                {dias<0?"VENCIDO":dias===0?"HOY":e.vence.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}
+              </div>
+            </div>
+          );
+        })}
+      </div>}
+
+      {eventos.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#888",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin vencimientos registrados</div>}
+    </div>
+  );
+}
 
 function BtnNotificar({clientId, mensaje, label="🔔 Notificar"}){
   const [sent,setSent]=useState(false);
@@ -5226,7 +5425,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"}];
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"}];
 
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
@@ -5349,6 +5548,7 @@ function AdminView({onLogout,admin}){
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
       {tab==="riesgos"&&client&&<AdminAlertasCriticas client={client}/>}
       {tab==="compliance"&&client&&<AdminComplianceGeneral client={client}/>}
+      {tab==="calendario"&&<CalendarioVencimientos client={client}/>}
       {tab==="regulatorio"&&client&&<PerfilRegulatorioTab client={client} isAdmin={true}/>}
       {tab==="personas"&&client&&<PersonasTab client={client} isAdmin={true}/>}
       {tab==="contratos"&&client&&<AdminContratosTab client={client}/>}
