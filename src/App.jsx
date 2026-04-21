@@ -3,6 +3,8 @@ import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./Modu
 import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
 import { ModO01,ModO02,ModO03,ModO04,ModO05,ModO06,ModO07,ModO08,ModO09,ModO10,OPERATIVO_DOCS } from "./ModulosOperativo";
 import { ModM01,ModM02,ModM03,ModM04,ModM05,MIGRATORIO_DOCS } from "./ModulosMigratorio";
+import { ModCON01,ModCON02,ModCON03,ModCON04,ModCON05,CONDOMINAL_DOCS } from "./ModulosCondominal";
+import { ModPP01,ModPP02,ModPP03,ModPP04,ModCE01,ModCE02,ModCE03,ModCE04,ModINM01,ModINM02,ModINM03,ModINM04,ModINM05,ModSC01,ModSC02,ModSC03,ModSC04,ModEN01,ModEN02,ModEN03,ModEN04,ModTD01,ModTD02,ModTD03,ModTD04,ModAG01,ModAG02,ModAG03,ModAG04,ModEM01,ModEM02,ModEM03,ModEM04,ESPECIALIZADO_DOCS } from "./ModulosEspecializados";
 import { DriveUploader } from "./DriveUploader";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
@@ -87,6 +89,44 @@ const MODULOS_CATALOG = [
   { id:"M-03", nombre:"Visa de Inversionista", cat:"Migratorio", tier:3, precio:120 },
   { id:"M-04", nombre:"Cumplimiento INM", cat:"Migratorio", tier:1, precio:60 },
   { id:"M-05", nombre:"Personal Extranjero en Nomina", cat:"Migratorio", tier:2, precio:90 },
+  { id:"CON-01", nombre:"Constitución y Régimen de Condominio", cat:"Condominal", tier:1, precio:90 },
+  { id:"CON-02", nombre:"Administración y Asambleas", cat:"Condominal", tier:1, precio:90 },
+  { id:"CON-03", nombre:"Reglamento Interno", cat:"Condominal", tier:1, precio:90 },
+  { id:"CON-04", nombre:"Cuotas y Fondo de Reserva", cat:"Condominal", tier:1, precio:90 },
+  { id:"CON-05", nombre:"Conflictos entre Condóminos", cat:"Condominal", tier:1, precio:90 },
+  { id:"PP-01", nombre:"Blindaje de Activos", cat:"Protección Patrimonial", tier:2, precio:120 },
+  { id:"PP-02", nombre:"Holding y Estructuras Corporativas", cat:"Protección Patrimonial", tier:3, precio:150 },
+  { id:"PP-03", nombre:"Financiamiento y Garantías", cat:"Protección Patrimonial", tier:2, precio:120 },
+  { id:"PP-04", nombre:"Crisis y Reestructura de Deuda", cat:"Protección Patrimonial", tier:3, precio:150 },
+  { id:"CE-01", nombre:"Antilavado LFPIORPI", cat:"Cumplimiento Especializado", tier:2, precio:120 },
+  { id:"CE-02", nombre:"Protección al Consumidor", cat:"Cumplimiento Especializado", tier:1, precio:90 },
+  { id:"CE-03", nombre:"Responsabilidad Ambiental Corporativa", cat:"Cumplimiento Especializado", tier:2, precio:120 },
+  { id:"CE-04", nombre:"Seguridad e Higiene STPS", cat:"Cumplimiento Especializado", tier:1, precio:90 },
+  { id:"INM-01", nombre:"Due Diligence Inmobiliario", cat:"Inmobiliario", tier:2, precio:120 },
+  { id:"INM-02", nombre:"Desarrollo y Construcción", cat:"Inmobiliario", tier:2, precio:120 },
+  { id:"INM-03", nombre:"Arrendamiento Comercial e Industrial", cat:"Inmobiliario", tier:1, precio:90 },
+  { id:"INM-04", nombre:"Fideicomisos Inmobiliarios", cat:"Inmobiliario", tier:3, precio:150 },
+  { id:"INM-05", nombre:"Regularización y Conflictos de Propiedad", cat:"Inmobiliario", tier:2, precio:120 },
+  { id:"SC-01", nombre:"Regulación COFEPRIS", cat:"Salud", tier:2, precio:120 },
+  { id:"SC-02", nombre:"Dispositivos Médicos y Farma", cat:"Salud", tier:3, precio:150 },
+  { id:"SC-03", nombre:"Clínicas y Hospitales Privados", cat:"Salud", tier:2, precio:120 },
+  { id:"SC-04", nombre:"Telemedicina y Salud Digital", cat:"Salud", tier:2, precio:120 },
+  { id:"EN-01", nombre:"Contratos de Energía y CFE", cat:"Energía", tier:1, precio:90 },
+  { id:"EN-02", nombre:"Energías Renovables", cat:"Energía", tier:2, precio:120 },
+  { id:"EN-03", nombre:"Impacto Ambiental SEMARNAT", cat:"Energía", tier:2, precio:120 },
+  { id:"EN-04", nombre:"Responsabilidad Ambiental", cat:"Energía", tier:2, precio:120 },
+  { id:"TD-01", nombre:"Contratos de Desarrollo de Software", cat:"Tecnología", tier:1, precio:90 },
+  { id:"TD-02", nombre:"Inteligencia Artificial y Algoritmos", cat:"Tecnología", tier:2, precio:120 },
+  { id:"TD-03", nombre:"Ciberseguridad Legal", cat:"Tecnología", tier:2, precio:120 },
+  { id:"TD-04", nombre:"Fintech y Regulación CNBV/Banxico", cat:"Tecnología", tier:3, precio:150 },
+  { id:"AG-01", nombre:"Contratos Agroindustriales", cat:"Agroindustria", tier:1, precio:90 },
+  { id:"AG-02", nombre:"Denominaciones de Origen", cat:"Agroindustria", tier:2, precio:120 },
+  { id:"AG-03", nombre:"Regulación de Alimentos COFEPRIS", cat:"Agroindustria", tier:2, precio:120 },
+  { id:"AG-04", nombre:"Exportación Agroalimentaria", cat:"Agroindustria", tier:2, precio:120 },
+  { id:"EM-01", nombre:"Producción y Distribución", cat:"Entretenimiento", tier:2, precio:120 },
+  { id:"EM-02", nombre:"Derechos de Autor y Licencias", cat:"Entretenimiento", tier:2, precio:120 },
+  { id:"EM-03", nombre:"Influencers y Marketing Digital", cat:"Entretenimiento", tier:1, precio:90 },
+  { id:"EM-04", nombre:"Deportes y Patrocinios", cat:"Entretenimiento", tier:2, precio:120 },
 ];
 
 const TIER_COLORS = { 0:{bg:"#E8F0E8",color:"#4A5C45",label:"Base"}, 1:{bg:"#E6F3FA",color:"#2E6B8A",label:"Basico +$60"}, 2:{bg:"#FAF3E6",color:"#8A6B2E",label:"Avanzado +$90"}, 3:{bg:"#F3E6FA",color:"#7A2E6B",label:"Premium +$120"} };
@@ -474,7 +514,7 @@ const RIESGO_COLORS = {
   medio:{bg:"#FFFBEB",color:"#92400E",label:"Medio"},
   bajo:{bg:"#F0FDF4",color:"#166534",label:"Bajo"},
 };
-const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio"];
+const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio","Condominal","Protección Patrimonial","Cumplimiento Especializado","Inmobiliario","Salud","Energía","Tecnología","Agroindustria","Entretenimiento"];
 
 function ModulosSelector({clientId, modulosActivos=[], onChange}){
   const [open,setOpen]=useState(false);
