@@ -1097,7 +1097,7 @@ function AsambleasTab({client,isAdmin=false}){
   const [showForm,setShowForm]=useState(false);
 
   useEffect(()=>{
-    supabase.from("asambleas").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setAsambleas(data||[]);setLoading(false);});
+    supabase.from("asambleas").select("*").eq("client_id",client.id).then(({data})=>{setAsambleas((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});
   },[client.id]);
 
   async function uploadActa(id,driveUrl){
@@ -1170,7 +1170,7 @@ function AdminActaUpload({onUpload}){
 
 function ContratosClientTab({client}){
   const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
   if(loading)return <Spinner/>;
   return(
     <div>
@@ -1205,7 +1205,7 @@ function AdminContratosTab({client}){
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({nombre:"",tipo:"",contraparte:"",vencimiento:"",monto:"",drive_url:"",notas:""});
   const TIPOS=["Con cliente","Con proveedor","De arrendamiento","Laboral clave","Otro"];
-  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
   async function add(){
     if(!form.nombre)return;
     const c={id:"ctr"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
@@ -1267,7 +1267,7 @@ function AdminContratosTab({client}){
 
 function ResumenClientTab({client}){
   const [resumenes,setResumenes]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
   if(loading)return <Spinner/>;
   return(
     <div>
@@ -1287,7 +1287,7 @@ function AdminResumenTab({client}){
   const mesActual=new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"});
   const [form,setForm]=useState({mes:mesActual,contenido:""});
   const [saved,setSaved]=useState("");
-  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("resumenes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setResumenes((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
   async function publish(){
     if(!form.contenido.trim())return;
     const r={id:"res"+Date.now(),client_id:client.id,mes:form.mes,contenido:form.contenido,created_at:new Date().toISOString()};
@@ -1428,7 +1428,7 @@ function AdminPagosTab({client}){
   const [form,setForm]=useState({mes:mesActual,monto:"",status:"pendiente",nota:""});
   const [saved,setSaved]=useState("");
 
-  useEffect(()=>{supabase.from("pagos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setPagos(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("pagos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setPagos((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
 
   async function add(){
     if(!form.mes)return;
@@ -1494,7 +1494,7 @@ function AdminTareasTab({client,admin}){
   const [form,setForm]=useState({titulo:"",descripcion:"",asignado:admin?.name||"",due:"",status:"pendiente"});
   const [saved,setSaved]=useState("");
 
-  useEffect(()=>{supabase.from("tareas").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setTareas(data||[]);setLoading(false);});},[client.id]);
+  useEffect(()=>{supabase.from("tareas").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setTareas((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
 
   async function add(){
     if(!form.titulo)return;
@@ -1643,7 +1643,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
       await supabase.from("personas").update(form).eq("id",persona.id);
       onSaved({...persona,...form});
     } else {
-      const p={id:"per"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
+      const p={id:"per"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,...form,created_at:new Date().toISOString()};
       await supabase.from("personas").insert(p);
       // Create KYC doc placeholders
       const docs=[...cfg.obligatorios,...cfg.opcionales].map(tipo=>({
@@ -2117,6 +2117,14 @@ function PersonasTab({client,isAdmin=false}){
   const [industria_config,setIndustriaConfig]=useState(null);
   const [showForm,setShowForm]=useState(false);
   const [editingPersona,setEditingPersona]=useState(null);
+  const [confirmDeletePersona,setConfirmDeletePersona]=useState(null);
+
+  async function deletePersona(id){
+    await supabase.from("personas").delete().eq("id",id);
+    await supabase.from("kyc_docs").delete().eq("persona_id",id);
+    setPersonas(prev=>prev.filter(p=>p.id!==id));
+    setConfirmDeletePersona(null);
+  }
   const [viewingUsos,setViewingUsos]=useState(null);
   const [viewingKYC,setViewingKYC]=useState(null);
   const [viewingConstancias,setViewingConstancias]=useState(null);
@@ -2128,7 +2136,8 @@ function PersonasTab({client,isAdmin=false}){
         supabase.from("personas").select("*").eq("client_id",client.id).order("tipo").order("nombre"),
         supabase.from("industrias").select("*").eq("id",client.industria||"general").single(),
       ]);
-      setPersonas(p.data||[]);
+      const socId = client._sociedad?.id||null;
+      setPersonas((p.data||[]).filter(x=>socId?x.sociedad_id===socId:!x.sociedad_id));
       setIndustriaConfig(ind.data?.campos_kyc||{obligatorios:[],opcionales:[],campos_extra:[]});
       setLoading(false);
     }
@@ -2216,6 +2225,7 @@ function PersonasTab({client,isAdmin=false}){
               <button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingKYC(p)}>KYC</button>
               {(p.tipo==="apoderado"||p.tipo==="administrador")&&<button style={{background:"none",border:"1px solid #185FA5",color:"#185FA5",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setViewingConstancias({...p,client_id:client.id})}>Constancias ↗</button>}
               {isAdmin&&<button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>setEditingPersona(p)}>✎</button>}
+              {isAdmin&&<button style={{background:"none",border:"1px solid #fecaca",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"system-ui,sans-serif",color:"#dc2626"}} onClick={()=>setConfirmDeletePersona(p)}>×</button>}
             </div>
           </div>
         </div>
@@ -2236,6 +2246,16 @@ function PersonasTab({client,isAdmin=false}){
       {viewingKYC&&<KYCDocsModal persona={viewingKYC} onClose={()=>setViewingKYC(null)}/>
       }
       {viewingConstancias&&<ConstanciasModal persona={viewingConstancias} onClose={()=>setViewingConstancias(null)}/>}
+      {confirmDeletePersona&&<div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
+        <div style={{background:"#FAFCF8",padding:"2rem",border:"1px solid #DDE4D8",width:"min(380px,90vw)",borderRadius:4}}>
+          <div style={{fontSize:15,fontFamily:"Georgia,serif",marginBottom:8}}>Eliminar persona</div>
+          <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:20}}>¿Eliminar a <strong>{confirmDeletePersona.nombre}</strong>? Se eliminarán también sus documentos KYC.</div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}} onClick={()=>setConfirmDeletePersona(null)}>Cancelar</button>
+            <button style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#dc2626",color:"#fff",fontFamily:"system-ui,sans-serif"}} onClick={()=>deletePersona(confirmDeletePersona.id)}>Eliminar</button>
+          </div>
+        </div>
+      </div>}
     </div>
   );
 }
@@ -2731,9 +2751,10 @@ function PerfilRegulatorioTab({client,isAdmin=false}){
 
   useEffect(()=>{
     async function load(){
+      const socId = client._sociedad?.id||null;
       const {data}=await supabase.from("perfil_regulatorio").select("*").eq("client_id",client.id);
       const map={};
-      (data||[]).forEach(p=>{map[p.autoridad]=p.datos||{};});
+      (data||[]).filter(x=>socId?x.sociedad_id===socId:!x.sociedad_id).forEach(p=>{map[p.autoridad]=p.datos||{};});
       setPerfiles(map);
       const {data:reglas}=await supabase.from("reglas_compliance").select("*").eq("activa",true);
       calcRiesgos(map,reglas||[]);
