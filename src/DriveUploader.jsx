@@ -25,8 +25,6 @@ async function getAccessToken() {
         else resolve(r.access_token);
       },
     });
-    // requestAccessToken() DEBE llamarse dentro del handler de click del usuario
-    // para que Chrome no lo bloquee como popup no solicitado
     client.requestAccessToken({ prompt: "" });
   });
 }
@@ -72,7 +70,6 @@ async function getRootId(token) {
     if (data.id && !data.trashed) return cached;
     localStorage.removeItem(ROOT_ID_KEY);
   }
-
   const q = `name='${ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,parents)`,
@@ -84,30 +81,36 @@ async function getRootId(token) {
     localStorage.setItem(ROOT_ID_KEY, id);
     return id;
   }
-
   const id = await createFolder(ROOT_FOLDER_NAME, null, token);
   localStorage.setItem(ROOT_ID_KEY, id);
   return id;
 }
 
-// Estructura: MM_Panel / 001_Influye_Agency / L-01_Contratos_de_Trabajo / Contrato_Individual / archivo.pdf
-async function uploadToDrive({ file, clientId, clientName, modId, modNombre, docLabel, token }) {
+function sanitize(str) {
+  return (str || "").replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]/g, "").trim().replace(/\s+/g, "_");
+}
+
+// Estructura sin sociedad: MM_Panel / 001_Cliente / L-01_Modulo / Tipo_Doc / archivo.pdf
+// Estructura con sociedad: MM_Panel / 001_Cliente / Sociedad_Nombre / L-01_Modulo / Tipo_Doc / archivo.pdf
+async function uploadToDrive({ file, clientId, clientName, sociedadNombre, modId, modNombre, docLabel, token }) {
   const rootId = await getRootId(token);
 
-  const clientFolderName = `${clientId}_${(clientName || "Cliente")
-    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]/g, "")
-    .trim()
-    .replace(/\s+/g, "_")}`;
+  const clientFolderName = `${clientId}_${sanitize(clientName || "Cliente")}`;
   const clientFolderId = await getOrCreate(clientFolderName, rootId, token);
 
-  const modFolderName = modId && modNombre
-    ? `${modId}_${modNombre.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]/g, "").trim().replace(/\s+/g, "_")}`
-    : "Documentos_Generales";
-  const modFolderId = await getOrCreate(modFolderName, clientFolderId, token);
+  // Si hay sociedad, crear subcarpeta intermedia
+  let parentForMod = clientFolderId;
+  if (sociedadNombre) {
+    const socFolderName = sanitize(sociedadNombre).slice(0, 50);
+    parentForMod = await getOrCreate(socFolderName, clientFolderId, token);
+  }
 
-  const subFolderName = docLabel
-    ? docLabel.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]/g, "").trim().replace(/\s+/g, "_").slice(0, 50)
-    : "Documentos";
+  const modFolderName = modId && modNombre
+    ? `${modId}_${sanitize(modNombre).slice(0, 40)}`
+    : "Documentos_Generales";
+  const modFolderId = await getOrCreate(modFolderName, parentForMod, token);
+
+  const subFolderName = docLabel ? sanitize(docLabel).slice(0, 50) : "Documentos";
   const subFolderId = await getOrCreate(subFolderName, modFolderId, token);
 
   const metadata = { name: file.name, parents: [subFolderId] };
@@ -131,22 +134,15 @@ async function uploadToDrive({ file, clientId, clientName, modId, modNombre, doc
   return { id: uploaded.id, name: uploaded.name, url: uploaded.webViewLink };
 }
 
-export function DriveUploader({ clientId, clientName, modId, modNombre, docLabel, onUploaded, label = "Subir a Drive" }) {
-  const [status, setStatus] = useState("idle"); // idle | auth | ready | uploading | done | error
+export function DriveUploader({ clientId, clientName, sociedadNombre, modId, modNombre, docLabel, onUploaded, label = "Subir a Drive" }) {
+  const [status, setStatus] = useState("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [token, setToken] = useState(null);
   const fileRef = useRef(null);
 
-  // PASO 1 — Click en botón: obtener token (dentro del gesto de usuario → Chrome no bloquea el popup)
   async function handleButtonClick() {
     if (status === "uploading") return;
-
-    // Si ya tenemos token válido, abrir file picker directamente
-    if (token) {
-      fileRef.current?.click();
-      return;
-    }
-
+    if (token) { fileRef.current?.click(); return; }
     setStatus("auth");
     setStatusMsg("Conectando con Google...");
     try {
@@ -154,34 +150,26 @@ export function DriveUploader({ clientId, clientName, modId, modNombre, docLabel
       setToken(t);
       setStatus("ready");
       setStatusMsg("");
-      // Abrir file picker inmediatamente después de autenticar
       fileRef.current?.click();
     } catch (err) {
-      console.error("DriveUploader auth:", err);
       setStatus("error");
-      setStatusMsg("No se pudo conectar con Google. Revisa que los popups estén permitidos.");
+      setStatusMsg("No se pudo conectar con Google.");
     }
   }
 
-  // PASO 2 — Usuario seleccionó archivo: subir con token ya obtenido
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file || !token) return;
-
     setStatus("uploading");
     setStatusMsg("Preparando carpetas...");
     try {
-      const result = await uploadToDrive({ file, clientId, clientName, modId, modNombre, docLabel, token });
+      const result = await uploadToDrive({ file, clientId, clientName, sociedadNombre, modId, modNombre, docLabel, token });
       setStatus("done");
       setStatusMsg(`✓ ${result.name}`);
       onUploaded && onUploaded(result.url, result.name);
       setTimeout(() => { setStatus("idle"); setStatusMsg(""); }, 4000);
     } catch (err) {
-      console.error("DriveUploader upload:", err);
-      // Si el token expiró, limpiar para re-autenticar en el siguiente click
-      if (err.message?.includes("401") || err.message?.includes("invalid_token")) {
-        setToken(null);
-      }
+      if (err.message?.includes("401") || err.message?.includes("invalid_token")) setToken(null);
       setStatus("error");
       setStatusMsg("Error: " + (err.message || "intenta de nuevo"));
       setTimeout(() => { setStatus("idle"); setStatusMsg(""); }, 5000);
@@ -190,11 +178,7 @@ export function DriveUploader({ clientId, clientName, modId, modNombre, docLabel
   }
 
   const isLoading = status === "auth" || status === "uploading";
-  const btnLabel = status === "auth"
-    ? "Conectando..."
-    : status === "uploading"
-    ? "Subiendo..."
-    : label;
+  const btnLabel = status === "auth" ? "Conectando..." : status === "uploading" ? "Subiendo..." : label;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -202,15 +186,11 @@ export function DriveUploader({ clientId, clientName, modId, modNombre, docLabel
       <button
         style={{
           background: status === "done" ? "#5A8A3C" : "#4A5C45",
-          color: "#F0F4EE",
-          border: "none",
-          borderRadius: 4,
-          padding: "6px 14px",
-          fontSize: 11,
+          color: "#F0F4EE", border: "none", borderRadius: 4,
+          padding: "6px 14px", fontSize: 11,
           cursor: isLoading ? "not-allowed" : "pointer",
           fontFamily: "system-ui,sans-serif",
-          opacity: isLoading ? 0.7 : 1,
-          transition: "background 0.2s",
+          opacity: isLoading ? 0.7 : 1, transition: "background 0.2s",
         }}
         onClick={handleButtonClick}
         disabled={isLoading}

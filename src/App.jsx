@@ -981,6 +981,7 @@ function DiagnosticoForm({client,onComplete}){
 
 function DiagnosticoResult({areas,onContinue}){
   const score=scoreOf(areas);const scoreColor=score>=70?"#5A8A3C":score>=40?GOLD:"#C0392B";
+  const clientActivo = sociedadActiva ? {...client, id:client.id, nombre_display:sociedadActiva.nombre, modulos:sociedadActiva.modulos||[], sociedad_id:sociedadActiva.id} : client;
   return(
     <div style={{...s.wrap,display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"100vh"}}>
       <div style={{maxWidth:540,margin:"0 auto",width:"100%"}}>
@@ -3730,7 +3731,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
             </div>
             {uploading===docDef.id&&(
               <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
-                <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
+                <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} sociedadNombre={client._sociedad?.nombre} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
               </div>
             )}
           </div>
@@ -3757,7 +3758,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
               </div>
               {uploading===docDef.id&&(
                 <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
-                  <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
+                  <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} sociedadNombre={client._sociedad?.nombre} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
                 </div>
               )}
             </div>
@@ -3768,7 +3769,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   );
 }
 
-function UploadDocForm({onSubmit, onCancel, clientId, clientName, modId, modNombre, docLabel}){
+function UploadDocForm({onSubmit, onCancel, clientId, clientName, sociedadNombre, modId, modNombre, docLabel}){
   const [url,setUrl]=useState("");const [name,setName]=useState("");
   return(
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -3776,6 +3777,7 @@ function UploadDocForm({onSubmit, onCancel, clientId, clientName, modId, modNomb
         <DriveUploader
           clientId={clientId||"cliente"}
           clientName={clientName||"Cliente"}
+          sociedadNombre={sociedadNombre}
           modId={modId}
           modNombre={modNombre}
           docLabel={docLabel}
@@ -4455,6 +4457,124 @@ function AdminModuloEditor({client, modId, onSaved}){
   );
 }
 
+
+function GestorSociedades({clientId}){
+  const [sociedades,setSociedades]=useState([]);
+  const [showForm,setShowForm]=useState(false);
+  const [nueva,setNueva]=useState({nombre:"",rfc:"",tipo_societario:"",modulos:[]});
+  const [editando,setEditando]=useState(null);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    supabase.from("sociedades").select("*").eq("client_id",clientId).order("created_at")
+      .then(({data:d})=>setSociedades(d||[]));
+  },[clientId]);
+
+  async function crear(){
+    if(!nueva.nombre) return;
+    setSaving(true);
+    const {data:saved}=await supabase.from("sociedades").insert({...nueva,client_id:clientId}).select().single();
+    if(saved){ setSociedades(prev=>[...prev,saved]); setNueva({nombre:"",rfc:"",tipo_societario:"",modulos:[]}); setShowForm(false); }
+    setSaving(false);
+  }
+
+  async function actualizar(s){
+    setSaving(true);
+    await supabase.from("sociedades").update({nombre:s.nombre,rfc:s.rfc,tipo_societario:s.tipo_societario,modulos:s.modulos}).eq("id",s.id);
+    setSociedades(prev=>prev.map(x=>x.id===s.id?s:x));
+    setEditando(null);setSaving(false);
+  }
+
+  async function eliminar(id){
+    await supabase.from("sociedades").delete().eq("id",id);
+    setSociedades(prev=>prev.filter(x=>x.id!==id));
+  }
+
+  return(
+    <div style={{marginTop:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:GRAY,fontFamily:"system-ui,sans-serif"}}>Sociedades del grupo</span>
+        <button style={{fontSize:11,padding:"4px 12px",borderRadius:3,border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif",color:TEXT_DARK}} onClick={()=>setShowForm(!showForm)}>+ Agregar sociedad</button>
+      </div>
+
+      {showForm&&<div style={{background:"#F5F2ED",border:"1px solid "+BORDER,borderRadius:4,padding:12,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div>
+            <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>Nombre de la sociedad</span>
+            <input style={{fontSize:12,padding:"7px 10px",border:"1px solid "+BORDER,borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",boxSizing:"border-box"}} value={nueva.nombre} onChange={e=>setNueva({...nueva,nombre:e.target.value})} placeholder="Razón social"/>
+          </div>
+          <div>
+            <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>RFC</span>
+            <input style={{fontSize:12,padding:"7px 10px",border:"1px solid "+BORDER,borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",boxSizing:"border-box"}} value={nueva.rfc} onChange={e=>setNueva({...nueva,rfc:e.target.value})} placeholder="RFC de la sociedad"/>
+          </div>
+          <div>
+            <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>Tipo societario</span>
+            <select style={{fontSize:12,padding:"7px 10px",border:"1px solid "+BORDER,borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",boxSizing:"border-box"}} value={nueva.tipo_societario} onChange={e=>setNueva({...nueva,tipo_societario:e.target.value})}>
+              <option value="">Seleccionar</option>
+              <option value="SA de CV">S.A. de C.V.</option>
+              <option value="SAPI de CV">S.A.P.I. de C.V.</option>
+              <option value="SRL de CV">S. de R.L. de C.V.</option>
+              <option value="SC">S.C.</option>
+              <option value="AC">A.C.</option>
+              <option value="Fideicomiso">Fideicomiso</option>
+            </select>
+          </div>
+        </div>
+        <div style={{marginBottom:8}}>
+          <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>Módulos activos de esta sociedad</span>
+          <ModulosSelector clientId={clientId} modulosActivos={nueva.modulos||[]} onChange={mods=>setNueva({...nueva,modulos:mods})}/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={crear} disabled={saving} style={{fontSize:11,padding:"6px 14px",borderRadius:3,border:"none",background:"#4A5C45",color:"#F0F4EE",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{saving?"Guardando...":"Crear sociedad"}</button>
+          <button onClick={()=>setShowForm(false)} style={{fontSize:11,padding:"6px 14px",borderRadius:3,border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+        </div>
+      </div>}
+
+      {sociedades.length===0&&!showForm&&<div style={{fontSize:12,color:GRAY,fontFamily:"system-ui,sans-serif",padding:"12px 0"}}>Sin sociedades registradas — el cliente opera como entidad única.</div>}
+
+      {sociedades.map(soc=>(
+        <div key={soc.id} style={{border:"1px solid "+BORDER,borderRadius:4,padding:12,marginBottom:8,background:"#FAFCF8"}}>
+          {editando?.id===soc.id?(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                <div>
+                  <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>Nombre</span>
+                  <input style={{fontSize:12,padding:"7px 10px",border:"1px solid "+BORDER,borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",boxSizing:"border-box"}} value={editando.nombre} onChange={e=>setEditando({...editando,nombre:e.target.value})}/>
+                </div>
+                <div>
+                  <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>RFC</span>
+                  <input style={{fontSize:12,padding:"7px 10px",border:"1px solid "+BORDER,borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",boxSizing:"border-box"}} value={editando.rfc||""} onChange={e=>setEditando({...editando,rfc:e.target.value})}/>
+                </div>
+              </div>
+              <div style={{marginBottom:8}}>
+                <span style={{fontSize:10,color:GRAY,fontFamily:"system-ui,sans-serif",display:"block",marginBottom:4}}>Módulos activos</span>
+                <ModulosSelector clientId={clientId} modulosActivos={editando.modulos||[]} onChange={mods=>setEditando({...editando,modulos:mods})}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>actualizar(editando)} disabled={saving} style={{fontSize:11,padding:"6px 14px",borderRadius:3,border:"none",background:"#4A5C45",color:"#F0F4EE",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{saving?"Guardando...":"Guardar"}</button>
+                <button onClick={()=>setEditando(null)} style={{fontSize:11,padding:"6px 14px",borderRadius:3,border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>{soc.nombre}</div>
+                <div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",marginTop:2}}>
+                  {soc.tipo_societario&&<span>{soc.tipo_societario} · </span>}
+                  {soc.rfc&&<span>RFC: {soc.rfc} · </span>}
+                  <span>{(soc.modulos||[]).length} módulos activos</span>
+                </div>
+              </div>
+              <button onClick={()=>setEditando({...soc})} style={{fontSize:10,padding:"4px 10px",borderRadius:3,border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Editar</button>
+              <button onClick={()=>eliminar(soc.id)} style={{fontSize:10,padding:"4px 10px",borderRadius:3,border:"1px solid #fecaca",background:"#fef2f2",color:"#991b1b",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>×</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function UsersTab({clients,setClients,admins,setAdmins}){
   const [editingClient,setEditingClient]=useState(null);const [editingAdmin,setEditingAdmin]=useState(null);
   const [showNewAdmin,setShowNewAdmin]=useState(false);const [newAdmin,setNewAdmin]=useState({id:"",name:"",password:""});
@@ -4520,6 +4640,7 @@ function UsersTab({clients,setClients,admins,setAdmins}){
             <ModulosSelector clientId={editingClient.id} modulosActivos={editingClient.modulos||[]} onChange={mods=>setEditingClient({...editingClient,modulos:mods})}/><div style={s.flex()}><input style={{...s.input,width:80}} value={editingClient.id} disabled/><input style={s.input} placeholder="Nombre empresa" value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} placeholder="Contacto" value={editingClient.contact} onChange={e=>setEditingClient({...editingClient,contact:e.target.value})}/><input style={s.input} placeholder="Email" value={editingClient.email} onChange={e=>setEditingClient({...editingClient,email:e.target.value})}/></div>
             <div style={s.flex()}><input style={s.input} type="password" placeholder="Nueva contraseña" value={editingClient.password} onChange={e=>setEditingClient({...editingClient,password:e.target.value})}/><button style={s.btnPrimary} onClick={()=>saveClient(editingClient)}>Guardar</button><button style={s.btn} onClick={()=>setEditingClient(null)}>Cancelar</button></div>
+            <GestorSociedades clientId={editingClient.id}/>
           </div>
           :<div key={c.id} style={s.row}><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{c.name}</div><div style={s.muted}>Usuario: {c.id} · {c.contact}</div></div><button style={{...s.btn,...s.btnSm}} onClick={()=>setEditingClient({...c,password:""})}>Editar</button><button style={{...s.btnDanger,...s.btnSm}} onClick={()=>setConfirmDelete(c)}>Eliminar</button></div>
         )}
@@ -4527,6 +4648,182 @@ function UsersTab({clients,setClients,admins,setAdmins}){
     </div>
   );
 }
+
+function ClientView({client,onLogout}){
+  const [sidebarOpen,setSidebarOpen]=useState(true);
+  const [tab,setTab]=useState("panel");const [docCat,setDocCat]=useState("poderes");
+  const [showReq,setShowReq]=useState(false);const [areas,setAreas]=useState([]);
+  const [documents,setDocuments]=useState([]);const [pendingDocs,setPendingDocs]=useState([]);
+  const [requests,setRequests]=useState([]);const [loading,setLoading]=useState(true);
+  const [showDiag,setShowDiag]=useState(false);const [diagDone,setDiagDone]=useState(false);
+  const [diagResult,setDiagResult]=useState(null);
+  const [showOnboarding,setShowOnboarding]=useState(false);
+  const [sociedades,setSociedades]=useState([]);
+  const [sociedadActiva,setSociedadActiva]=useState(null);
+
+  useEffect(()=>{
+    async function load(){
+      const [a,d,p,r,cl,soc]=await Promise.all([
+        supabase.from("areas").select("*").eq("client_id",client.id),
+        supabase.from("documents").select("*").eq("client_id",client.id),
+        supabase.from("pending_docs").select("*").eq("client_id",client.id),
+        supabase.from("requests").select("*").eq("client_id",client.id),
+        supabase.from("clients").select("diagnostico_done").eq("id",client.id).single(),
+        supabase.from("sociedades").select("*").eq("client_id",client.id).order("created_at"),
+      ]);
+      setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
+      const socData=soc.data||[];setSociedades(socData);
+      if(socData.length>0) setSociedadActiva(socData[0]);
+      const done=cl.data?.diagnostico_done;setDiagDone(!!done);
+      if(!done&&(!a.data||a.data.length===0)){setShowOnboarding(true);}
+      setLoading(false);
+    }
+    load();
+  },[client.id]);
+
+  async function submitRequest(req){
+    const nr={id:"r"+Date.now(),client_id:client.id,label:req.label,type:req.type,notes:req.notes,status:"pendiente",date:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
+    await supabase.from("requests").insert(nr);setRequests(prev=>[...prev,nr]);
+  }
+
+  if(loading)return <div style={s.wrap}><Spinner/></div>;
+  if(showDiag)return <DiagnosticoForm client={client} onComplete={a=>{setDiagResult(a);setShowDiag(false);}}/>;
+  if(diagResult)return <DiagnosticoResult areas={diagResult} onContinue={()=>{setAreas(diagResult||[]);setDiagResult(null);setDiagDone(true);}}/>;
+
+  const score=scoreOf(areas);const scoreColor=score>=70?"#5A8A3C":score>=40?GOLD:"#C0392B";
+  const clientEfectivo = sociedadActiva ? {...client, modulos: sociedadActiva.modulos||[], _sociedad: sociedadActiva} : client;
+  const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
+  const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
+  const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
+  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
+
+  return(
+    <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
+        {/* SIDEBAR */}
+        <div style={{width:sidebarOpen?204:0,background:(client.branding?.color||MUSGO),borderRight:sidebarOpen?"1px solid rgba(0,0,0,.15)":"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+          <div style={{padding:"22px 18px 14px"}}>
+            {client.branding?.logo?<img src={client.branding.logo} style={{height:24,maxWidth:140,objectFit:"contain",filter:"brightness(0) invert(1)"}} alt="logo"/>:<div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>}
+            <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.branding?.nombre_portal||"Panel corporativo"}</div>
+          </div>
+          <div style={{height:1,background:"rgba(255,255,255,.12)",margin:"0 18px"}}/>
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Principal</div>
+          {tabs.slice(0,3).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Mi empresa</div>
+          {tabs.slice(3,9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Despacho</div>
+          {tabs.slice(9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
+          {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).length>0&&<>
+            <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Módulos activos</div>
+            {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).map(id=>{
+              const m=MODULOS_CATALOG.find(x=>x.id===id);
+              if(!m)return null;
+              const tc=TIER_COLORS[m.tier];
+              return <button key={id} onClick={()=>setTab("mod_"+id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab==="mod_"+id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab==="mod_"+id?"rgba(255,255,255,.12)":"none",borderLeft:tab==="mod_"+id?"2px solid "+tc.color:"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                <span style={{fontSize:9,padding:"1px 4px",borderRadius:2,background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.5)",flexShrink:0}}>{id}</span>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{m.nombre}</span>
+              </button>;
+            })}
+          </>}
+          <div style={{marginTop:"auto",padding:"16px 18px",borderTop:"1px solid rgba(255,255,255,.1)"}}>
+            <button style={{width:"100%",background:"rgba(0,0,0,.15)",border:"none",borderRadius:8,padding:"10px 12px",textAlign:"left",cursor:"pointer"}} onClick={onLogout}>
+              <div style={{fontSize:9,color:"rgba(240,244,238,.38)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Sesión activa</div>
+              <div style={{fontSize:11,color:MUSGO_TEXT,fontWeight:500}}>Cerrar sesión</div>
+            </button>
+            <div style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"system-ui,sans-serif",marginTop:8,textAlign:"center"}}>Powered by M&M Abogados</div>
+          </div>
+        </div>
+        {/* MAIN AREA */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* TOPBAR */}
+          <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
+              <NotifBell clientId={client.id}/>
+            </div>
+          </div>
+          {/* CONTENT */}
+          {sociedades.length>1&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:"#F5F2ED",borderBottom:"1px solid #DDE4D8",flexShrink:0}}>
+            <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>Sociedad:</span>
+            {sociedades.map(soc=>(
+              <button key={soc.id} onClick={()=>setSociedadActiva(soc)} style={{fontSize:11,padding:"4px 12px",borderRadius:3,border:"1.5px solid "+(sociedadActiva?.id===soc.id?"#4A5C45":"#DDE4D8"),background:sociedadActiva?.id===soc.id?"#4A5C45":"none",color:sociedadActiva?.id===soc.id?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>
+                {soc.nombre}
+              </button>
+            ))}
+            {sociedadActiva?.rfc&&<span style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginLeft:4}}>RFC: {sociedadActiva.rfc}</span>}
+          </div>}
+          <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
+
+      {tab==="panel"&&<>
+        <div style={{...s.flex(),marginBottom:24,gap:10}}>
+          <ScoreCard label="Índice" value={score} color={scoreColor}/>
+          <ScoreCard label="Críticos" value={areas.filter(a=>a.status==="red").length} color="#C0392B"/>
+          <ScoreCard label="Revisar" value={areas.filter(a=>a.status==="amber").length} color={GOLD}/>
+          <ScoreCard label="OK" value={areas.filter(a=>a.status==="green").length} color="#5A8A3C"/>
+        </div>
+        {["red","amber","green"].map(st=>{
+          const filtered=areas.filter(a=>a.status===st);if(!filtered.length)return null;
+          const lbl={red:"Atención urgente",amber:"Revisar pronto",green:"En orden"}[st];
+          return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[a.status]}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
+                  {a.nota&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{a.nota}</div>}</div><Badge status={a.status}/></div></div>)}</div>;
+        })}
+        {!diagDone&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Aún sin diagnóstico</div><div style={{...s.muted,marginTop:4}}>Responde unas preguntas y verás el estado real de tu empresa</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Empezar →</button></div></div>}
+      </>}
+
+      {tab==="poderes"&&<>
+        {Object.keys(poderesPorPersona).length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin poderes registrados</div>
+        :Object.entries(poderesPorPersona).map(([persona,docs])=>(
+          <div key={persona} style={{marginBottom:20}}>
+            <span style={s.label}>{persona}</span>
+            <div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{DOC_TYPES.find(t=>t.id===doc.type)?.label||doc.type}</div><div style={s.muted}>{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}</div>
+          </div>
+        ))}
+        <div style={{textAlign:"right",marginTop:8}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar poder</button></div>
+      </>}
+
+      {tab==="docs"&&<>
+        <div style={{...s.flex(6),flexWrap:"wrap",marginBottom:16}}>
+          {Object.entries(CAT_LABELS).map(([cat,label])=><button key={cat} style={docCat===cat?{...s.btnPrimary,...s.btnSm}:{...s.btn,...s.btnSm}} onClick={()=>setDocCat(cat)}>{label}</button>)}
+        </div>
+        <div style={s.card}>
+          {catDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"1.5rem 0"}}>Sin documentos en esta categoría</div>
+          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
+        </div>
+        <div style={{textAlign:"right",marginTop:16}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar documento</button></div>
+      </>}
+
+      {tab==="asambleas"&&<AsambleasTab client={client} isAdmin={false}/>}
+
+      {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: {p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
+      )}
+
+      {tab==="solicitudes"&&<>
+        <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
+          <span style={{...s.label,margin:0}}>Lo que he pedido al despacho</span>
+          <button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Pedir algo al despacho</button>
+        </div>
+        {requests.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no has pedido nada - estamos aquí</div>
+        :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
+      </>}
+
+      {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
+      {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
+      {tab==="regulatorio"&&<PerfilRegulatorioTab client={client} isAdmin={false}/>}
+      {tab==="marca"&&<BrandingTab client={client} onBrandingUpdate={b=>setBranding&&setBranding(b)}/>}
+      {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
+      {tab==="contratos"&&<ContratosClientTab client={client}/>}
+      {tab==="historial"&&<HistorialClientTab client={client}/>}
+      {tab==="resumen"&&<ResumenClientTab client={client}/>}
+      {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);setShowDiag(true);}}/>}
+      {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
+      {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
+          </div>
+        </div>
+      </div>
+  );
+}
+
 
 function AdminView({onLogout,admin}){
   const [sidebarOpen,setSidebarOpen]=useState(true);
