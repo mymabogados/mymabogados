@@ -4671,6 +4671,157 @@ function UsersTab({clients,setClients,admins,setAdmins}){
   );
 }
 
+
+function ClientDashboard({client, onNavigate}){
+  const [checks,setChecks]=useState({});
+  const [docs,setDocs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const socId = client._sociedad?.id||null;
+
+  useEffect(()=>{
+    async function load(){
+      const [ch,d]=await Promise.all([
+        socId
+          ? supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+          : supabase.from("reglas_compliance").select("*").eq("client_id",client.id).is("sociedad_id",null),
+        socId
+          ? supabase.from("documents").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+          : supabase.from("documents").select("*").eq("client_id",client.id).is("sociedad_id",null),
+      ]);
+      const cm={};
+      (ch.data||[]).forEach(x=>{cm[x.modulo+"_"+x.regla_id]=x.status;});
+      setChecks(cm);
+      setDocs(d.data||[]);
+      setLoading(false);
+    }
+    load();
+  },[client.id,socId]);
+
+  const modulos = (client._sociedad?.modulos||client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;
+  });
+
+  // Calcular métricas reales
+  const totalItems = Object.keys(checks).length;
+  const cumple = Object.values(checks).filter(v=>v==="cumple").length;
+  const noCumple = Object.values(checks).filter(v=>v==="no_cumple").length;
+  const parcial = Object.values(checks).filter(v=>v==="parcial").length;
+  const pct = totalItems>0 ? Math.round((cumple/totalItems)*100) : null;
+  const pctColor = pct===null?"#7A9070":pct>=75?"#5A8A3C":pct>=50?"#C9A84C":"#C0392B";
+
+  // Docs por vencer
+  const hoy=new Date();
+  const proxVencer = docs.filter(d=>{
+    if(!d.fecha_vencimiento) return false;
+    const dias=Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24));
+    return dias>=0 && dias<=30;
+  }).sort((a,b)=>new Date(a.fecha_vencimiento)-new Date(b.fecha_vencimiento));
+
+  const vencidos = docs.filter(d=>{
+    if(!d.fecha_vencimiento) return false;
+    return Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24))<0;
+  });
+
+  // Alertas críticas del checklist
+  const alertasCriticas = [];
+  Object.entries(checks).forEach(([key,status])=>{
+    if(status==="no_cumple"){
+      const [modId,reglaId]=key.split("_");
+      const mod=MODULOS_CATALOG.find(x=>x.id===modId);
+      const docs_mod=MODULO_DOCS[modId];
+      const item=docs_mod?.checklist?.find(x=>x.id===reglaId);
+      if(item) alertasCriticas.push({modId,modNombre:mod?.nombre||modId,label:item.label,riesgo:item.riesgo});
+    }
+  });
+
+  if(loading) return <div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando tu panel...</div>;
+
+  return(
+    <div>
+      {/* Scorecards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",textAlign:"center"}}>
+          <div style={{fontSize:28,fontFamily:"Georgia,serif",color:pctColor,fontWeight:400}}>{pct!==null?pct+"%":"—"}</div>
+          <div style={{fontSize:10,color:"#7A9070",marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Cumplimiento</div>
+        </div>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",textAlign:"center"}}>
+          <div style={{fontSize:28,fontFamily:"Georgia,serif",color:"#4A5C45",fontWeight:400}}>{modulos.length}</div>
+          <div style={{fontSize:10,color:"#7A9070",marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Módulos activos</div>
+        </div>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",textAlign:"center"}}>
+          <div style={{fontSize:28,fontFamily:"Georgia,serif",color:noCumple>0?"#C0392B":"#5A8A3C",fontWeight:400}}>{noCumple}</div>
+          <div style={{fontSize:10,color:"#7A9070",marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Alertas críticas</div>
+        </div>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",textAlign:"center"}}>
+          <div style={{fontSize:28,fontFamily:"Georgia,serif",color:vencidos.length>0?"#C0392B":proxVencer.length>0?"#C9A84C":"#5A8A3C",fontWeight:400}}>{vencidos.length+proxVencer.length}</div>
+          <div style={{fontSize:10,color:"#7A9070",marginTop:4,textTransform:"uppercase",letterSpacing:".08em",fontFamily:"system-ui,sans-serif"}}>Vencimientos 30 días</div>
+        </div>
+      </div>
+
+      {/* Alertas críticas */}
+      {alertasCriticas.length>0&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:12}}>
+        <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>⚠ Requiere atención</div>
+        {alertasCriticas.slice(0,5).map((a,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:i<Math.min(alertasCriticas.length,5)-1?"1px solid #DDE4D8":"none"}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:"#C0392B",flexShrink:0,marginTop:4,display:"inline-block"}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{a.label}</div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:1}}>{a.modNombre}</div>
+            </div>
+            <button onClick={()=>onNavigate("mod_"+a.modId)} style={{fontSize:10,padding:"3px 8px",borderRadius:2,border:"1px solid #DDE4D8",background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif",color:"#4A5C45",whiteSpace:"nowrap"}}>Ver módulo →</button>
+          </div>
+        ))}
+        {alertasCriticas.length>5&&<div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:8,textAlign:"center",cursor:"pointer"}} onClick={()=>onNavigate("riesgos")}>{alertasCriticas.length-5} alertas más → ver todas</div>}
+      </div>}
+
+      {/* Vencimientos próximos */}
+      {(proxVencer.length>0||vencidos.length>0)&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:12}}>
+        <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>📅 Vencimientos</div>
+        {vencidos.map((d,i)=>{
+          const dias=Math.abs(Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24)));
+          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #DDE4D8"}}>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{d.name||d.tipo}</div>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif"}}>Venció hace {dias}d</span>
+          </div>;
+        })}
+        {proxVencer.slice(0,3).map((d,i)=>{
+          const dias=Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24));
+          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<2?"1px solid #DDE4D8":"none"}}>
+            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{d.name||d.tipo}</div>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:dias<=7?"#fef2f2":"#fffbeb",color:dias<=7?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif"}}>Vence en {dias}d</span>
+          </div>;
+        })}
+      </div>}
+
+      {/* Estado por módulo */}
+      {modulos.length>0&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:12}}>
+        <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>Estado por módulo</div>
+        {modulos.map((modId,i)=>{
+          const m=MODULOS_CATALOG.find(x=>x.id===modId);
+          const items=MODULO_DOCS[modId]?.checklist||[];
+          const total=items.length;
+          const cumpleCount=items.filter(it=>checks[modId+"_"+it.id]==="cumple").length;
+          const noCount=items.filter(it=>checks[modId+"_"+it.id]==="no_cumple").length;
+          const pctMod=total>0?Math.round((cumpleCount/total)*100):null;
+          const color=noCount>0?"#C0392B":pctMod>=75?"#5A8A3C":"#C9A84C";
+          return <div key={modId} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<modulos.length-1?"1px solid #DDE4D8":"none",cursor:"pointer"}} onClick={()=>onNavigate("mod_"+modId)}>
+            <span style={{fontSize:9,padding:"2px 5px",borderRadius:2,background:"#F0F4EE",color:"#4A5C45",fontFamily:"system-ui,sans-serif",flexShrink:0}}>{modId}</span>
+            <div style={{flex:1,fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{m?.nombre||modId}</div>
+            {total>0&&<div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{cumpleCount}/{total}</div>}
+            <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+          </div>;
+        })}
+      </div>}
+
+      {/* Sin módulos */}
+      {modulos.length===0&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"2rem",textAlign:"center"}}>
+        <div style={{fontSize:14,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:8}}>Tu panel está listo</div>
+        <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>El despacho está configurando tus módulos. Pronto verás aquí el estado de cumplimiento de tu empresa.</div>
+      </div>}
+    </div>
+  );
+}
+
 function ClientView({client,onLogout}){
   const [sidebarOpen,setSidebarOpen]=useState(true);
   const [tab,setTab]=useState("panel");const [docCat,setDocCat]=useState("poderes");
@@ -4803,21 +4954,7 @@ function ClientView({client,onLogout}){
           </div>}
           <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
 
-      {tab==="panel"&&<>
-        <div style={{...s.flex(),marginBottom:24,gap:10}}>
-          <ScoreCard label="Índice" value={score} color={scoreColor}/>
-          <ScoreCard label="Críticos" value={areas.filter(a=>a.status==="red").length} color="#C0392B"/>
-          <ScoreCard label="Revisar" value={areas.filter(a=>a.status==="amber").length} color={GOLD}/>
-          <ScoreCard label="OK" value={areas.filter(a=>a.status==="green").length} color="#5A8A3C"/>
-        </div>
-        {["red","amber","green"].map(st=>{
-          const filtered=areas.filter(a=>a.status===st);if(!filtered.length)return null;
-          const lbl={red:"Atención urgente",amber:"Revisar pronto",green:"En orden"}[st];
-          return <div key={st}><span style={s.label}>{lbl}</span>{filtered.map(a=><div key={a.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[a.status]}}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{a.name}</div><div style={{...s.muted,marginTop:4}}>{a.sub}</div>
-                  {a.nota&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{a.nota}</div>}</div><Badge status={a.status}/></div></div>)}</div>;
-        })}
-        {!diagDone&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginTop:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Aún sin diagnóstico</div><div style={{...s.muted,marginTop:4}}>Responde unas preguntas y verás el estado real de tu empresa</div></div><button style={s.btnGold} onClick={()=>setShowDiag(true)}>Empezar →</button></div></div>}
-      </>}
+      {tab==="panel"&&<ClientDashboard client={clientEfectivo} onNavigate={t=>setTab(t)}/>}
 
       {tab==="poderes"&&<>
         {Object.keys(poderesPorPersona).length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin poderes registrados</div>
