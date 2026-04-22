@@ -772,7 +772,7 @@ function ModEspecializadoGenerico({client, modId, titulo, campos}){
     setSaving(true);
     const updated={...data,[field]:val,client_id:client.id,modulo:modId};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 

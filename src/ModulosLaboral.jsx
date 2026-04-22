@@ -293,18 +293,24 @@ export const LABORAL_DOCS = {
 // COMPONENTES
 // ─────────────────────────────────────────────────────────────────────────────
 
-function useModData(client, mod){
+function useModData(client,mod){
   const [data,setData]=useState({});
   const [saving,setSaving]=useState(false);
+  const socId = client._sociedad?.id || null;
   useEffect(()=>{
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
-      .then(({data:d})=>{ if(d) setData(d); });
-  },[client.id,mod]);
+    const q = socId
+      ? supabase.from("modulos_data").select("data").eq("client_id",client.id).eq("modulo",mod).eq("sociedad_id",socId).single()
+      : supabase.from("modulos_data").select("data").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",null).single();
+    q.then(({data:d})=>{ if(d?.data) setData(d.data); else setData({}); });
+  },[client.id,mod,socId]);
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert(
+      {client_id:client.id,modulo:mod,sociedad_id:socId,data:updated,updated_at:new Date().toISOString()},
+      {onConflict:"client_id,modulo,sociedad_id"}
+    );
     setSaving(false);
   }
   return {data,save,saving};

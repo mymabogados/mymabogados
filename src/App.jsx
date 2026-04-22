@@ -682,8 +682,8 @@ async function generateReporteEjecutivo(client){
   const pageW=210; const margin=20; const contentW=pageW-margin*2; let y=0;
 
   // Cargar datos de Supabase
-  const modulosActivos = (client.modulos||[]).filter(id=>MODULO_DOCS[id]?.checklist);
-  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id);
+  const modulosActivos = ((client._sociedad?.modulos||client.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist);
+  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",client._sociedad?.id||null);
   const {data:docsData} = await supabase.from("documents").select("*").eq("client_id",client.id);
   const checks = {};
   const riesgosData = {};
@@ -3802,7 +3802,7 @@ function ModuloViewChecklist({modId, client}){
   const [saving,setSaving]=useState(false);
 
   useEffect(()=>{
-    supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId)
+    supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",client._sociedad?.id||null)
       .then(({data:d})=>{
         const map={};
         (d||[]).forEach(x=>{map[x.regla_id]=x.status;});
@@ -3813,7 +3813,7 @@ function ModuloViewChecklist({modId, client}){
   async function toggleCheck(id, currentStatus){
     const newStatus = currentStatus==="cumple"?"no_cumple":currentStatus==="no_cumple"?"parcial":"cumple";
     setSaving(true);
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:id,status:newStatus},{onConflict:"client_id,modulo,regla_id"});
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
     setChecks(prev=>({...prev,[id]:newStatus}));
     setSaving(false);
     if(newStatus==="no_cumple"){
@@ -3902,14 +3902,15 @@ function ModuloViewRiesgos({modId}){
     </div>
   );
 }
-function AdminModulosTab({clients}){
-  const [selClient,setSelClient]=useState(null);
+function AdminModulosTab({clients, activeClient, activeSociedad}){
+  const [selClient,setSelClient]=useState(activeClient?.id||null);
   const [selMod,setSelMod]=useState(null);
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState("");
 
-  const client = clients.find(x=>x.id===selClient);
-  const modActivos = client ? (client.modulos||[]).filter(id=>{
+  const clientBase = clients.find(x=>x.id===selClient);
+  const client = clientBase ? {...clientBase, _sociedad: activeSociedad} : null;
+  const modActivos = client ? ((client._sociedad?.modulos||client.modulos)||[]).filter(id=>{
     const m=MODULOS_CATALOG.find(x=>x.id===id);
     return m&&m.tier>0;
   }) : [];
@@ -4206,7 +4207,7 @@ function BtnNotificar({clientId, mensaje, label="🔔 Notificar"}){
 }
 
 function AdminComplianceGeneral({client}){
-  const modulosActivos = (client.modulos||[]).filter(id=>{
+  const modulosActivos = ((client._sociedad?.modulos||client.modulos)||[]).filter(id=>{
     const m=MODULOS_CATALOG.find(x=>x.id===id);
     return m && MODULO_DOCS[id]?.checklist;
   });
@@ -4229,7 +4230,7 @@ function AdminComplianceGeneral({client}){
     const key=modId+"_"+itemId;
     const newStatus=current==="cumple"?"no_cumple":current==="no_cumple"?"parcial":"cumple";
     setSaving(key);
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,status:newStatus},{onConflict:"client_id,modulo,regla_id"});
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,status:newStatus,sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
     setChecks(prev=>({...prev,[key]:newStatus}));
     setSaving(null);
     if(newStatus==="no_cumple"){
@@ -4253,7 +4254,7 @@ function AdminComplianceGeneral({client}){
   async function changeRiesgo(modId,itemId,nuevoNivel){
     const key=modId+"_"+itemId;
     setSaving(key+"_r");
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar"},{onConflict:"client_id,modulo,regla_id"});
+    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar",sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
     setRiesgos(prev=>({...prev,[key]:nuevoNivel}));
     setSaving(null);
   }
@@ -4332,7 +4333,7 @@ function AdminComplianceGeneral({client}){
 
 // ── ADMIN ALERTAS CRITICAS ────────────────────────────────────────────────────
 function AdminAlertasCriticas({client}){
-  const modulosActivos=(client.modulos||[]).filter(id=>MODULO_DOCS[id]?.checklist);
+  const modulosActivos=((client._sociedad?.modulos||client.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist);
   const [checks,setChecks]=useState({});
   const [riesgos,setRiesgos]=useState({});
   const [loading,setLoading]=useState(true);
@@ -4673,7 +4674,9 @@ function ClientView({client,onLogout}){
       ]);
       setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
       const socData=soc.data||[];setSociedades(socData);
-      if(socData.length>0) setSociedadActiva(socData[0]);
+      // Empieza en vista Grupo — el usuario elige la sociedad
+      setSociedadActiva(null);
+      setSociedadLoaded(true);
       const done=cl.data?.diagnostico_done;setDiagDone(!!done);
       if(!done&&(!a.data||a.data.length===0)){setShowOnboarding(true);}
       setLoading(false);
@@ -4681,8 +4684,32 @@ function ClientView({client,onLogout}){
     load();
   },[client.id]);
 
+  // Recargar datos cuando cambia la sociedad activa
+  const [sociedadLoaded,setSociedadLoaded]=useState(false);
+  useEffect(()=>{
+    if(loading || !sociedadLoaded) return;
+    async function reloadSociedad(){
+      const socId = sociedadActiva?.id || null;
+      const qAreas = socId
+        ? supabase.from("areas").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+        : supabase.from("areas").select("*").eq("client_id",client.id).is("sociedad_id",null);
+      const qDocs = socId
+        ? supabase.from("documents").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+        : supabase.from("documents").select("*").eq("client_id",client.id).is("sociedad_id",null);
+      const qPending = socId
+        ? supabase.from("pending_docs").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+        : supabase.from("pending_docs").select("*").eq("client_id",client.id).is("sociedad_id",null);
+      const qRequests = socId
+        ? supabase.from("requests").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+        : supabase.from("requests").select("*").eq("client_id",client.id).is("sociedad_id",null);
+      const [a,d,p,r2]=await Promise.all([qAreas,qDocs,qPending,qRequests]);
+      setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r2.data||[]);
+    }
+    reloadSociedad();
+  },[sociedadActiva?.id]);
+
   async function submitRequest(req){
-    const nr={id:"r"+Date.now(),client_id:client.id,label:req.label,type:req.type,notes:req.notes,status:"pendiente",date:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
+    const nr={id:"r"+Date.now(),client_id:client.id,sociedad_id:sociedadActiva?.id||null,label:req.label,type:req.type,notes:req.notes,status:"pendiente",date:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
     await supabase.from("requests").insert(nr);setRequests(prev=>[...prev,nr]);
   }
 
@@ -4743,8 +4770,9 @@ function ClientView({client,onLogout}){
             </div>
           </div>
           {/* CONTENT */}
-          {sociedades.length>1&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:"#F5F2ED",borderBottom:"1px solid #DDE4D8",flexShrink:0}}>
-            <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>Sociedad:</span>
+          {sociedades.length>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:"#F5F2ED",borderBottom:"1px solid #DDE4D8",flexShrink:0,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>Vista:</span>
+            <button onClick={()=>setSociedadActiva(null)} style={{fontSize:11,padding:"4px 12px",borderRadius:3,border:"1.5px solid "+(sociedadActiva===null?"#4A5C45":"#DDE4D8"),background:sociedadActiva===null?"#4A5C45":"none",color:sociedadActiva===null?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,whiteSpace:"nowrap"}}>Grupo</button>
             {sociedades.map(soc=>(
               <button key={soc.id} onClick={()=>setSociedadActiva(soc)} style={{fontSize:11,padding:"4px 12px",borderRadius:3,border:"1.5px solid "+(sociedadActiva?.id===soc.id?"#4A5C45":"#DDE4D8"),background:sociedadActiva?.id===soc.id?"#4A5C45":"none",color:sociedadActiva?.id===soc.id?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>
                 {soc.nombre}
@@ -4829,6 +4857,8 @@ function AdminView({onLogout,admin}){
   const [sidebarOpen,setSidebarOpen]=useState(true);
   const [clients,setClients]=useState([]);const [admins,setAdmins]=useState([]);
   const [sel,setSel]=useState(null);const [tab,setTab]=useState("panel");
+  const [adminSociedades,setAdminSociedades]=useState([]);
+  const [adminSocActiva,setAdminSocActiva]=useState(null);
   const [areas,setAreas]=useState([]);const [documents,setDocuments]=useState([]);
   const [pendingDocs,setPendingDocs]=useState([]);const [requests,setRequests]=useState([]);
   const [editing,setEditing]=useState(null);const [loading,setLoading]=useState(true);
@@ -4841,26 +4871,39 @@ function AdminView({onLogout,admin}){
   useEffect(()=>{
     async function load(){
       const [c,a]=await Promise.all([supabase.from("clients").select("*"),supabase.from("admins").select("*")]);
-      setClients(c.data||[]);setAdmins(a.data||[]);if(c.data?.length)setSel(c.data[0].id);setLoading(false);
+      const firstClient = c.data?.[0];
+      setClients(c.data||[]);setAdmins(a.data||[]);
+      if(firstClient){
+        setSel(firstClient.id);
+        supabase.from("sociedades").select("*").eq("client_id",firstClient.id).order("created_at").then(({data:s})=>{console.log("Sociedades iniciales:",s);setAdminSociedades(s||[]);});
+      }
+      setLoading(false);
     }
     load();
   },[]);
 
   useEffect(()=>{
     if(!sel)return;
+    setAdminSocActiva(null);
+    supabase.from("sociedades").select("*").eq("client_id",sel).order("created_at").then(({data:s})=>{console.log("Sociedades admin:",s);setAdminSociedades(s||[]);});
+  },[sel]);
+
+  useEffect(()=>{
+    if(!sel)return;
     async function load(){
+      const socId = adminSocActiva?.id || null;
       const [a,d,p,r]=await Promise.all([
-        supabase.from("areas").select("*").eq("client_id",sel),
-        supabase.from("documents").select("*").eq("client_id",sel),
-        supabase.from("pending_docs").select("*").eq("client_id",sel),
-        supabase.from("requests").select("*").eq("client_id",sel),
+        socId ? supabase.from("areas").select("*").eq("client_id",sel).eq("sociedad_id",socId) : supabase.from("areas").select("*").eq("client_id",sel).is("sociedad_id",null),
+        socId ? supabase.from("documents").select("*").eq("client_id",sel).eq("sociedad_id",socId) : supabase.from("documents").select("*").eq("client_id",sel).is("sociedad_id",null),
+        socId ? supabase.from("pending_docs").select("*").eq("client_id",sel).eq("sociedad_id",socId) : supabase.from("pending_docs").select("*").eq("client_id",sel).is("sociedad_id",null),
+        socId ? supabase.from("requests").select("*").eq("client_id",sel).eq("sociedad_id",socId) : supabase.from("requests").select("*").eq("client_id",sel).is("sociedad_id",null),
       ]);
       setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
     }
     load();
-  },[sel]);
+  },[sel,adminSocActiva?.id]);
 
-  const client=clients.find(c=>c.id===sel);
+  const client=sel ? {...(clients.find(c=>c.id===sel)||{}), _sociedad: adminSocActiva} : null;
 
   async function updateArea(areaId,field,val){
     const prevArea=areas.find(a=>a.id===areaId);
@@ -4932,6 +4975,17 @@ function AdminView({onLogout,admin}){
               {clients.map(c=><option key={c.id} value={c.id} style={{background:MUSGO,color:MUSGO_TEXT}}>{c.id} · {c.name}</option>)}
             </select>
           </div>}
+          {adminSociedades.length>0&&<div style={{padding:"8px 12px"}}>
+            <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:".1em",color:"rgba(240,244,238,.38)",marginBottom:6,paddingLeft:6}}>Sociedad</div>
+            <button onClick={()=>setAdminSocActiva(null)} style={{display:"block",width:"100%",textAlign:"left",padding:"6px 10px",borderRadius:4,border:"1px solid "+(adminSocActiva===null?"rgba(168,200,154,.6)":"rgba(255,255,255,.1)"),background:adminSocActiva===null?"rgba(255,255,255,.12)":"none",cursor:"pointer",marginBottom:3,fontFamily:"system-ui,sans-serif",fontSize:11,color:adminSocActiva===null?"#F0F4EE":"rgba(240,244,238,.6)",fontWeight:600}}>
+              Grupo
+            </button>
+            {adminSociedades.map(soc=>(
+              <button key={soc.id} onClick={()=>setAdminSocActiva(soc)} style={{display:"block",width:"100%",textAlign:"left",padding:"6px 10px",borderRadius:4,border:"1px solid "+(adminSocActiva?.id===soc.id?"rgba(168,200,154,.6)":"rgba(255,255,255,.1)"),background:adminSocActiva?.id===soc.id?"rgba(255,255,255,.12)":"none",cursor:"pointer",marginBottom:3,fontFamily:"system-ui,sans-serif",fontSize:11,color:adminSocActiva?.id===soc.id?"#F0F4EE":"rgba(240,244,238,.6)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                {soc.nombre}
+              </button>
+            ))}
+          </div>}
           <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"0 18px"}}/>
           <div style={{padding:"10px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Vistas</div>
           {tabs.slice(0,3).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
@@ -4981,7 +5035,7 @@ function AdminView({onLogout,admin}){
       <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
 
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
-      {tab==="modulos"&&<AdminModulosTab clients={clients}/>}
+      {tab==="modulos"&&<AdminModulosTab clients={clients} activeClient={client} activeSociedad={adminSocActiva}/>}
 
       {tab==="panel"&&client&&<>
         {hasDrafts&&<div style={{...s.card,borderLeft:"3px solid "+GOLD,marginBottom:16}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>Resultados pendientes de revisión</div><div style={{...s.muted,marginTop:4}}>El cliente completó el diagnóstico. Revisa y publica.</div></div><button style={s.btnGold} onClick={publishDraftAreas}>Publicar →</button></div></div>}

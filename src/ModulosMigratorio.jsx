@@ -232,7 +232,7 @@ export function ModM01({client}){
   const mod="M-01";
 
   useEffect(()=>{
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
+    supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single()
       .then(({data:d})=>{ if(d) setData(d); });
     supabase.from("personas").select("*").eq("client_id",client.id).eq("nacionalidad_extranjera",true)
       .then(({data:d})=>{ setExtranjeros(d||[]); });
@@ -240,9 +240,9 @@ export function ModM01({client}){
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 
@@ -389,15 +389,15 @@ export function ModM02({client}){
   const mod="M-02";
 
   useEffect(()=>{
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
+    supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single()
       .then(({data:d})=>{ if(d) setData(d); });
   },[client.id]);
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 
@@ -532,15 +532,15 @@ export function ModM03({client}){
   const mod="M-03";
 
   useEffect(()=>{
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
+    supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single()
       .then(({data:d})=>{ if(d) setData(d); });
   },[client.id]);
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 
@@ -670,15 +670,15 @@ export function ModM04({client}){
   useEffect(()=>{
     supabase.from("personas").select("*").eq("client_id",client.id).eq("nacionalidad_extranjera",true)
       .then(({data:d})=>{ setPersonas(d||[]); setLoading(false); });
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
+    supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single()
       .then(({data:d})=>{ if(d) setData(d); });
   },[client.id]);
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 
@@ -796,15 +796,15 @@ export function ModM05({client}){
   useEffect(()=>{
     supabase.from("personas").select("*").eq("client_id",client.id).eq("nacionalidad_extranjera",true)
       .then(({data:d})=>{ setPersonas(d||[]); setLoading(false); });
-    supabase.from("uso_poderes").select("*").eq("client_id",client.id).eq("modulo",mod).single()
+    supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single()
       .then(({data:d})=>{ if(d) setData(d); });
   },[client.id]);
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:mod};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("uso_poderes").upsert(updated,{onConflict:"client_id,modulo"});
+    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
     setSaving(false);
   }
 
