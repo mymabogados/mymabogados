@@ -1390,11 +1390,16 @@ function NotifBell({clientId}){
 }
 
 function OnboardingScreen({client,onComplete}){
+  function handleComplete(){
+    try{localStorage.setItem("mm_onboarding_done_"+client.id,"1");}catch{}
+    onComplete();
+  }
   const [step,setStep]=useState(0);
   const steps=[
-    {icon:"🔍",titulo:"Diagnóstico corporativo",desc:"En 5 minutos sabrás exactamente dónde está parada tu empresa. Sin tecnicismos.",accion:"Iniciar diagnóstico",tab:"diagnostico"},
-    {icon:"📄",titulo:"Comparte tus documentos principales",desc:"Tu despacho los necesita para protegerte mejor. Sube lo que tengas, ellos se encargan del resto.",accion:"Ir a documentos",tab:"docs"},
-    {icon:"🏛️",titulo:"¿Necesitas formalizar algo?",desc:"Si tomaste decisiones importantes en tu empresa, el despacho las puede formalizar. Es más fácil de lo que crees.",accion:"Necesito una asamblea",tab:"asambleas"},
+    {icon:"🏢",titulo:"Bienvenido a tu Panel Corporativo",desc:"Este es tu espacio para conocer el estado legal de tu empresa en tiempo real. Tu despacho M&M lo mantiene actualizado — tú solo tienes que revisarlo."},
+    {icon:"✅",titulo:"Tu cumplimiento en un vistazo",desc:"En la pantalla principal verás tu porcentaje de cumplimiento, alertas críticas y próximos vencimientos. Todo calculado automáticamente por tu despacho."},
+    {icon:"📁",titulo:"Tus módulos legales",desc:"Cada área de tu empresa tiene su propio módulo — Laboral, Corporativo, Fiscal, Migratorio y más. Haz click en cualquiera para ver el detalle de cumplimiento y los documentos."},
+    {icon:"💬",titulo:"Pídele cosas a tu despacho",desc:"¿Necesitas una asamblea, un poder notarial o un contrato? Usa el botón 'Solicitar al despacho' y M&M te responde directamente desde este panel."},
   ];
   const s2=steps[step];
   return(
@@ -1411,11 +1416,11 @@ function OnboardingScreen({client,onComplete}){
         </div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           {step>0&&<button style={{background:"none",border:"1px solid #E2DDD6",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>setStep(s=>s-1)}>← Anterior</button>}
-          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>{if(step<steps.length-1){setStep(s=>s+1);}else{onComplete();}}}>
+          <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase"}} onClick={()=>{if(step<steps.length-1){setStep(s=>s+1);}else{handleComplete();}}}>
             {step<steps.length-1?"Siguiente →":"Comenzar"}
           </button>
         </div>
-        <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={onComplete}>Omitir por ahora</button></div>
+        <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={handleComplete}>Omitir por ahora</button></div>
       </div>
     </div>
   );
@@ -4672,6 +4677,85 @@ function UsersTab({clients,setClients,admins,setAdmins}){
 }
 
 
+const FAQ_DATA = [
+  {categoria:"Mi panel",items:[
+    {q:"¿Qué es el Panel de Inmunidad Corporativa?",a:"Es tu herramienta de cumplimiento legal en tiempo real. Tu despacho M&M Abogados lo actualiza constantemente con el estado legal de tu empresa."},
+    {q:"¿Cada cuánto se actualiza la información?",a:"Tu despacho actualiza el panel cada vez que revisa tu situación legal. Las alertas de vencimiento se actualizan automáticamente todos los días."},
+    {q:"¿La información de mi empresa es confidencial?",a:"Sí. Solo tú y el equipo de M&M Abogados tienen acceso a tu panel. Ningún otro cliente puede ver tu información."},
+    {q:"¿Qué significa el porcentaje de cumplimiento?",a:"Es el porcentaje de items legales que tu empresa tiene en orden según la revisión de tu despacho."},
+  ]},
+  {categoria:"Módulos",items:[
+    {q:"¿Qué son los módulos?",a:"Cada módulo representa un área legal de tu empresa — Laboral, Fiscal, Corporativo, Migratorio, etc. Dentro de cada módulo puedes ver documentos, checklist de cumplimiento y riesgos."},
+    {q:"¿Qué significa que un item esté en rojo?",a:"Significa que tu despacho identificó algo que no está en orden y requiere atención. Haz click en el módulo para ver el detalle."},
+    {q:"¿Por qué no veo módulos en mi panel?",a:"Los módulos se activan según los servicios contratados con M&M Abogados. Contacta a tu ejecutivo para revisar tu plan."},
+  ]},
+  {categoria:"Documentos",items:[
+    {q:"¿Cómo subo documentos al panel?",a:"Los documentos los sube directamente tu despacho a Google Drive. Usa Solicitar al despacho si necesitas agregar alguno específico."},
+    {q:"¿Dónde se guardan mis documentos?",a:"En Google Drive, en una carpeta exclusiva para tu empresa. Desde el panel puedes hacer click en cualquier documento para abrirlo."},
+    {q:"¿Qué pasa cuando un documento está por vencer?",a:"Recibirás un email automático con anticipación. También lo verás en el dashboard y en el calendario de vencimientos."},
+  ]},
+  {categoria:"Solicitudes",items:[
+    {q:"¿Cómo le pido algo a mi despacho?",a:"Ve a Solicitar al despacho en el menú lateral. Ahí puedes enviar una solicitud con el tipo de servicio y el detalle. El equipo de M&M te contacta."},
+    {q:"¿Qué tipo de solicitudes puedo hacer?",a:"Asambleas, poderes notariales, contratos, due diligence, asesoría laboral, trámites migratorios, revisión de documentos y cualquier necesidad legal."},
+    {q:"¿Cuánto tarda en responder el despacho?",a:"Máximo 24 horas hábiles. Para asuntos urgentes contacta directamente a tu ejecutivo por teléfono o WhatsApp."},
+  ]},
+  {categoria:"Sociedades",items:[
+    {q:"¿Puedo ver varias empresas en el mismo panel?",a:"Sí. Si tu grupo tiene más de una sociedad verás un selector en la parte superior para cambiar entre ellas. Cada sociedad tiene su propio cumplimiento y documentos."},
+    {q:"¿Qué es la vista Grupo?",a:"Muestra la información del grupo corporativo en conjunto sin filtrar por sociedad específica."},
+  ]},
+  {categoria:"Contacto",items:[
+    {q:"¿Cómo contacto a M&M Abogados?",a:"Por email a hola@mymabogados.mx, por teléfono al número que te proporcionamos, o desde el panel usando Solicitar al despacho."},
+    {q:"¿Qué hago si algo no funciona?",a:"Envía un email a soporte@mymabogados.mx con una descripción y captura de pantalla. Lo revisamos en menos de 24 horas hábiles."},
+  ]},
+];
+
+function FAQModal({onClose}){
+  const [busqueda,setBusqueda]=React.useState("");
+  const [catActiva,setCatActiva]=React.useState(null);
+  const [itemAbierto,setItemAbierto]=React.useState(null);
+  const categorias=FAQ_DATA.map(c=>c.categoria);
+  const faqFiltrada=busqueda.length>1?FAQ_DATA.map(cat=>({...cat,items:cat.items.filter(i=>i.q.toLowerCase().includes(busqueda.toLowerCase())||i.a.toLowerCase().includes(busqueda.toLowerCase()))})).filter(cat=>cat.items.length>0):catActiva?FAQ_DATA.filter(c=>c.categoria===catActiva):FAQ_DATA;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.65)",display:"flex",alignItems:"flex-end",justifyContent:"flex-end",zIndex:500,padding:"1rem"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:8,width:"min(460px,100%)",maxHeight:"78vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #DDE4D8",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+          <div><div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>Preguntas frecuentes</div><div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>M&M Abogados · Panel Corporativo</div></div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:"#7A9070",lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:"10px 20px",borderBottom:"1px solid #DDE4D8",flexShrink:0}}>
+          <input style={{width:"100%",fontSize:12,padding:"8px 12px",border:"1px solid #DDE4D8",borderRadius:4,fontFamily:"system-ui,sans-serif",background:"#F5F2ED",boxSizing:"border-box",outline:"none"}} placeholder="Buscar una pregunta..." value={busqueda} onChange={e=>setBusqueda(e.target.value)} autoFocus/>
+        </div>
+        {!busqueda&&<div style={{display:"flex",gap:6,padding:"10px 20px",borderBottom:"1px solid #DDE4D8",flexWrap:"wrap",flexShrink:0}}>
+          <button onClick={()=>setCatActiva(null)} style={{fontSize:10,padding:"3px 10px",borderRadius:12,border:"1px solid "+(catActiva===null?"#4A5C45":"#DDE4D8"),background:catActiva===null?"#4A5C45":"none",color:catActiva===null?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Todas</button>
+          {categorias.map(cat=><button key={cat} onClick={()=>setCatActiva(cat===catActiva?null:cat)} style={{fontSize:10,padding:"3px 10px",borderRadius:12,border:"1px solid "+(catActiva===cat?"#4A5C45":"#DDE4D8"),background:catActiva===cat?"#4A5C45":"none",color:catActiva===cat?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>{cat}</button>)}
+        </div>}
+        <div style={{overflowY:"auto",flex:1}}>
+          {faqFiltrada.map(cat=>(
+            <div key={cat.categoria}>
+              <div style={{fontSize:9,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",padding:"12px 20px 4px",fontWeight:600}}>{cat.categoria}</div>
+              {cat.items.map((item,i)=>(
+                <div key={i} style={{borderBottom:"1px solid #DDE4D8"}}>
+                  <button onClick={()=>setItemAbierto(itemAbierto===cat.categoria+i?null:cat.categoria+i)} style={{width:"100%",textAlign:"left",padding:"12px 20px",background:"none",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+                    <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",lineHeight:1.5}}>{item.q}</span>
+                    <span style={{fontSize:14,color:"#7A9070",flexShrink:0}}>{itemAbierto===cat.categoria+i?"−":"+"}</span>
+                  </button>
+                  {itemAbierto===cat.categoria+i&&<div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#4A5C45",lineHeight:1.7,padding:"0 20px 14px"}}>{item.a}</div>}
+                </div>
+              ))}
+            </div>
+          ))}
+          {faqFiltrada.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>No encontramos resultados</div>}
+        </div>
+        <div style={{padding:"12px 20px",borderTop:"1px solid #DDE4D8",flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>¿No encontraste lo que buscas?</span>
+          <a href="mailto:hola@mymabogados.mx" style={{fontSize:11,color:"#4A5C45",fontFamily:"system-ui,sans-serif",textDecoration:"none",fontWeight:600}}>Escribirnos →</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -4831,6 +4915,7 @@ function ClientView({client,onLogout}){
   const [showDiag,setShowDiag]=useState(false);const [diagDone,setDiagDone]=useState(false);
   const [diagResult,setDiagResult]=useState(null);
   const [showOnboarding,setShowOnboarding]=useState(false);
+  const [showFAQ,setShowFAQ]=useState(false);
   const [sociedades,setSociedades]=useState([]);
   const [sociedadActiva,setSociedadActiva]=useState(null);
 
@@ -4850,7 +4935,8 @@ function ClientView({client,onLogout}){
       setSociedadActiva(null);
       setSociedadLoaded(true);
       const done=cl.data?.diagnostico_done;setDiagDone(!!done);
-      if(!done&&(!a.data||a.data.length===0)){setShowOnboarding(true);}
+      const onboardingDone = localStorage.getItem("mm_onboarding_done_"+client.id);
+      if(!done&&!onboardingDone){setShowOnboarding(true);}
       setLoading(false);
     }
     load();
@@ -4938,6 +5024,7 @@ function ClientView({client,onLogout}){
             <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
             <div style={{display:"flex",gap:8}}>
               <button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
+              <button style={{width:32,height:32,borderRadius:"50%",border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontSize:15,color:TEXT_MED,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}} onClick={()=>setShowFAQ(true)}>?</button>
               <NotifBell clientId={client.id}/>
             </div>
           </div>
@@ -5001,9 +5088,10 @@ function ClientView({client,onLogout}){
       {tab==="contratos"&&<ContratosClientTab client={client}/>}
       {tab==="historial"&&<HistorialClientTab client={client}/>}
       {tab==="resumen"&&<ResumenClientTab client={client}/>}
-      {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);setShowDiag(true);}}/>}
+      {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);}}/>}
       {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
+      {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
           </div>
         </div>
       </div>
