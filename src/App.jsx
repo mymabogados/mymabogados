@@ -683,7 +683,7 @@ async function generateReporteEjecutivo(client){
 
   // Cargar datos de Supabase
   const modulosActivos = ((client._sociedad?.modulos||client.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist);
-  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",client._sociedad?.id||null);
+  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id).then(({data:d})=>d);
   const {data:docsData} = await supabase.from("documents").select("*").eq("client_id",client.id);
   const checks = {};
   const riesgosData = {};
@@ -832,11 +832,31 @@ async function generateReporteEjecutivo(client){
   doc.save("MM_Reporte_"+client.name.replace(/\s+/g,"_")+"_"+dt+".pdf");
 }
 
-function generatePDF(client,areas,documents,pendingDocs){
+async function generatePDF(client,areas,documents,pendingDocs){
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const today=new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
-  const score=scoreOf(areas);const pageW=210;const margin=20;const contentW=pageW-margin*2;let y=0;
+  const pageW=210;const margin=20;const contentW=pageW-margin*2;let y=0;
   function checkPage(n=20){if(y+n>270){doc.addPage();y=20;}}
+
+  // Cargar datos reales de cumplimiento
+  const socId=client._sociedad?.id||null;
+  const qChecks=socId
+    ?supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
+    :supabase.from("reglas_compliance").select("*").eq("client_id",client.id).is("sociedad_id",null);
+  const {data:checksData}=await qChecks;
+  const checks={};
+  (checksData||[]).forEach(x=>{checks[x.modulo+"_"+x.regla_id]=x.status;});
+
+  const modulos=(client._sociedad?.modulos||client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;
+  });
+
+  const totalItems=Object.keys(checks).length;
+  const cumpleCount=Object.values(checks).filter(v=>v==="cumple").length;
+  const noCumple=Object.values(checks).filter(v=>v==="no_cumple").length;
+  const score=totalItems>0?Math.round((cumpleCount/totalItems)*100):0;
+  const scoreC=score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
+
   doc.setFillColor(26,26,26);doc.rect(0,0,pageW,30,"F");
   doc.setFillColor(201,168,76);doc.rect(0,28,pageW,1.5,"F");
   doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont("helvetica","bold");
@@ -847,25 +867,79 @@ function generatePDF(client,areas,documents,pendingDocs){
   y=42;doc.setTextColor(26,26,26);doc.setFontSize(16);doc.setFont("helvetica","bold");
   doc.text(client.name,margin,y);y+=7;
   doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
-  doc.text(`Cliente {client.id}  ·  {client.contact}`,margin,y);y+=14;
-  const cW=(contentW-9)/4;const sC=score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
-  [{label:"Salud corporativa",value:String(score),color:sC},{label:"Riesgos críticos",value:String(areas.filter(a=>a.status==="red").length),color:[192,57,43]},{label:"Revisar pronto",value:String(areas.filter(a=>a.status==="amber").length),color:[201,168,76]},{label:"En orden",value:String(areas.filter(a=>a.status==="green").length),color:[90,138,60]}].forEach((c,i)=>{
+  doc.text(`${client._sociedad?client._sociedad.nombre+" · ":""}${client.id}`,margin,y);y+=14;
+  const cW=(contentW-9)/4;
+  [{label:"Cumplimiento",value:score+"%",color:scoreC},{label:"Módulos activos",value:String(modulos.length),color:[74,92,69]},{label:"No cumple",value:String(noCumple),color:[192,57,43]},{label:"Sin revisar",value:String(totalItems-cumpleCount-noCumple),color:[201,168,76]}].forEach((sc,i)=>{
     const x=margin+i*(cW+3);doc.setFillColor(245,242,237);doc.roundedRect(x,y,cW,22,2,2,"F");
-    doc.setTextColor(...c.color);doc.setFontSize(20);doc.setFont("helvetica","bold");doc.text(c.value,x+cW/2,y+13,{align:"center"});
-    doc.setTextColor(136,136,128);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(c.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
+    doc.setTextColor(...sc.color);doc.setFontSize(20);doc.setFont("helvetica","bold");doc.text(sc.value,x+cW/2,y+13,{align:"center"});
+    doc.setTextColor(136,136,128);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(sc.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
   });y+=30;
   doc.setFillColor(201,168,76);doc.rect(margin,y,contentW,0.5,"F");y+=8;
-  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);doc.text("ESTADO DE ÁREAS CORPORATIVAS",margin,y);y+=6;
-  const sL={red:"RIESGO ALTO",amber:"REVISAR",green:"AL CORRIENTE"};
-  const sR={red:[192,57,43],amber:[201,168,76],green:[90,138,60]};
-  const sB={red:[253,245,245],amber:[253,250,240],green:[245,251,240]};
-  areas.forEach(a=>{
-    checkPage(14);doc.setFillColor(...sB[a.status]||[245,242,237]);doc.roundedRect(margin,y,contentW,12,1,1,"F");
-    doc.setFillColor(...sR[a.status]||[136,136,128]);doc.rect(margin,y,2.5,12,"F");
-    doc.setTextColor(26,26,26);doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text(a.name,margin+6,y+5.5);
-    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);doc.text(a.sub,margin+6,y+10);
-    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(...sR[a.status]||[136,136,128]);
-    doc.text(sL[a.status]||a.status.toUpperCase(),pageW-margin-2,y+7,{align:"right"});y+=14;
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);doc.text("ESTADO DE CUMPLIMIENTO POR MÓDULO",margin,y);y+=6;
+  modulos.forEach(modId=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===modId);if(!m)return;
+    const items=MODULO_DOCS[modId]?.checklist||[];
+    const total=items.length;
+    const cumple=items.filter(it=>checks[modId+"_"+it.id]==="cumple").length;
+    const noCumpleM=items.filter(it=>checks[modId+"_"+it.id]==="no_cumple").length;
+    const pct=total>0?Math.round((cumple/total)*100):null;
+    const color=noCumpleM>0?[192,57,43]:pct>=75?[90,138,60]:[201,168,76];
+    checkPage(12);
+    doc.setFillColor(245,242,237);doc.roundedRect(margin,y,contentW,12,1,1,"F");
+    doc.setFillColor(...color);doc.rect(margin,y,2.5,12,"F");
+    doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text(m.nombre,margin+6,y+5);
+    doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
+    doc.text(m.cat,margin+6,y+9.5);
+    if(total>0){
+      doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(...color);
+      doc.text(pct!==null?pct+"%":"—",pageW-margin-2,y+6,{align:"right"});
+      doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
+      doc.text(cumple+"/"+total+" cumple",pageW-margin-14,y+9.5,{align:"right"});
+    }
+    y+=12;
+    // Desglose de todos los items del módulo
+    y+=2;
+    if(total>0){
+      items.forEach(it=>{
+        const st=checks[modId+"_"+it.id]||"sin_revisar";
+        const stColor=st==="cumple"?[90,138,60]:st==="no_cumple"?[192,57,43]:st==="parcial"?[201,168,76]:[180,180,180];
+        const stBg=st==="cumple"?[245,251,240]:st==="no_cumple"?[253,245,245]:st==="parcial"?[253,250,240]:[248,248,248];
+        const stLabel=st==="cumple"?"CUMPLE":st==="no_cumple"?"NO CUMPLE":st==="parcial"?"PARCIAL":"SIN REVISAR";
+        checkPage(7);y+=2;
+        doc.setFillColor(...stBg);doc.roundedRect(margin+3,y,contentW-3,6,0.5,0.5,"F");
+        doc.setFillColor(...stColor);doc.rect(margin+3,y,1.5,6,"F");
+        doc.setTextColor(26,26,26);doc.setFontSize(7);doc.setFont("helvetica","normal");
+        const label=it.label.length>90?it.label.slice(0,90)+"...":it.label;
+        doc.text(label,margin+7,y+3.5);
+        doc.setFontSize(6);doc.setFont("helvetica","bold");doc.setTextColor(...stColor);
+        doc.text(stLabel,pageW-margin-2,y+3.5,{align:"right"});
+        y+=6;
+      });
+      // Riesgos del módulo
+      const riesgos=MODULO_DOCS[modId]?.riesgos||[];
+      if(riesgos.length>0){
+        checkPage(10);y+=3;
+        doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(136,136,128);
+        doc.text("RIESGOS IDENTIFICADOS",margin+3,y);y+=4;
+        riesgos.forEach(r=>{
+          const rc=r.nivel==="critico"?[192,57,43]:r.nivel==="alto"?[180,100,20]:[201,168,76];
+          checkPage(10);
+          doc.setFillColor(248,248,248);doc.roundedRect(margin+3,y,contentW-3,8,0.5,0.5,"F");
+          doc.setFillColor(...rc);doc.rect(margin+3,y,1.5,8,"F");
+          doc.setTextColor(26,26,26);doc.setFontSize(7);doc.setFont("helvetica","bold");
+          const rl=r.label.length>85?r.label.slice(0,85)+"...":r.label;
+          doc.text(rl,margin+7,y+3);
+          doc.setFontSize(6);doc.setFont("helvetica","normal");doc.setTextColor(136,136,128);
+          const imp=r.impacto.length>100?r.impacto.slice(0,100)+"...":r.impacto;
+          doc.text(imp,margin+7,y+6.5);
+          doc.setFontSize(6);doc.setFont("helvetica","bold");doc.setTextColor(...rc);
+          doc.text(r.nivel.toUpperCase(),pageW-margin-2,y+4,{align:"right"});
+          y+=9;
+        });
+      }
+    }
+    y+=6;
   });
   y+=6;doc.setFillColor(201,168,76);doc.rect(margin,y,contentW,0.5,"F");y+=8;
   Object.entries(CAT_LABELS).forEach(([cat,catLabel])=>{
@@ -875,7 +949,7 @@ function generatePDF(client,areas,documents,pendingDocs){
       checkPage(10);const rgb=d.status==="vigente"?[90,138,60]:d.status==="vencido"?[192,57,43]:[201,168,76];
       doc.setFillColor(...rgb);doc.circle(margin+2,y+2.5,1.5,"F");
       doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(d.name,margin+6,y+4);
-      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(d.person?`${d.person}  ·  {d.date}`:d.date,margin+6,y+9);
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(d.person?`${d.person}  ·  ${d.date}`:d.date,margin+6,y+9);
       doc.setTextColor(...rgb);doc.setFontSize(7);doc.setFont("helvetica","bold");doc.text(d.status.toUpperCase(),pageW-margin-2,y+5,{align:"right"});y+=12;
     });y+=4;
   });
@@ -885,7 +959,7 @@ function generatePDF(client,areas,documents,pendingDocs){
     pendingDocs.forEach(p=>{
       checkPage(12);doc.setFillColor(201,168,76);doc.circle(margin+2,y+2.5,1.5,"F");
       doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text(p.name,margin+6,y+4);
-      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(p.due?`Vence: {p.due}  ·  {p.note}`:p.note,margin+6,y+9);y+=12;
+      doc.setTextColor(136,136,128);doc.setFontSize(8);doc.text(p.due?`Vence: ${p.due}  ·  ${p.note}`:p.note,margin+6,y+9);y+=12;
     });
   }
   const pc=doc.getNumberOfPages();
@@ -894,7 +968,7 @@ function generatePDF(client,areas,documents,pendingDocs){
     doc.setFillColor(201,168,76);doc.rect(0,284,pageW,0.8,"F");
     doc.setTextColor(180,180,180);doc.setFontSize(7);doc.setFont("helvetica","normal");
     doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx",margin,292);
-    doc.text(`Página {i} de {pc}`,pageW-margin,292,{align:"right"});
+    doc.text(`Página ${i} de ${pc}`,pageW-margin,292,{align:"right"});
   }
   var dt=new Date().toISOString().slice(0,10);doc.save("MM_Inmunidadprotegida._"+client.id+"_"+dt+".pdf");
 }
@@ -3648,14 +3722,7 @@ function ModuloViewDatos({modId, client}){
   if(modId==="L-06") return <ModL06 client={client}/>;
   if(modId==="L-07") return <ModL07 client={client}/>;
   if(modId==="L-08") return <ModL08 client={client}/>;
-  if(modId==="F-01") return <ModF01 client={client}/>;
-  if(modId==="F-02") return <ModF02 client={client}/>;
-  if(modId==="F-03") return <ModF03 client={client}/>;
-  if(modId==="F-04") return <ModF04 client={client}/>;
-  if(modId==="F-05") return <ModF05 client={client}/>;
-  if(modId==="F-06") return <ModF06 client={client}/>;
-  if(modId==="F-07") return <ModF07 client={client}/>;
-  if(modId==="F-08") return <ModF08 client={client}/>;
+  if(modId&&modId.startsWith("F-")) return <div style={{padding:"2rem",textAlign:"center",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontSize:13}}>Módulo Fiscal en desarrollo — disponible próximamente.</div>;
   if(modId==="A-01") return <ModA01 client={client}/>;
   if(modId==="A-02") return <ModA02 client={client}/>;
   if(modId==="A-03") return <ModA03 client={client}/>;
@@ -3709,9 +3776,13 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
     if(existing){
       await supabase.from("documents").update({drive_url:driveUrl,status:"vigente",name:name||existing.name}).eq("id",existing.id);
     } else {
-      await supabase.from("documents").insert({client_id:client.id,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)});
+      await supabase.from("documents").insert({client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)});
     }
-    const {data:d}=await supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId);
+    const socId = client._sociedad?.id||null;
+    const q = socId
+      ? supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",socId)
+      : supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId).is("sociedad_id",null);
+    const {data:d}=await q;
     setDocs(d||[]);
     setUploading(null);
   }
@@ -3828,7 +3899,7 @@ function ModuloViewChecklist({modId, client}){
   const [saving,setSaving]=useState(false);
 
   useEffect(()=>{
-    supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",client._sociedad?.id||null)
+    (client._sociedad?.id ? supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",client._sociedad.id) : supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("modulo",modId).is("sociedad_id",null))
       .then(({data:d})=>{
         const map={};
         (d||[]).forEach(x=>{map[x.regla_id]=x.status;});
@@ -3839,7 +3910,18 @@ function ModuloViewChecklist({modId, client}){
   async function toggleCheck(id, currentStatus){
     const newStatus = currentStatus==="cumple"?"no_cumple":currentStatus==="no_cumple"?"parcial":"cumple";
     setSaving(true);
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
+    const socId=client._sociedad?.id||null;
+    const qEx=socId
+      ?supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",id).eq("sociedad_id",socId).maybeSingle()
+      :supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",id).is("sociedad_id",null).maybeSingle();
+    const {data:ex}=await qEx;
+    if(ex?.id){
+      const r=await supabase.from("reglas_compliance").update({status:newStatus}).eq("id",ex.id);
+      if(r.error)console.error("UPDATE ERROR:",r.error.message,r.error.details);
+    } else {
+      const r=await supabase.from("reglas_compliance").insert({id:"rc_"+client.id+"_"+modId+"_"+id+"_"+(socId||"null"),client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:socId});
+      if(r.error)console.error("INSERT ERROR:",r.error.message,r.error.details,{client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:socId});
+    }
     setChecks(prev=>({...prev,[id]:newStatus}));
     setSaving(false);
     if(newStatus==="no_cumple"){
@@ -3990,8 +4072,8 @@ function AdminModulosTab({clients, activeClient, activeSociedad}){
 
 
 function AdminModuloTabs({modId, client}){
-  const [activeTab,setActiveTab]=useState("documentos");
-  const tabs=[{id:"documentos",label:"Documentos"},{id:"cumplimiento",label:"Cumplimiento"},{id:"riesgos",label:"Riesgos"}];
+  const [activeTab,setActiveTab]=useState("datos");
+  const tabs=[{id:"datos",label:"Datos"},{id:"documentos",label:"Documentos"},{id:"cumplimiento",label:"Cumplimiento"},{id:"riesgos",label:"Riesgos"}];
   return(
     <div style={{marginBottom:16}}>
       <div style={{display:"flex",gap:4,marginBottom:12}}>
@@ -4000,6 +4082,8 @@ function AdminModuloTabs({modId, client}){
         ))}
       </div>
       <div style={{border:"1px solid "+BORDER,borderRadius:8,padding:16,background:"#FAFCF8"}}>
+        {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
+        {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
         {activeTab==="documentos"&&<ModuloViewDocs modId={modId} client={client} isAdmin={true}/>}
         {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client}/>}
         {activeTab==="riesgos"&&<ModuloViewRiesgos modId={modId}/>}
@@ -4256,7 +4340,11 @@ function AdminComplianceGeneral({client}){
     const key=modId+"_"+itemId;
     const newStatus=current==="cumple"?"no_cumple":current==="no_cumple"?"parcial":"cumple";
     setSaving(key);
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,status:newStatus,sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
+    const socId2=client._sociedad?.id||null;
+    const q2=socId2?supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",itemId).eq("sociedad_id",socId2).maybeSingle():supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",itemId).is("sociedad_id",null).maybeSingle();
+    const {data:ex2}=await q2;
+    if(ex2?.id){await supabase.from("reglas_compliance").update({status:newStatus}).eq("id",ex2.id);}
+    else{await supabase.from("reglas_compliance").insert({client_id:client.id,modulo:modId,regla_id:itemId,status:newStatus,sociedad_id:socId2});}
     setChecks(prev=>({...prev,[key]:newStatus}));
     setSaving(null);
     if(newStatus==="no_cumple"){
@@ -4280,7 +4368,11 @@ function AdminComplianceGeneral({client}){
   async function changeRiesgo(modId,itemId,nuevoNivel){
     const key=modId+"_"+itemId;
     setSaving(key+"_r");
-    await supabase.from("reglas_compliance").upsert({client_id:client.id,modulo:modId,regla_id:itemId,nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar",sociedad_id:client._sociedad?.id||null},{onConflict:"client_id,modulo,regla_id,sociedad_id"});
+    const socId3=client._sociedad?.id||null;
+    const q3=socId3?supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",itemId).eq("sociedad_id",socId3).maybeSingle():supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",itemId).is("sociedad_id",null).maybeSingle();
+    const {data:ex3}=await q3;
+    if(ex3?.id){await supabase.from("reglas_compliance").update({nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar"}).eq("id",ex3.id);}
+    else{await supabase.from("reglas_compliance").insert({client_id:client.id,modulo:modId,regla_id:itemId,nivel_riesgo:nuevoNivel,status:checks[key]||"sin_revisar",sociedad_id:socId3});}
     setRiesgos(prev=>({...prev,[key]:nuevoNivel}));
     setSaving(null);
   }
@@ -4756,6 +4848,54 @@ function FAQModal({onClose}){
 }
 
 
+
+function RequestModal({client, onClose, onSubmit}){
+  const [tipo,setTipo]=useState("");
+  const [notes,setNotes]=useState("");
+  const [saving,setSaving]=useState(false);
+  const tipos=[
+    "Asamblea de accionistas",
+    "Poder notarial",
+    "Contrato",
+    "Due diligence",
+    "Asesoría laboral",
+    "Trámite migratorio",
+    "Revisión de documentos",
+    "Consulta fiscal",
+    "Otro",
+  ];
+  async function send(){
+    if(!tipo) return;
+    setSaving(true);
+    await onSubmit({label:tipo,type:tipo,notes});
+    setSaving(false);
+    onClose();
+  }
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"1rem"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",padding:"2rem",width:"min(500px,100%)",borderRadius:4}}>
+        <div style={{fontSize:16,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:4}}>Solicitar al despacho</div>
+        <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:20}}>El equipo de M&M Abogados recibirá tu solicitud y te contactará.</div>
+        <div style={{marginBottom:12}}>
+          <span style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",display:"block",marginBottom:6}}>Tipo de solicitud</span>
+          <select style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",background:"#FAFCF8",color:"#1E2B1A"}} value={tipo} onChange={e=>setTipo(e.target.value)}>
+            <option value="">Seleccionar...</option>
+            {tipos.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={{marginBottom:20}}>
+          <span style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",display:"block",marginBottom:6}}>Detalle (opcional)</span>
+          <textarea style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",width:"100%",minHeight:80,resize:"vertical",background:"#FAFCF8",color:"#1E2B1A",boxSizing:"border-box"}} placeholder="Describe lo que necesitas..." value={notes} onChange={e=>setNotes(e.target.value)}/>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"8px 16px",border:"1px solid #DDE4D8",borderRadius:3,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          <button onClick={send} disabled={!tipo||saving} style={{fontSize:12,padding:"8px 16px",border:"none",borderRadius:3,background:"#4A5C45",color:"#F0F4EE",cursor:(!tipo||saving)?"not-allowed":"pointer",fontFamily:"system-ui,sans-serif",opacity:(!tipo||saving)?0.6:1}}>{saving?"Enviando...":"Enviar solicitud"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -4980,7 +5120,7 @@ function ClientView({client,onLogout}){
   const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
   const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
   const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
-  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"}];
+  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"},{id:"calendario",label:"📅 Calendario"}];
 
   return(
     <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
@@ -5090,6 +5230,7 @@ function ClientView({client,onLogout}){
       {tab==="resumen"&&<ResumenClientTab client={client}/>}
       {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);}}/>}
       {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
+      {tab==="calendario"&&<CalendarioVencimientos client={clientEfectivo}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
           </div>
