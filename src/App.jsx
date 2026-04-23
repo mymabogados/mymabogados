@@ -514,6 +514,20 @@ const RIESGO_COLORS = {
 };
 const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio","Condominal","Protección Patrimonial","Cumplimiento Especializado","Inmobiliario","Salud","Energía","Tecnología","Agroindustria","Entretenimiento"];
 
+async function logActividad(client, adminNombre, tipo, descripcion, modulo=null, metadata={}){
+  try{
+    await supabase.from("actividad_log").insert({
+      client_id:client.id,
+      sociedad_id:client._sociedad?.id||null,
+      admin_nombre:adminNombre||"Despacho M&M",
+      tipo,
+      modulo,
+      descripcion,
+      metadata,
+    });
+  }catch(e){console.error("logActividad error:",e);}
+}
+
 function ModulosSelector({clientId, modulosActivos=[], onChange}){
   const [open,setOpen]=useState(false);
   const [selected,setSelected]=useState(new Set(modulosActivos));
@@ -1436,32 +1450,62 @@ function AdminResumenTab({client}){
 }
 
 function HistorialClientTab({client}){
-  const [historial,setHistorial]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{supabase.from("historial").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setHistorial(data||[]);setLoading(false);});},[client.id]);
-  if(loading)return <Spinner/>;
-  const sLabel={red:"Atención urgente",amber:"Revisar",green:"En orden"};
-  const sColor={red:"#C0392B",amber:"#C9A84C",green:"#5A8A3C"};
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filtroTipo,setFiltroTipo]=useState("todos");
+  const socId=client._sociedad?.id||null;
+
+  useEffect(()=>{
+    const q=socId
+      ?supabase.from("actividad_log").select("*").eq("client_id",client.id).eq("sociedad_id",socId).order("created_at",{ascending:false}).limit(100)
+      :supabase.from("actividad_log").select("*").eq("client_id",client.id).is("sociedad_id",null).order("created_at",{ascending:false}).limit(100);
+    q.then(({data})=>{setLogs(data||[]);setLoading(false);});
+  },[client.id,socId]);
+
+  const TIPOS={
+    checklist:{label:"Cumplimiento",color:"#4A5C45",bg:"#E8F0E8",icon:"✅"},
+    documento:{label:"Documento",color:"#185FA5",bg:"#EBF4FF",icon:"📄"},
+    accion:{label:"Próximo paso",color:"#C9A84C",bg:"#FFF8E7",icon:"→"},
+    datos:{label:"Datos",color:"#7A9070",bg:"#F0F4EE",icon:"📝"},
+    nota:{label:"Nota",color:"#7A9070",bg:"#F0F4EE",icon:"💬"},
+  };
+
+  const filtrados=filtroTipo==="todos"?logs:logs.filter(l=>l.tipo===filtroTipo);
+
+  if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando historial...</div>;
+
   return(
     <div>
-      <span style={s.label}>¿Qué ha cambiado en mi empresa?</span>
-      {historial.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Aún no hay cambios registrados</div>
-      :historial.map((h,i)=>{
-        const fecha=new Date(h.created_at).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});
-        const hora=new Date(h.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["todos","checklist","documento","accion","datos"].map(tipo=>(
+          <button key={tipo} onClick={()=>setFiltroTipo(tipo)} style={{fontSize:11,padding:"4px 12px",borderRadius:12,border:"1px solid "+(filtroTipo===tipo?"#4A5C45":"#DDE4D8"),background:filtroTipo===tipo?"#4A5C45":"none",color:filtroTipo===tipo?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>
+            {tipo==="todos"?"Todos":TIPOS[tipo]?.label||tipo}
+          </button>
+        ))}
+        <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",alignSelf:"center",marginLeft:"auto"}}>{filtrados.length} registros</span>
+      </div>
+
+      {filtrados.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin actividad registrada aún</div>}
+
+      {filtrados.map((log,i)=>{
+        const t=TIPOS[log.tipo]||{label:log.tipo,color:"#7A9070",bg:"#F5F2ED",icon:"·"};
+        const fecha=new Date(log.created_at);
+        const fechaStr=fecha.toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});
+        const horaStr=fecha.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
         return(
-          <div key={h.id} style={{display:"flex",gap:16,marginBottom:16}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-              <div style={{width:10,height:10,borderRadius:"50%",background:sColor[h.status_nuevo]||"#aaa",flexShrink:0,marginTop:4}}/>
-              {i<historial.length-1&&<div style={{width:1,flex:1,background:"#E2DDD6",marginTop:4}}/>}
-            </div>
-            <div style={{background:"#FFFFFF",border:"1px solid #E2DDD6",borderRadius:4,padding:"1rem 1.25rem",flex:1,marginBottom:0}}>
-              <div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{h.area_name}</div>
-              <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{...{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"},...(()=>{const m={red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"]};const [bg,color]=m[h.status_anterior]||["#f3f4f6","#374151"];return{background:bg,color,opacity:.7};})()}}>{sLabel[h.status_anterior]||h.status_anterior}</span>
-                <span style={{fontSize:11,color:"#888880"}}>→</span>
-                <span style={{...{fontSize:10,padding:"2px 8px",borderRadius:2,fontWeight:400,whiteSpace:"nowrap",letterSpacing:".06em",textTransform:"uppercase",fontFamily:"system-ui, sans-serif"},...(()=>{const m={red:["#fef2f2","#991b1b"],amber:["#fffbeb","#92400e"],green:["#f0fdf4","#166534"]};const [bg,color]=m[h.status_nuevo]||["#f3f4f6","#374151"];return{background:bg,color};})()}}>{sLabel[h.status_nuevo]||h.status_nuevo}</span>
+          <div key={log.id} style={{display:"flex",gap:12,padding:"12px 0",borderBottom:i<filtrados.length-1?"1px solid #DDE4D8":"none"}}>
+            <div style={{width:32,height:32,borderRadius:"50%",background:t.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{t.icon}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",marginBottom:2}}>{log.descripcion}</div>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:t.bg,color:t.color,fontFamily:"system-ui,sans-serif"}}>{t.label}</span>
+                {log.modulo&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:"#F0F4EE",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>{log.modulo}</span>}
+                <span style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{log.admin_nombre}</span>
               </div>
-              <div style={{fontSize:11,color:"#888880",marginTop:4}}>{fecha} · {hora} · {h.admin_name}</div>
+            </div>
+            <div style={{flexShrink:0,textAlign:"right"}}>
+              <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{fechaStr}</div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{horaStr}</div>
             </div>
           </div>
         );
@@ -1469,6 +1513,7 @@ function HistorialClientTab({client}){
     </div>
   );
 }
+
 
 function NotifBell({clientId}){
   const [notifs,setNotifs]=useState([]);const [open,setOpen]=useState(false);
@@ -3865,6 +3910,8 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   async function uploadDoc(docId, driveUrl, name){
     const newDoc={id:"doc_"+client.id+"_"+modId+"_"+docId+"_"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)};
     await supabase.from("documents").insert(newDoc);
+    const modNombreDoc=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+    await logActividad(client,client._adminNombre||"Despacho M&M","documento",`Documento subido en ${modNombreDoc}: ${name||docId}`,modId,{tipo:docId,nombre:name});
     const socId = client._sociedad?.id||null;
     const q = socId
       ? supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",socId)
@@ -3989,7 +4036,7 @@ function UploadDocForm({onSubmit, onCancel, clientId, clientName, sociedadNombre
   );
 }
 
-function ModuloViewChecklist({modId, client, isAdmin=false}){
+function ModuloViewChecklist({modId, client, isAdmin=false, adminNombre="Despacho M&M"}){
   const catalog = MODULO_DOCS[modId];
   const [checks,setChecks]=useState({});const [acciones,setAcciones]=useState({});const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -4002,6 +4049,23 @@ function ModuloViewChecklist({modId, client, isAdmin=false}){
         setChecks(map);setLoading(false);
       });
   },[client.id,modId]);
+
+  async function saveAccion(id,val){
+    setAcciones(prev=>({...prev,[id]:val}));
+    const socId=client._sociedad?.id||null;
+    const qEx=socId
+      ?supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",id).eq("sociedad_id",socId).maybeSingle()
+      :supabase.from("reglas_compliance").select("id").eq("client_id",client.id).eq("modulo",modId).eq("regla_id",id).is("sociedad_id",null).maybeSingle();
+    const {data:ex}=await qEx;
+    if(ex?.id){await supabase.from("reglas_compliance").update({accion_recomendada:val}).eq("id",ex.id);}
+    else{await supabase.from("reglas_compliance").insert({id:"rc_"+client.id+"_"+modId+"_"+id+"_"+(socId||"null"),client_id:client.id,modulo:modId,regla_id:id,status:"sin_revisar",sociedad_id:socId,accion_recomendada:val});}
+    if(val&&val.length>3){
+      const items=MODULO_DOCS[modId]?.checklist||[];
+      const itemLabel=items.find(x=>x.id===id)?.label||id;
+      const modNombre=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+      await logActividad(client,client._adminNombre||"Despacho M&M","accion","Próximo paso actualizado en "+modNombre+": "+itemLabel,modId,{regla_id:id});
+    }
+  }
 
   async function toggleCheck(id, currentStatus){
     const newStatus = currentStatus==="cumple"?"no_cumple":currentStatus==="no_cumple"?"parcial":"cumple";
@@ -4018,6 +4082,11 @@ function ModuloViewChecklist({modId, client, isAdmin=false}){
       const r=await supabase.from("reglas_compliance").insert({id:"rc_"+client.id+"_"+modId+"_"+id+"_"+(socId||"null"),client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:socId});
       if(r.error)console.error("INSERT ERROR:",r.error.message,r.error.details,{client_id:client.id,modulo:modId,regla_id:id,status:newStatus,sociedad_id:socId});
     }
+    const modNombre=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
+    const items=MODULO_DOCS[modId]?.checklist||[];
+    const itemLabel=items.find(x=>x.id===id)?.label||id;
+    const statusLabel=newStatus==="cumple"?"Cumple":newStatus==="no_cumple"?"No cumple":newStatus==="parcial"?"Parcial":"Sin revisar";
+    await logActividad(client,adminNombre,"checklist",`${modNombre} — "${itemLabel}" marcado como ${statusLabel}`,modId,{regla_id:id,status:newStatus});
     setChecks(prev=>({...prev,[id]:newStatus}));
     setSaving(false);
     if(newStatus==="no_cumple"){
@@ -4197,7 +4266,7 @@ function AdminModuloTabs({modId, client}){
         {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
         {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
         {activeTab==="documentos"&&<ModuloViewDocs modId={modId} client={client} isAdmin={true}/>}
-        {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client} isAdmin={true}/>}
+        {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client} isAdmin={true} adminNombre={client._adminNombre||"Despacho M&M"}/>}
         {activeTab==="riesgos"&&<ModuloViewRiesgos modId={modId}/>}
       </div>
     </div>
@@ -5627,7 +5696,7 @@ function AdminView({onLogout,admin}){
     load();
   },[sel,adminSocActiva?.id]);
 
-  const client=sel ? {...(clients.find(c=>c.id===sel)||{}), _sociedad: adminSocActiva} : null;
+  const client=sel ? {...(clients.find(c=>c.id===sel)||{}), _sociedad: adminSocActiva, _adminNombre: admin?.nombre||admin?.username||"Despacho M&M"} : null;
 
   async function updateArea(areaId,field,val){
     const prevArea=areas.find(a=>a.id===areaId);
