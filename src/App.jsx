@@ -4963,12 +4963,37 @@ function DocViewerModal({url, name, onClose}){
 }
 
 
+
+const PERMISOS_SECCIONES = {
+  principal: [
+    {id:"panel",label:"Mi empresa (dashboard)"},
+    {id:"riesgos",label:"Alertas críticas"},
+    {id:"marca",label:"Mi marca"},
+  ],
+  empresa: [
+    {id:"compliance",label:"Estado corporativo"},
+    {id:"regulatorio",label:"Ante autoridades"},
+    {id:"personas",label:"Equipo directivo"},
+    {id:"poderes",label:"Poderes"},
+    {id:"docs",label:"Mis documentos"},
+    {id:"contratos",label:"Mis contratos"},
+  ],
+  despacho: [
+    {id:"asambleas",label:"Asambleas"},
+    {id:"historial",label:"Historial"},
+    {id:"resumen",label:"Novedades del despacho"},
+    {id:"pendientes",label:"Pendientes"},
+    {id:"solicitudes",label:"Solicitar al despacho"},
+    {id:"calendario",label:"Calendario"},
+  ],
+};
+
 function GestorUsuariosInternos({client, isAdmin=false}){
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
   const [editing,setEditing]=useState(null);
-  const [form,setForm]=useState({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true});
+  const [form,setForm]=useState({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true,permisos:{principal:[],empresa:[],despacho:[],modulos:[]}});
   const [saved,setSaved]=useState("");
 
   const modulos=(client._sociedad?.modulos||client.modulos||[]).filter(id=>{
@@ -4980,6 +5005,13 @@ function GestorUsuariosInternos({client, isAdmin=false}){
     .then(({data})=>{setUsers(data||[]);setLoading(false);});
   },[client.id]);
 
+  function togglePermiso(cat,id){
+    setForm(prev=>{
+      const cur=prev.permisos[cat]||[];
+      return {...prev,permisos:{...prev.permisos,[cat]:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]}};
+    });
+  }
+
   function toggleModulo(id){
     setForm(prev=>({...prev,modulos:prev.modulos.includes(id)?prev.modulos.filter(x=>x!==id):[...prev.modulos,id]}));
   }
@@ -4987,15 +5019,15 @@ function GestorUsuariosInternos({client, isAdmin=false}){
   async function save(){
     if(!form.nombre||!form.email||!form.password)return;
     if(editing){
-      await supabase.from("client_users").update({nombre:form.nombre,email:form.email,password:form.password,modulos:form.modulos,rol:form.rol,activo:form.activo}).eq("id",editing.id);
+      await supabase.from("client_users").update({nombre:form.nombre,email:form.email,password:form.password,modulos:form.permisos?.modulos||[],rol:form.rol,activo:form.activo,permisos:form.permisos}).eq("id",editing.id);
       setUsers(prev=>prev.map(u=>u.id===editing.id?{...u,...form}:u));
     } else {
-      const nu={client_id:client.id,sociedad_id:client._sociedad?.id||null,nombre:form.nombre,email:form.email,password:form.password,modulos:form.modulos,rol:form.rol||"visor",activo:true};
+      const nu={client_id:client.id,sociedad_id:client._sociedad?.id||null,nombre:form.nombre,email:form.email,password:form.password,modulos:form.permisos?.modulos||[],rol:form.rol||"visor",activo:true,permisos:form.permisos};
       const {data}=await supabase.from("client_users").insert(nu).select().single();
       if(data)setUsers(prev=>[...prev,data]);
     }
     setSaved("Guardado ✓");setTimeout(()=>setSaved(""),2000);
-    setShowForm(false);setEditing(null);setForm({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true});
+    setShowForm(false);setEditing(null);setForm({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true,permisos:{principal:[],empresa:[],despacho:[],modulos:[]}});
   }
 
   async function toggleActivo(u){
@@ -5026,15 +5058,26 @@ function GestorUsuariosInternos({client, isAdmin=false}){
             <option value="editor">Editor — puede subir docs</option>
           </select>
         </div>
+        {["principal","empresa","despacho"].map(cat=>(
+          <div key={cat} style={{marginBottom:10}}>
+            <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>{cat==="principal"?"Principal":cat==="empresa"?"Mi empresa":"Despacho"}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {PERMISOS_SECCIONES[cat].map(sec=>{
+                const active=(form.permisos[cat]||[]).includes(sec.id);
+                return <button key={sec.id} onClick={()=>togglePermiso(cat,sec.id)} style={{fontSize:11,padding:"3px 10px",borderRadius:3,border:"1px solid "+(active?"#4A5C45":"#DDE4D8"),background:active?"#4A5C45":"none",color:active?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{sec.label}</button>;
+              })}
+            </div>
+          </div>
+        ))}
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Módulos con acceso</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Módulos activos</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {modulos.map(id=>{
               const m=MODULOS_CATALOG.find(x=>x.id===id);
-              const active=form.modulos.includes(id);
-              return <button key={id} onClick={()=>toggleModulo(id)} style={{fontSize:11,padding:"4px 10px",borderRadius:3,border:"1px solid "+(active?"#4A5C45":"#DDE4D8"),background:active?"#4A5C45":"none",color:active?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{id} {m?.nombre||id}</button>;
+              const active=(form.permisos.modulos||[]).includes(id);
+              return <button key={id} onClick={()=>togglePermiso("modulos",id)} style={{fontSize:11,padding:"3px 10px",borderRadius:3,border:"1px solid "+(active?"#4A5C45":"#DDE4D8"),background:active?"#4A5C45":"none",color:active?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{id} {m?.nombre||id}</button>;
             })}
-            {modulos.length===0&&<span style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Sin módulos activos en este cliente</span>}
+            {modulos.length===0&&<span style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Sin módulos activos</span>}
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -5056,7 +5099,7 @@ function GestorUsuariosInternos({client, isAdmin=false}){
             </div>
           </div>
           <div style={{display:"flex",gap:6,flexShrink:0}}>
-            <button onClick={()=>{setEditing(u);setForm({nombre:u.nombre,email:u.email,password:u.password,modulos:u.modulos||[],rol:u.rol||"visor",activo:u.activo});setShowForm(true);}} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>✎ Editar</button>
+            <button onClick={()=>{setEditing(u);setForm({nombre:u.nombre,email:u.email,password:u.password,modulos:u.modulos||[],rol:u.rol||"visor",activo:u.activo,permisos:u.permisos||{principal:[],empresa:[],despacho:[],modulos:[]}});setShowForm(true);}} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>✎ Editar</button>
             <button onClick={()=>toggleActivo(u)} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:u.activo?"#C0392B":"#5A8A3C"}}>{u.activo?"Desactivar":"Activar"}</button>
           </div>
         </div>
@@ -5227,9 +5270,18 @@ function ClientDashboard({client, onNavigate}){
   );
 }
 
-function ClientView({client,onLogout}){
+function ClientView({client,onLogout,clientUser=null}){
   const [sidebarOpen,setSidebarOpen]=useState(true);
-  const [tab,setTab]=useState("panel");const [docCat,setDocCat]=useState("poderes");
+  const [tab,setTab]=useState("panel");
+  // Permisos del usuario interno
+  const isClientUser = !!clientUser;
+  const permisos = clientUser?.permisos||null;
+  function tienePermiso(cat, tabId){
+    if(!isClientUser) return true; // CEO ve todo
+    if(!permisos) return false;
+    if(cat==="modulo") return (permisos.modulos||[]).includes(tabId);
+    return (permisos[cat]||[]).includes(tabId);
+  }const [docCat,setDocCat]=useState("poderes");
   const [showReq,setShowReq]=useState(false);const [areas,setAreas]=useState([]);
   const [documents,setDocuments]=useState([]);const [pendingDocs,setPendingDocs]=useState([]);
   const [requests,setRequests]=useState([]);const [loading,setLoading]=useState(true);
@@ -5239,7 +5291,7 @@ function ClientView({client,onLogout}){
   const [showFAQ,setShowFAQ]=useState(false);
   const [viewingDoc,setViewingDoc]=useState(null);
   const [sociedades,setSociedades]=useState([]);
-  const [sociedadActiva,setSociedadActiva]=useState(null);
+  const [sociedadActiva,setSociedadActiva]=useState(clientUser?.sociedad_id?null:null);
 
   useEffect(()=>{
     async function load(){
@@ -5254,7 +5306,14 @@ function ClientView({client,onLogout}){
       setAreas(a.data||[]);setDocuments(d.data||[]);setPendingDocs(p.data||[]);setRequests(r.data||[]);
       const socData=soc.data||[];setSociedades(socData);
       // Empieza en vista Grupo — el usuario elige la sociedad
-      setSociedadActiva(null);
+      // Si es client_user con sociedad asignada, forzarla
+      if(clientUser?.sociedad_id){
+        const socAsignada=socData.find(s=>s.id===clientUser.sociedad_id);
+        if(socAsignada) setSociedadActiva(socAsignada);
+        else setSociedadActiva(null);
+      } else {
+        setSociedadActiva(null);
+      }
       setSociedadLoaded(true);
       const done=cl.data?.diagnostico_done;setDiagDone(!!done);
       const onboardingDone = localStorage.getItem("mm_onboarding_done_"+client.id);
@@ -5302,7 +5361,25 @@ function ClientView({client,onLogout}){
   const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
   const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
   const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
-  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos",label:"👥 Mi equipo"}];
+  const allTabs=[
+    {id:"panel",label:"Mi empresa",cat:"principal"},
+    {id:"riesgos",label:"🚨 Alertas críticas",cat:"principal"},
+    {id:"marca",label:"Mi marca",cat:"principal"},
+    {id:"compliance",label:"Estado corporativo",cat:"empresa"},
+    {id:"regulatorio",label:"Ante autoridades",cat:"empresa"},
+    {id:"personas",label:"Mi equipo directivo",cat:"empresa"},
+    {id:"poderes",label:"Poderes",cat:"empresa"},
+    {id:"docs",label:"Mis documentos",cat:"empresa"},
+    {id:"contratos",label:"Mis contratos",cat:"empresa"},
+    {id:"asambleas",label:"Asambleas",cat:"despacho"},
+    {id:"historial",label:"Historial",cat:"despacho"},
+    {id:"resumen",label:"Novedades del despacho",cat:"despacho"},
+    {id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`,cat:"despacho"},
+    {id:"solicitudes",label:"Solicitar al despacho",cat:"despacho"},
+    {id:"calendario",label:"📅 Calendario",cat:"despacho"},
+    {id:"usuarios_internos",label:"👥 Mi equipo",cat:"principal",soloAdmin:true},
+  ];
+  const tabs=allTabs.filter(t=>tienePermiso(t.cat,t.id)&&(!t.soloAdmin||!isClientUser));
 
   return(
     <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
@@ -5319,9 +5396,9 @@ function ClientView({client,onLogout}){
           {tabs.slice(3,9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
           <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Despacho</div>
           {tabs.slice(9).map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 18px",fontSize:12,color:tab===t.id?MUSGO_TEXT:"rgba(240,244,238,.6)",cursor:"pointer",border:"none",background:tab===t.id?"rgba(255,255,255,.12)":"none",borderLeft:tab===t.id?"2px solid #A8C89A":"2px solid transparent",fontFamily:"system-ui,sans-serif",textAlign:"left",width:"100%"}}>{t.label}</button>)}
-          {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).length>0&&<>
+          {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0&&tienePermiso("modulo",id);}).length>0&&<>
             <div style={{padding:"14px 18px 5px",fontSize:9,textTransform:"uppercase",letterSpacing:".12em",color:"rgba(240,244,238,.38)",fontWeight:500}}>Módulos activos</div>
-            {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;}).map(id=>{
+            {(clientEfectivo.modulos||[]).filter(id=>{const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0&&tienePermiso("modulo",id);}).map(id=>{
               const m=MODULOS_CATALOG.find(x=>x.id===id);
               if(!m)return null;
               const tc=TIER_COLORS[m.tier];
@@ -5345,13 +5422,13 @@ function ClientView({client,onLogout}){
           <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
             <div style={{display:"flex",gap:8}}>
-              <button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>
+              {!isClientUser&&<button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
               <button style={{width:32,height:32,borderRadius:"50%",border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontSize:15,color:TEXT_MED,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}} onClick={()=>setShowFAQ(true)}>?</button>
               <NotifBell clientId={client.id}/>
             </div>
           </div>
           {/* CONTENT */}
-          {sociedades.length>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:"#F5F2ED",borderBottom:"1px solid #DDE4D8",flexShrink:0,flexWrap:"wrap"}}>
+          {sociedades.length>0&&!isClientUser&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:"#F5F2ED",borderBottom:"1px solid #DDE4D8",flexShrink:0,flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",whiteSpace:"nowrap"}}>Vista:</span>
             <button onClick={()=>setSociedadActiva(null)} style={{fontSize:11,padding:"4px 12px",borderRadius:3,border:"1.5px solid "+(sociedadActiva===null?"#4A5C45":"#DDE4D8"),background:sociedadActiva===null?"#4A5C45":"none",color:sociedadActiva===null?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,whiteSpace:"nowrap"}}>Grupo</button>
             {sociedades.map(soc=>(
