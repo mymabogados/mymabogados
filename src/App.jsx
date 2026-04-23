@@ -1944,7 +1944,7 @@ function PersonaModal({client,industria_config,persona,onClose,onSaved}){
 function UsoPoderesModal({persona,client,onClose}){
   const [usos,setUsos]=useState([]);const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
-  const [form,setForm]=useState({tipo_acto:"",descripcion:"",fecha:""});
+  const [form,setForm]=useState({tipo_acto:"",descripcion:"",fecha:"",fecha_vencimiento:""});
   const [saved,setSaved]=useState("");
 
   useEffect(()=>{
@@ -2016,7 +2016,16 @@ function UsoPoderesModal({persona,client,onClose}){
             <option value="">Tipo de acto...</option>{TIPOS_ACTO.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
           <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} placeholder="Descripción del acto" value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})}/>
-          <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})}/>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Fecha del acto</div>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})}/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,color:"#888880",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Vencimiento del poder (opcional)</div>
+              <input style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#fff",fontFamily:"system-ui,sans-serif"}} type="date" value={form.fecha_vencimiento||""} onChange={e=>setForm({...form,fecha_vencimiento:e.target.value})}/>
+            </div>
+          </div>
           <button style={{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:2,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif",letterSpacing:".08em",textTransform:"uppercase",alignSelf:"flex-start"}} onClick={add} disabled={!form.tipo_acto}>Guardar</button>
         </div>}
         {loading?<div style={{textAlign:"center",padding:"2rem",color:"#888880",fontSize:12}}>Cargando...</div>
@@ -2026,6 +2035,7 @@ function UsoPoderesModal({persona,client,onClose}){
             <div style={{fontSize:13,fontFamily:"'Georgia',serif"}}>{u.tipo_acto}</div>
             {u.descripcion&&<div style={{fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{u.descripcion}</div>}
             {u.fecha&&<div style={{fontSize:11,color:"#888880",fontFamily:"system-ui,sans-serif",marginTop:2}}>{new Date(u.fecha).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</div>}
+            {u.fecha_vencimiento&&<div style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginTop:2}}>Vence: {new Date(u.fecha_vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}</div>}
           </div>
           <button style={{border:"1px solid #fca5a5",color:"#dc2626",background:"none",borderRadius:2,padding:"3px 8px",fontSize:11,cursor:"pointer",flexShrink:0}} onClick={()=>del(u.id)}>×</button>
         </div>)}
@@ -4367,10 +4377,14 @@ function CalendarioVencimientos({client}){
     const qCtrs = client
       ? (socId ? supabase.from("contratos").select("*").eq("client_id",client.id).eq("sociedad_id",socId).not("vencimiento","is",null) : supabase.from("contratos").select("*").eq("client_id",client.id).is("sociedad_id",null).not("vencimiento","is",null))
       : supabase.from("contratos").select("*").not("vencimiento","is",null);
-    Promise.all([qDocs,qCtrs]).then(([d,ctr])=>{
+    const qPoderes = client
+      ? supabase.from("uso_poderes").select("*,personas(nombre)").eq("client_id",client.id).not("fecha_vencimiento","is",null)
+      : supabase.from("uso_poderes").select("*,personas(nombre)").not("fecha_vencimiento","is",null);
+    Promise.all([qDocs,qCtrs,qPoderes]).then(([d,ctr,pod])=>{
       const docs=(d.data||[]).map(x=>({...x,fecha_vencimiento:x.fecha_vencimiento,_nombre:x.name||x.tipo,_tipo:"documento"}));
       const ctrs=(ctr.data||[]).map(x=>({...x,fecha_vencimiento:x.vencimiento,_nombre:x.nombre,_tipo:"contrato"}));
-      setEventos([...docs,...ctrs]);
+      const pods=(pod.data||[]).map(x=>({...x,fecha_vencimiento:x.fecha_vencimiento,_nombre:"Poder: "+x.tipo_acto+(x.personas?.nombre?" — "+x.personas.nombre:""),_tipo:"poder"}));
+      setEventos([...docs,...ctrs,...pods]);
       setLoading(false);
     });
   },[client?.id,client?._sociedad?.id]);
