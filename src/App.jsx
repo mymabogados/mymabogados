@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./ModulosArbitraje";
 import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
 import { ModO01,ModO02,ModO03,ModO04,ModO05,ModO06,ModO07,ModO08,ModO09,ModO10,OPERATIVO_DOCS } from "./ModulosOperativo";
+import { ModF01,ModF02,ModF03,ModF04,ModF05,ModF06,ModF07,ModF08,FISCAL_DOCS } from "./ModulosFiscal";
 import { ModM01,ModM02,ModM03,ModM04,ModM05,MIGRATORIO_DOCS } from "./ModulosMigratorio";
 import { ModL01,ModL02,ModL03,ModL04,ModL05,ModL06,ModL07,ModL08,LABORAL_DOCS } from "./ModulosLaboral";
 import { ModCON01,ModCON02,ModCON03,ModCON04,ModCON05,CONDOMINAL_DOCS } from "./ModulosCondominal";
@@ -502,7 +503,7 @@ const MODULO_DOCS = {
   },
   ...ARBITRAJE_DOCS,
   ...CORPORATIVO_DOCS,
-  ...OPERATIVO_DOCS,
+  ...OPERATIVO_DOCS,...FISCAL_DOCS,
   ...MIGRATORIO_DOCS};
 
 const RIESGO_COLORS = {
@@ -3757,7 +3758,14 @@ function ModuloViewDatos({modId, client}){
   if(modId==="L-06") return <ModL06 client={client}/>;
   if(modId==="L-07") return <ModL07 client={client}/>;
   if(modId==="L-08") return <ModL08 client={client}/>;
-  if(modId&&modId.startsWith("F-")) return <div style={{padding:"2rem",textAlign:"center",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontSize:13}}>Módulo Fiscal en desarrollo — disponible próximamente.</div>;
+  if(modId==="F-01") return <ModF01 client={client}/>;
+  if(modId==="F-02") return <ModF02 client={client}/>;
+  if(modId==="F-03") return <ModF03 client={client}/>;
+  if(modId==="F-04") return <ModF04 client={client}/>;
+  if(modId==="F-05") return <ModF05 client={client}/>;
+  if(modId==="F-06") return <ModF06 client={client}/>;
+  if(modId==="F-07") return <ModF07 client={client}/>;
+  if(modId==="F-08") return <ModF08 client={client}/>;
   if(modId==="A-01") return <ModA01 client={client}/>;
   if(modId==="A-02") return <ModA02 client={client}/>;
   if(modId==="A-03") return <ModA03 client={client}/>;
