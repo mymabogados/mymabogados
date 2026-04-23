@@ -4177,14 +4177,20 @@ function CalendarioVencimientos({client}){
   const [mesActual, setMesActual] = useState(new Date());
 
   useEffect(()=>{
-    const query = client
-      ? supabase.from("documents").select("*").eq("client_id",client.id).not("fecha_vencimiento","is",null)
+    const socId=client?._sociedad?.id||null;
+    const qDocs = client
+      ? (socId ? supabase.from("documents").select("*").eq("client_id",client.id).eq("sociedad_id",socId).not("fecha_vencimiento","is",null) : supabase.from("documents").select("*").eq("client_id",client.id).is("sociedad_id",null).not("fecha_vencimiento","is",null))
       : supabase.from("documents").select("*,clients(name)").not("fecha_vencimiento","is",null);
-    query.then(({data:d})=>{
-      setEventos(d||[]);
+    const qCtrs = client
+      ? (socId ? supabase.from("contratos").select("*").eq("client_id",client.id).eq("sociedad_id",socId).not("vencimiento","is",null) : supabase.from("contratos").select("*").eq("client_id",client.id).is("sociedad_id",null).not("vencimiento","is",null))
+      : supabase.from("contratos").select("*").not("vencimiento","is",null);
+    Promise.all([qDocs,qCtrs]).then(([d,ctr])=>{
+      const docs=(d.data||[]).map(x=>({...x,fecha_vencimiento:x.fecha_vencimiento,_nombre:x.name||x.tipo,_tipo:"documento"}));
+      const ctrs=(ctr.data||[]).map(x=>({...x,fecha_vencimiento:x.vencimiento,_nombre:x.nombre,_tipo:"contrato"}));
+      setEventos([...docs,...ctrs]);
       setLoading(false);
     });
-  },[client?.id]);
+  },[client?.id,client?._sociedad?.id]);
 
   if(loading) return <div style={{textAlign:"center",padding:"3rem",color:"#888",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando calendario...</div>;
 
@@ -4214,7 +4220,7 @@ function CalendarioVencimientos({client}){
   // Eventos próximos (30 días)
   const proximos = eventos
     .map(e=>({...e,vence:new Date(e.fecha_vencimiento+"T12:00:00")}))
-    .filter(e=>{ const d=Math.ceil((e.vence-hoy)/(1000*60*60*24)); return d>=-7 && d<=30; })
+    .filter(e=>{ const d=Math.ceil((e.vence-hoy)/(1000*60*60*24)); return d>=-7 && d<=120; })
     .sort((a,b)=>a.vence-b.vence);
 
   return(
@@ -4282,8 +4288,8 @@ function CalendarioVencimientos({client}){
                 <div style={{fontSize:9,color:"#888",fontFamily:"system-ui,sans-serif"}}>{dias<0?"días":"días"}</div>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{docDef?.label||e.tipo}</div>
-                <div style={{fontSize:11,color:"#888",fontFamily:"system-ui,sans-serif"}}>{modNombre}{clientNombre?" · "+clientNombre:""}</div>
+                <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{e._nombre||docDef?.label||e.nombre||e.name||e.tipo}</div>
+                <div style={{fontSize:11,color:"#888",fontFamily:"system-ui,sans-serif"}}>{e._tipo==="contrato"?"Contrato":modNombre}{clientNombre?" · "+clientNombre:""}</div>
               </div>
               <div style={{fontSize:10,color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>
                 {dias<0?"VENCIDO":dias===0?"HOY":e.vence.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}
@@ -4929,18 +4935,24 @@ function ClientDashboard({client, onNavigate}){
 
   useEffect(()=>{
     async function load(){
-      const [ch,d]=await Promise.all([
+      const [ch,d,ctr]=await Promise.all([
         socId
           ? supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
           : supabase.from("reglas_compliance").select("*").eq("client_id",client.id).is("sociedad_id",null),
         socId
-          ? supabase.from("documents").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
-          : supabase.from("documents").select("*").eq("client_id",client.id).is("sociedad_id",null),
+          ? supabase.from("documents").select("*").eq("client_id",client.id).eq("sociedad_id",socId).not("fecha_vencimiento","is",null)
+          : supabase.from("documents").select("*").eq("client_id",client.id).is("sociedad_id",null).not("fecha_vencimiento","is",null),
+        socId
+          ? supabase.from("contratos").select("*").eq("client_id",client.id).eq("sociedad_id",socId).not("vencimiento","is",null)
+          : supabase.from("contratos").select("*").eq("client_id",client.id).is("sociedad_id",null).not("vencimiento","is",null),
       ]);
       const cm={};
       (ch.data||[]).forEach(x=>{cm[x.modulo+"_"+x.regla_id]=x.status;});
       setChecks(cm);
-      setDocs(d.data||[]);
+      // Unificar documentos y contratos en un solo array de vencimientos
+      const docsConFecha=(d.data||[]).map(x=>({...x,_tipo:"documento",fecha_vencimiento:x.fecha_vencimiento,nombre:x.name}));
+      const ctrsConFecha=(ctr.data||[]).map(x=>({...x,_tipo:"contrato",fecha_vencimiento:x.vencimiento,nombre:x.nombre}));
+      setDocs([...docsConFecha,...ctrsConFecha]);
       setLoading(false);
     }
     load();
@@ -4963,7 +4975,7 @@ function ClientDashboard({client, onNavigate}){
   const proxVencer = docs.filter(d=>{
     if(!d.fecha_vencimiento) return false;
     const dias=Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24));
-    return dias>=0 && dias<=30;
+    return dias>=0 && dias<=45;
   }).sort((a,b)=>new Date(a.fecha_vencimiento)-new Date(b.fecha_vencimiento));
 
   const vencidos = docs.filter(d=>{
@@ -5028,16 +5040,22 @@ function ClientDashboard({client, onNavigate}){
         <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>📅 Vencimientos</div>
         {vencidos.map((d,i)=>{
           const dias=Math.abs(Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24)));
-          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #DDE4D8"}}>
-            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{d.name||d.tipo}</div>
-            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif"}}>Venció hace {dias}d</span>
+          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #DDE4D8",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.nombre||d.name||d.tipo}</div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{d._tipo==="contrato"?"Contrato":"Documento"}{d.modulo?" · "+d.modulo:""}</div>
+            </div>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:"#fef2f2",color:"#991b1b",fontFamily:"system-ui,sans-serif",flexShrink:0}}>Venció hace {dias}d</span>
           </div>;
         })}
-        {proxVencer.slice(0,3).map((d,i)=>{
+        {proxVencer.map((d,i)=>{
           const dias=Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24));
-          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<2?"1px solid #DDE4D8":"none"}}>
-            <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{d.name||d.tipo}</div>
-            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:dias<=7?"#fef2f2":"#fffbeb",color:dias<=7?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif"}}>Vence en {dias}d</span>
+          return <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<proxVencer.length-1?"1px solid #DDE4D8":"none",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.nombre||d.name||d.tipo}</div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{d._tipo==="contrato"?"Contrato":"Documento"}{d.modulo?" · "+d.modulo:""}</div>
+            </div>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:2,background:dias<=7?"#fef2f2":dias<=30?"#fffbeb":"#f0fdf4",color:dias<=7?"#991b1b":dias<=30?"#92400e":"#166534",fontFamily:"system-ui,sans-serif",flexShrink:0}}>Vence en {dias}d</span>
           </div>;
         })}
       </div>}
