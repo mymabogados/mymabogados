@@ -5854,12 +5854,17 @@ function AdminView({onLogout,admin}){
 function Login({onLogin}){
   const [who,setWho]=useState("client");const [user,setUser]=useState("");
   const [pass,setPass]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  const [otpStep,setOtpStep]=useState(false);
+  const [otp,setOtp]=useState("");
+  const [pendingSession,setPendingSession]=useState(null);
+  const [otpEmail,setOtpEmail]=useState("");
 
   async function attempt(){
     setErr("");setLoading(true);
     if(who==="admin"){
       const {data}=await supabase.from("admins").select("*").eq("id",user.toLowerCase()).single();
       if(!data||data.password!==pass){setErr("Usuario o contraseña incorrectos");setLoading(false);return;}
+      // Admin no requiere OTP
       onLogin({role:"admin",admin:data});return;
     }
     if(!user){setErr("Ingresa tu usuario");setLoading(false);return;}
@@ -5869,13 +5874,67 @@ function Login({onLogin}){
       if(pass!==cu.password){setErr("Contraseña incorrecta");setLoading(false);return;}
       const {data:cl}=await supabase.from("clients").select("*").eq("id",cu.client_id).single();
       if(!cl){setErr("Cliente no encontrado");setLoading(false);return;}
-      onLogin({role:"client_user",client:{...cl,modulos:cu.modulos||[]},clientUser:cu});return;
+      // Enviar OTP
+      await sendOTP(cu.email, cu.nombre);
+      setPendingSession({role:"client_user",client:{...cl,modulos:cu.modulos||[]},clientUser:cu});
+      setOtpEmail(cu.email);setOtpStep(true);setLoading(false);return;
     }
     // Buscar en clients por ID
     const {data}=await supabase.from("clients").select("*").eq("id",user).single();
     if(!data){setErr("Usuario no encontrado");setLoading(false);return;}
-    if(pass===data.password){onLogin({role:"client",client:data});return;}
+    if(pass===data.password){
+      // Enviar OTP
+      await sendOTP(data.email||data.id, data.name);
+      setPendingSession({role:"client",client:data});
+      setOtpEmail(data.email||"");setOtpStep(true);setLoading(false);return;
+    }
     setErr("Usuario o contraseña incorrectos");setLoading(false);
+  }
+
+  async function sendOTP(email, nombre){
+    try{
+      await supabase.functions.invoke("send-otp",{body:{email,nombre}});
+    }catch(e){console.error("OTP error:",e);}
+  }
+
+  async function verifyOTP(){
+    setErr("");setLoading(true);
+    if(!otp||otp.length!==6){setErr("Ingresa el código de 6 dígitos");setLoading(false);return;}
+    const email=otpEmail||pendingSession?.client?.email||pendingSession?.client?.id;
+    const {data}=await supabase.from("otp_codes").select("*").eq("email",email).eq("code",otp).eq("used",false).gt("expires_at",new Date().toISOString()).maybeSingle();
+    if(!data){setErr("Código incorrecto o expirado");setLoading(false);return;}
+    await supabase.from("otp_codes").update({used:true}).eq("id",data.id);
+    onLogin(pendingSession);
+  }
+
+  if(otpStep){
+    return(
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F2ED"}}>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:8,padding:"2.5rem",width:"min(420px,90vw)",textAlign:"center"}}>
+          <div style={{fontSize:11,letterSpacing:".15em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Verificación de dos pasos</div>
+          <div style={{fontSize:20,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:8}}>Ingresa tu código</div>
+          <div style={{fontSize:13,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:24}}>
+            Enviamos un código de 6 dígitos a<br/>
+            <strong style={{color:"#1E2B1A"}}>{otpEmail||"tu correo registrado"}</strong>
+          </div>
+          <input
+            style={{fontSize:28,padding:"12px 16px",border:"1px solid #DDE4D8",borderRadius:6,fontFamily:"system-ui,sans-serif",textAlign:"center",letterSpacing:".4em",width:"100%",boxSizing:"border-box",marginBottom:16,background:"#F5F2ED",color:"#1E2B1A"}}
+            type="text" maxLength={6} placeholder="000000"
+            value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,""))}
+            onKeyDown={e=>e.key==="Enter"&&verifyOTP()}
+            autoFocus
+          />
+          {err&&<div style={{fontSize:12,color:"#C0392B",fontFamily:"system-ui,sans-serif",marginBottom:12}}>{err}</div>}
+          <button onClick={verifyOTP} disabled={loading||otp.length!==6} style={{width:"100%",background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:6,padding:"12px",fontSize:14,cursor:"pointer",fontFamily:"system-ui,sans-serif",marginBottom:12,opacity:(loading||otp.length!==6)?0.6:1}}>
+            {loading?"Verificando...":"Verificar código"}
+          </button>
+          <button onClick={()=>{setOtpStep(false);setOtp("");setErr("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>
+            ← Volver al inicio de sesión
+          </button>
+          <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:16}}>El código expira en 10 minutos</div>
+        </div>
+      </div>
+    );
   }
 
   return(
