@@ -143,7 +143,21 @@ export function ModCON01({client}){
   const [saving,setSaving]=useState(false);
   const mod="CON-01";
   useEffect(()=>{supabase.from("modulos_data").select("*").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",client._sociedad?.id||null).single().then(({data:d})=>{if(d)setData(d);});},[client.id]);
-  async function save(field,val){setSaving(true);const updated={...data,[field]:val};setData(updated);await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});setSaving(false);}
+  async function save(field,val){
+    setSaving(true);
+    const updated={...data,[field]:val};
+    setData(updated);
+    const qEx=socId
+      ?supabase.from("modulos_data").select("id").eq("client_id",client.id).eq("modulo",mod).eq("sociedad_id",socId).maybeSingle()
+      :supabase.from("modulos_data").select("id").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",null).maybeSingle();
+    const {data:ex}=await qEx;
+    if(ex?.id){
+      await supabase.from("modulos_data").update({data:updated,updated_at:new Date().toISOString()}).eq("id",ex.id);
+    } else {
+      await supabase.from("modulos_data").insert({client_id:client.id,modulo:mod,sociedad_id:socId,data:updated,updated_at:new Date().toISOString()});
+    }
+    setSaving(false);
+  }
   return(<div><div style={{...s.card,borderLeft:"3px solid "+MUSGO}}><span style={s.label}>Constitución del Régimen</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><span style={s.label}>Notario público</span><input style={s.input} value={data.notario||""} onChange={e=>save("notario",e.target.value)} placeholder="Nombre del notario"/></div><div><span style={s.label}>Número de escritura</span><input style={s.input} value={data.num_escritura||""} onChange={e=>save("num_escritura",e.target.value)} placeholder="Ej. 45,231"/></div><div><span style={s.label}>Fecha de constitución</span><input style={s.input} type="date" value={data.fecha_constitucion||""} onChange={e=>save("fecha_constitucion",e.target.value)}/></div><div><span style={s.label}>Folio RPP</span><input style={s.input} value={data.folio_rpp||""} onChange={e=>save("folio_rpp",e.target.value)} placeholder="Folio de inscripción"/></div><div><span style={s.label}>Total de unidades privativas</span><input style={s.input} type="number" value={data.total_unidades||""} onChange={e=>save("total_unidades",e.target.value)} placeholder="Número de departamentos/locales"/></div><div><span style={s.label}>Tipo de condominio</span><select style={s.input} value={data.tipo_condominio||""} onChange={e=>save("tipo_condominio",e.target.value)}><option value="">Seleccionar</option><option value="habitacional">Habitacional</option><option value="comercial">Comercial</option><option value="mixto">Mixto</option><option value="industrial">Industrial</option></select></div></div><div style={{marginTop:10}}><span style={s.label}>Domicilio del condominio</span><input style={s.input} value={data.domicilio||""} onChange={e=>save("domicilio",e.target.value)} placeholder="Calle, número, colonia, municipio, estado"/></div>{saving&&<div style={{...s.muted,marginTop:6}}>Guardando...</div>}</div></div>);
 }
 

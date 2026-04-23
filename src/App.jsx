@@ -3765,6 +3765,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   const catalog = MODULO_DOCS[modId];
   const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
   const [uploading,setUploading]=useState(null);
+  const [viewingDoc,setViewingDoc]=useState(null);
 
   useEffect(()=>{
     supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId)
@@ -3774,9 +3775,13 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   async function uploadDoc(docId, driveUrl, name){
     const existing = docs.find(d=>d.type===docId);
     if(existing){
-      await supabase.from("documents").update({drive_url:driveUrl,status:"vigente",name:name||existing.name}).eq("id",existing.id);
+      const r=await supabase.from("documents").update({drive_url:driveUrl,status:"vigente",name:name||existing.name}).eq("id",existing.id);
+      if(r.error)console.error("UPDATE doc error:",r.error.message);else console.log("UPDATE doc OK");
     } else {
-      await supabase.from("documents").insert({client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)});
+      const newDoc={id:"doc_"+client.id+"_"+modId+"_"+docId+"_"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)};
+      console.log("INSERT doc:",newDoc);
+      const r=await supabase.from("documents").insert(newDoc);
+      if(r.error)console.error("INSERT doc error:",r.error.message,r.error.details);else console.log("INSERT doc OK");
     }
     const socId = client._sociedad?.id||null;
     const q = socId
@@ -3820,7 +3825,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
                 <Badge status={existing?"green":"red"} label={existing?"Disponible":"Pendiente"}/>
-                {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
+                {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>setViewingDoc({url:existing.drive_url,name:existing.name||docDef.label})}>Ver ↗</button>}
                 {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>{existing?"Actualizar":"Subir"}</button>}
                 {isAdmin&&<BtnNotificar clientId={client.id} mensaje={"Documento pendiente: "+docDef.label+(existing?" — favor de actualizar":" — favor de entregar al despacho")}/>}
                 {isAdmin&&<FechaVencimiento docId={existing?.id} clientId={client.id} modId={modId} tipoId={docDef.id} fechaActual={existing?.fecha_vencimiento}/>}
@@ -3849,7 +3854,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
                   <Badge status={existing?"green":"amber"} label={existing?"Disponible":"Opcional"}/>
-                  {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(existing.drive_url,"_blank")}>Ver ↗</button>}
+                  {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>setViewingDoc({url:existing.drive_url,name:existing.name||docDef.label})}>Ver ↗</button>}
                   <button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>Subir</button>
                 </div>
               </div>
@@ -3862,6 +3867,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
           );
         })}
       </>}
+    {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
     </div>
   );
 }
@@ -4891,6 +4897,25 @@ function RequestModal({client, onClose, onSubmit}){
           <button onClick={onClose} style={{fontSize:12,padding:"8px 16px",border:"1px solid #DDE4D8",borderRadius:3,background:"none",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
           <button onClick={send} disabled={!tipo||saving} style={{fontSize:12,padding:"8px 16px",border:"none",borderRadius:3,background:"#4A5C45",color:"#F0F4EE",cursor:(!tipo||saving)?"not-allowed":"pointer",fontFamily:"system-ui,sans-serif",opacity:(!tipo||saving)?0.6:1}}>{saving?"Enviando...":"Enviar solicitud"}</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+function DocViewerModal({url, name, onClose}){
+  const previewUrl = url.replace("/view","/preview").replace("/edit","/preview");
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(26,26,26,.8)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:600,padding:"1rem"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#1a1a1a",width:"min(900px,100%)",height:"85vh",display:"flex",flexDirection:"column",borderRadius:4,overflow:"hidden"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid rgba(255,255,255,.1)",flexShrink:0}}>
+          <span style={{fontSize:13,color:"#F0F4EE",fontFamily:"system-ui,sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{name}</span>
+          <div style={{display:"flex",gap:8,flexShrink:0}}>
+            <a href={("https://drive.google.com/uc?export=download&id="+(url.match(/[-\w]{25,}/)||[])[0])} target="_blank" rel="noreferrer" style={{fontSize:11,padding:"5px 12px",borderRadius:3,border:"1px solid rgba(255,255,255,.2)",color:"#F0F4EE",textDecoration:"none",fontFamily:"system-ui,sans-serif"}}>↓ Descargar</a>
+            <button onClick={onClose} style={{fontSize:18,background:"none",border:"none",color:"rgba(255,255,255,.6)",cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+          </div>
+        </div>
+        <iframe src={previewUrl} style={{flex:1,border:"none",width:"100%"}} allow="autoplay" title={name}/>
       </div>
     </div>
   );

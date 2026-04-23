@@ -770,9 +770,17 @@ function ModEspecializadoGenerico({client, modId, titulo, campos}){
 
   async function save(field,val){
     setSaving(true);
-    const updated={...data,[field]:val,client_id:client.id,modulo:modId};
+    const updated={...data,[field]:val};
     setData(updated);
-    await supabase.from("modulos_data").upsert({client_id:client.id,modulo:mod,sociedad_id:client._sociedad?.id||null,data:updated,updated_at:new Date().toISOString()},{onConflict:"client_id,modulo,sociedad_id"});
+    const qEx=socId
+      ?supabase.from("modulos_data").select("id").eq("client_id",client.id).eq("modulo",mod).eq("sociedad_id",socId).maybeSingle()
+      :supabase.from("modulos_data").select("id").eq("client_id",client.id).eq("modulo",mod).is("sociedad_id",null).maybeSingle();
+    const {data:ex}=await qEx;
+    if(ex?.id){
+      await supabase.from("modulos_data").update({data:updated,updated_at:new Date().toISOString()}).eq("id",ex.id);
+    } else {
+      await supabase.from("modulos_data").insert({client_id:client.id,modulo:mod,sociedad_id:socId,data:updated,updated_at:new Date().toISOString()});
+    }
     setSaving(false);
   }
 
