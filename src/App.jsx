@@ -514,6 +514,12 @@ const RIESGO_COLORS = {
 };
 const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio","Condominal","Protección Patrimonial","Cumplimiento Especializado","Inmobiliario","Salud","Energía","Tecnología","Agroindustria","Entretenimiento"];
 
+async function notifyEvento(clientId, tipo, descripcion, modulo=null){
+  try{
+    await supabase.functions.invoke("notify-evento",{body:{client_id:clientId,tipo,descripcion,modulo}});
+  }catch(e){console.error("notify error:",e);}
+}
+
 async function logActividad(client, adminNombre, tipo, descripcion, modulo=null, metadata={}){
   try{
     await supabase.from("actividad_log").insert({
@@ -3912,6 +3918,7 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
     await supabase.from("documents").insert(newDoc);
     const modNombreDoc=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
     await logActividad(client,client._adminNombre||"Despacho M&M","documento",`Documento subido en ${modNombreDoc}: ${name||docId}`,modId,{tipo:docId,nombre:name});
+    await notifyEvento(client.id,"documento","Nuevo documento disponible en "+modNombreDoc+": "+(name||docId),modId);
     const socId = client._sociedad?.id||null;
     const q = socId
       ? supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",socId)
@@ -4064,6 +4071,7 @@ function ModuloViewChecklist({modId, client, isAdmin=false, adminNombre="Despach
       const itemLabel=items.find(x=>x.id===id)?.label||id;
       const modNombre=MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
       await logActividad(client,client._adminNombre||"Despacho M&M","accion","Próximo paso actualizado en "+modNombre+": "+itemLabel,modId,{regla_id:id});
+      await notifyEvento(client.id,"accion","Próximo paso actualizado en "+modNombre+": "+itemLabel,modId);
     }
   }
 
