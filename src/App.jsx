@@ -5248,6 +5248,123 @@ function GestorUsuariosInternos({client, isAdmin=false}){
   );
 }
 
+
+function GestorNotificaciones({client, isAdmin=false}){
+  const [prefs,setPrefs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({user_email:"",user_nombre:"",tipos:{checklist:true,documento:true,nota:true,accion:true,solicitud:true,vencimiento:true}});
+  const [saved,setSaved]=useState("");
+
+  const TIPOS_LABELS={
+    checklist:{label:"Alertas de cumplimiento",desc:"Cuando un item se marca como No cumple"},
+    documento:{label:"Documentos subidos",desc:"Cuando el despacho sube un documento nuevo"},
+    nota:{label:"Notas del despacho",desc:"Cuando el despacho agrega una nota"},
+    accion:{label:"Próximos pasos",desc:"Cuando se actualiza el próximo paso de un item"},
+    solicitud:{label:"Solicitudes respondidas",desc:"Cuando el despacho responde una solicitud"},
+    vencimiento:{label:"Vencimientos próximos",desc:"Documentos y contratos por vencer"},
+  };
+
+  useEffect(()=>{
+    supabase.from("notif_preferencias").select("*").eq("client_id",client.id).order("created_at")
+    .then(({data})=>{setPrefs(data||[]);setLoading(false);});
+  },[client.id]);
+
+  async function save(){
+    if(!form.user_email)return;
+    const existing=prefs.find(p=>p.user_email===form.user_email);
+    if(existing){
+      await supabase.from("notif_preferencias").update({user_nombre:form.user_nombre,tipos:form.tipos,activo:true}).eq("id",existing.id);
+      setPrefs(prev=>prev.map(p=>p.id===existing.id?{...p,...form,activo:true}:p));
+    } else {
+      const {data}=await supabase.from("notif_preferencias").insert({client_id:client.id,sociedad_id:client._sociedad?.id||null,...form}).select().single();
+      if(data)setPrefs(prev=>[...prev,data]);
+    }
+    setSaved("Guardado ✓");setTimeout(()=>setSaved(""),2000);
+    setShowForm(false);setForm({user_email:"",user_nombre:"",tipos:{checklist:true,documento:true,nota:true,accion:true,solicitud:true,vencimiento:true}});
+  }
+
+  async function toggleActivo(p){
+    await supabase.from("notif_preferencias").update({activo:!p.activo}).eq("id",p.id);
+    setPrefs(prev=>prev.map(x=>x.id===p.id?{...x,activo:!x.activo}:x));
+  }
+
+  async function editPref(p){
+    setForm({user_email:p.user_email,user_nombre:p.user_nombre||"",tipos:p.tipos||{}});
+    setShowForm(true);
+  }
+
+  if(loading)return <div style={{textAlign:"center",padding:"2rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:14,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>Notificaciones por email</div>
+          <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>Configura quién recibe alertas y de qué tipo</div>
+        </div>
+        <button onClick={()=>{setForm({user_email:"",user_nombre:"",tipos:{checklist:true,documento:true,nota:true,accion:true,solicitud:true,vencimiento:true}});setShowForm(true);}} style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:3,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>+ Agregar destinatario</button>
+      </div>
+
+      {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #DDE4D8",borderRadius:4,padding:"1.25rem",marginBottom:16}}>
+        <div style={{fontSize:12,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:12}}>Configurar destinatario</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          <div>
+            <label style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4,display:"block"}}>Email</label>
+            <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",width:"100%",boxSizing:"border-box"}} placeholder="correo@empresa.com" type="email" value={form.user_email} onChange={e=>setForm({...form,user_email:e.target.value})}/>
+          </div>
+          <div>
+            <label style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4,display:"block"}}>Nombre (opcional)</label>
+            <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",width:"100%",boxSizing:"border-box"}} placeholder="Director General" value={form.user_nombre} onChange={e=>setForm({...form,user_nombre:e.target.value})}/>
+          </div>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:8,display:"block"}}>Tipos de notificación</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            {Object.entries(TIPOS_LABELS).map(([key,t])=>(
+              <div key={key} onClick={()=>setForm(prev=>({...prev,tipos:{...prev.tipos,[key]:!prev.tipos[key]}}))} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",borderRadius:3,border:"1px solid "+(form.tipos[key]?"#4A5C45":"#DDE4D8"),background:form.tipos[key]?"#F0F4EE":"#FAFCF8",cursor:"pointer"}}>
+                <div style={{width:16,height:16,borderRadius:3,border:"1.5px solid "+(form.tipos[key]?"#4A5C45":"#DDE4D8"),background:form.tipos[key]?"#4A5C45":"none",flexShrink:0,marginTop:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {form.tipos[key]&&<span style={{color:"#F0F4EE",fontSize:10,lineHeight:1}}>✓</span>}
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",fontWeight:600}}>{t.label}</div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{t.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setShowForm(false)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          <button onClick={save} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>Guardar</button>
+          {saved&&<span style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",alignSelf:"center"}}>{saved}</span>}
+        </div>
+      </div>}
+
+      {prefs.length===0&&!showForm&&<div style={{textAlign:"center",padding:"2rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin destinatarios configurados</div>}
+      {prefs.map(p=>(
+        <div key={p.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:8,opacity:p.activo?1:0.5}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>{p.user_nombre||p.user_email}</div>
+              <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>{p.user_nombre?p.user_email:""}</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
+                {Object.entries(p.tipos||{}).filter(([,v])=>v).map(([k])=>(
+                  <span key={k} style={{fontSize:9,padding:"2px 6px",borderRadius:2,background:"#E8F0E8",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>{TIPOS_LABELS[k]?.label||k}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>editPref(p)} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>✎ Editar</button>
+              <button onClick={()=>toggleActivo(p)} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:p.activo?"#C0392B":"#5A8A3C"}}>{p.activo?"Pausar":"Activar"}</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -5521,7 +5638,7 @@ function ClientView({client,onLogout,clientUser=null}){
     {id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`,cat:"despacho"},
     {id:"solicitudes",label:"Solicitar al despacho",cat:"despacho"},
     {id:"calendario",label:"📅 Calendario",cat:"despacho"},
-    {id:"usuarios_internos",label:"👥 Mi equipo",cat:"principal",soloAdmin:true},
+    {id:"usuarios_internos",label:"👥 Mi equipo",cat:"principal",soloAdmin:true},{id:"notificaciones",label:"🔔 Notificaciones",cat:"principal"},
   ];
   const tabs=allTabs.filter(t=>tienePermiso(t.cat,t.id)&&(!t.soloAdmin||!isClientUser));
 
@@ -5635,6 +5752,7 @@ function ClientView({client,onLogout,clientUser=null}){
       {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
       {tab==="calendario"&&<CalendarioVencimientos client={clientEfectivo}/>}
       {tab==="usuarios_internos"&&<GestorUsuariosInternos client={clientEfectivo} isAdmin={false}/>}
+      {tab==="notificaciones"&&<GestorNotificaciones client={clientEfectivo} isAdmin={false}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
@@ -5747,7 +5865,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"}];
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"},{id:"notificaciones_admin",label:"🔔 Notificaciones"}];
 
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
@@ -5828,6 +5946,7 @@ function AdminView({onLogout,admin}){
       <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
 
       {tab==="usuarios_internos_admin"&&client&&<GestorUsuariosInternos client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
+      {tab==="notificaciones_admin"&&client&&<GestorNotificaciones client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
       {tab==="modulos"&&<AdminModulosTab clients={clients} activeClient={client} activeSociedad={adminSocActiva}/>}
 
