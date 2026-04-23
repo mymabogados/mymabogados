@@ -3773,16 +3773,8 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
   },[client.id,modId]);
 
   async function uploadDoc(docId, driveUrl, name){
-    const existing = docs.find(d=>d.type===docId);
-    if(existing){
-      const r=await supabase.from("documents").update({drive_url:driveUrl,status:"vigente",name:name||existing.name}).eq("id",existing.id);
-      if(r.error)console.error("UPDATE doc error:",r.error.message);else console.log("UPDATE doc OK");
-    } else {
-      const newDoc={id:"doc_"+client.id+"_"+modId+"_"+docId+"_"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)};
-      console.log("INSERT doc:",newDoc);
-      const r=await supabase.from("documents").insert(newDoc);
-      if(r.error)console.error("INSERT doc error:",r.error.message,r.error.details);else console.log("INSERT doc OK");
-    }
+    const newDoc={id:"doc_"+client.id+"_"+modId+"_"+docId+"_"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,type:docId,modulo:modId,name:name||docId,drive_url:driveUrl,status:"vigente",date:new Date().toISOString().slice(0,10)};
+    await supabase.from("documents").insert(newDoc);
     const socId = client._sociedad?.id||null;
     const q = socId
       ? supabase.from("documents").select("*").eq("client_id",client.id).eq("modulo",modId).eq("sociedad_id",socId)
@@ -3813,24 +3805,32 @@ function ModuloViewDocs({modId, client, isAdmin=false}){
       {/* Required docs */}
       <div style={{fontSize:11,fontWeight:600,color:GRAY,fontFamily:"system-ui,sans-serif",marginBottom:8,textTransform:"uppercase",letterSpacing:".08em"}}>Documentos requeridos</div>
       {requeridos.map(docDef=>{
-        const existing = docs.find(d=>d.type===docDef.id);
-        const status = existing?.status||"pendiente";
+        const existingDocs = docs.filter(d=>d.type===docDef.id);
+        const hasAny = existingDocs.length>0;
         return(
-          <div key={docDef.id} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+(existing?"#5A8A3C":"#C0392B")}}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+          <div key={docDef.id} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+(hasAny?"#5A8A3C":"#C0392B")}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:hasAny?8:0}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontFamily:"Georgia, serif",marginBottom:2}}>{docDef.label}</div>
                 <div style={s.muted}>{docDef.desc}</div>
-                {existing?.date&&<div style={{...s.muted,marginTop:2}}>Subido: {existing.date}</div>}
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
-                <Badge status={existing?"green":"red"} label={existing?"Disponible":"Pendiente"}/>
-                {existing?.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>setViewingDoc({url:existing.drive_url,name:existing.name||docDef.label})}>Ver ↗</button>}
-                {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>{existing?"Actualizar":"Subir"}</button>}
-                {isAdmin&&<BtnNotificar clientId={client.id} mensaje={"Documento pendiente: "+docDef.label+(existing?" — favor de actualizar":" — favor de entregar al despacho")}/>}
-                {isAdmin&&<FechaVencimiento docId={existing?.id} clientId={client.id} modId={modId} tipoId={docDef.id} fechaActual={existing?.fecha_vencimiento}/>}
+                <Badge status={hasAny?"green":"red"} label={hasAny?existingDocs.length+" archivo(s)":"Pendiente"}/>
+                {isAdmin&&<button style={{...s.btn,...s.btnSm}} onClick={()=>setUploading(docDef.id)}>+ Subir</button>}
+                {isAdmin&&<BtnNotificar clientId={client.id} mensaje={"Documento pendiente: "+docDef.label+(!hasAny?" — favor de entregar al despacho":"")}/>}
+                {isAdmin&&<FechaVencimiento docId={existingDocs[0]?.id} clientId={client.id} modId={modId} tipoId={docDef.id} fechaActual={existingDocs[0]?.fecha_vencimiento}/>}
               </div>
             </div>
+            {hasAny&&<div style={{borderTop:"1px solid "+BORDER,paddingTop:8}}>
+              {existingDocs.map((d,i)=>(
+                <div key={d.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:i<existingDocs.length-1?"1px solid "+BORDER:"none"}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:"#5A8A3C",flexShrink:0,display:"inline-block"}}/>
+                  <span style={{flex:1,fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</span>
+                  <span style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",flexShrink:0}}>{d.date}</span>
+                  {d.drive_url&&<button style={{...s.btnGold,...s.btnSm,flexShrink:0}} onClick={()=>setViewingDoc({url:d.drive_url,name:d.name||docDef.label})}>Ver</button>}
+                </div>
+              ))}
+            </div>}
             {uploading===docDef.id&&(
               <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid "+BORDER}}>
                 <UploadDocForm onSubmit={(url,name)=>uploadDoc(docDef.id,url,name)} onCancel={()=>setUploading(null)} clientId={client.id} clientName={client.name} sociedadNombre={client._sociedad?.nombre} modId={modId} modNombre={MODULOS_CATALOG.find(x=>x.id===modId)?.nombre} docLabel={docDef.label}/>
