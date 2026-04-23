@@ -1244,46 +1244,65 @@ function AdminActaUpload({onUpload}){
 
 function ContratosClientTab({client}){
   const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
+  const [catActiva,setCatActiva]=useState("todos");
+  const [viewingDoc,setViewingDoc]=useState(null);
+  const CATS=[{id:"todos",label:"Todos"},{id:"Laboral clave",label:"Laboral"},{id:"Corporativo",label:"Corporativo"},{id:"Con proveedor",label:"Proveedores"},{id:"Con cliente",label:"Clientes"},{id:"De arrendamiento",label:"Arrendamiento"},{id:"Otro",label:"Otro"}];
+  useEffect(()=>{
+    const socId=client._sociedad?.id||null;
+    const q=socId?supabase.from("contratos").select("*").eq("client_id",client.id).eq("sociedad_id",socId).order("created_at",{ascending:false}):supabase.from("contratos").select("*").eq("client_id",client.id).is("sociedad_id",null).order("created_at",{ascending:false});
+    q.then(({data})=>{setContratos(data||[]);setLoading(false);});
+  },[client.id,client._sociedad?.id]);
   if(loading)return <Spinner/>;
+  const filtrados=catActiva==="todos"?contratos:contratos.filter(x=>x.tipo===catActiva);
   return(
     <div>
-      <span style={s.label}>Mis contratos</span>
-      {contratos.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos registrados aún</div>
-      :contratos.map(c=>{
-        const dias=c.vencimiento?Math.ceil((new Date(c.vencimiento)-new Date()) / (1000*60*60*24)):null;
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {CATS.map(cat=><button key={cat.id} onClick={()=>setCatActiva(cat.id)} style={{fontSize:11,padding:"4px 12px",borderRadius:12,border:"1px solid "+(catActiva===cat.id?"#4A5C45":"#DDE4D8"),background:catActiva===cat.id?"#4A5C45":"none",color:catActiva===cat.id?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{cat.label}</button>)}
+      </div>
+      {filtrados.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin contratos en esta categoría</div>
+      :filtrados.map(ctr=>{
+        const dias=ctr.vencimiento?Math.ceil((new Date(ctr.vencimiento)-new Date())/(1000*60*60*24)):null;
         const st=dias===null?"vigente":dias<0?"vencido":dias<30?"por renovar":"vigente";
         return(
-          <div key={c.id} style={{...s.card,borderLeft:"3px solid "+STATUS_COLORS[st]}}>
-            <div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{c.nombre}</div>
-                <div style={s.muted}>{c.contraparte}{c.tipo?" · "+c.tipo:""}{c.monto?" · "+c.monto:""}</div>
-                {c.vencimiento&&<div style={{...s.muted,marginTop:2}}>Vence: {new Date(c.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
+          <div key={ctr.id} style={{...s.card,marginBottom:8,borderLeft:"3px solid "+STATUS_COLORS[st]}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontFamily:"Georgia, serif",marginBottom:2}}>{ctr.nombre}</div>
+                <div style={s.muted}>{ctr.contraparte}{ctr.tipo?" · "+ctr.tipo:""}{ctr.monto?" · $"+ctr.monto:""}</div>
+                {ctr.vencimiento&&<div style={{...s.muted,marginTop:2,color:dias<0?"#C0392B":dias<30?"#C9A84C":"#7A9070"}}>Vence: {new Date(ctr.vencimiento).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})}{dias!==null&&dias>=0?" · "+dias+" días":" · VENCIDO"}</div>}
+                {ctr.notas&&<div style={{...s.muted,marginTop:4,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{ctr.notas}</div>}
               </div>
-              <div style={s.col(4)}>
-                <span style={s.badge(st)}>{st}</span>
-                {c.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>window.open(c.drive_url,"_blank")}>Ver</button>}
+              <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
+                <Badge status={st} label={st}/>
+                {ctr.drive_url&&<button style={{...s.btnGold,...s.btnSm}} onClick={()=>setViewingDoc({url:ctr.drive_url,name:ctr.nombre})}>Ver</button>}
               </div>
             </div>
-            {c.notas&&<div style={{...s.muted,marginTop:6,fontStyle:"italic",borderLeft:"2px solid #C9A84C",paddingLeft:8}}>{c.notas}</div>}
           </div>
         );
       })}
+      {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
     </div>
   );
 }
-
 function AdminContratosTab({client}){
   const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
+  const [viewingDoc,setViewingDoc]=useState(null);
   const [form,setForm]=useState({nombre:"",tipo:"",contraparte:"",vencimiento:"",monto:"",drive_url:"",notas:""});
   const TIPOS=["Con cliente","Con proveedor","De arrendamiento","Laboral clave","Otro"];
-  useEffect(()=>{supabase.from("contratos").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).then(({data})=>{setContratos((data||[]).filter(x=>client._sociedad?x.sociedad_id===client._sociedad.id:!x.sociedad_id));setLoading(false);});},[client.id]);
+  useEffect(()=>{
+    const socId=client._sociedad?.id||null;
+    const q=socId?supabase.from("contratos").select("*").eq("client_id",client.id).eq("sociedad_id",socId).order("created_at",{ascending:false}):supabase.from("contratos").select("*").eq("client_id",client.id).is("sociedad_id",null).order("created_at",{ascending:false});
+    q.then(({data})=>{setContratos(data||[]);setLoading(false);});
+  },[client.id,client._sociedad?.id]);
   async function add(){
     if(!form.nombre)return;
-    const c={id:"ctr"+Date.now(),client_id:client.id,...form,created_at:new Date().toISOString()};
-    await supabase.from("contratos").insert(c);setContratos(prev=>[c,...prev]);
+    const {drive_name:_dn,...formClean}=form;
+    const cData={...formClean,vencimiento:form.vencimiento||null,monto:form.monto||null,drive_url:form.drive_url||null,notas:form.notas||null,contraparte:form.contraparte||null};
+    const c={id:"ctr"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,...cData,created_at:new Date().toISOString()};
+    const r=await supabase.from("contratos").insert(c);
+    if(r.error){console.error("CONTRATO ERROR:",r.error.message,r.error.details,JSON.stringify(c));return;}
+    setContratos(prev=>[c,...prev]);
     setShowForm(false);setForm({nombre:"",tipo:"",contraparte:"",vencimiento:"",monto:"",drive_url:"",notas:""});
   }
   async function del(id){await supabase.from("contratos").delete().eq("id",id);setContratos(prev=>prev.filter(c=>c.id!==id));}
@@ -1309,7 +1328,22 @@ function AdminContratosTab({client}){
           <span style={{...s.muted,whiteSpace:"nowrap",fontSize:12}}>Vencimiento</span>
           <input style={s.input} type="date" value={form.vencimiento} onChange={e=>setForm({...form,vencimiento:e.target.value})}/>
         </div>
-        <input style={s.input} placeholder="Link Google Drive (opcional)" value={form.drive_url} onChange={e=>setForm({...form,drive_url:e.target.value})}/>
+        {form.drive_url
+          ? <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:11,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.drive_name||"Archivo subido ✓"}</span>
+              <button style={{...s.btnDanger}} onClick={()=>setForm({...form,drive_url:"",drive_name:""})}>× Quitar</button>
+            </div>
+          : <DriveUploader
+              clientId={client.id}
+              clientName={client.name}
+              sociedadNombre={client._sociedad?.nombre}
+              modId="contratos"
+              modNombre="Contratos"
+              docLabel={form.nombre||"Contrato"}
+              label="Subir contrato a Drive"
+              onUploaded={(url,name)=>setForm(prev=>({...prev,drive_url:url,drive_name:name}))}
+            />
+        }
         <textarea style={{width:"100%",border:"1px solid #E2DDD6",borderRadius:2,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:"#FFFFFF",fontFamily:"system-ui, sans-serif",resize:"vertical"}} rows={2} placeholder="Notas del despacho (visible para el cliente)" value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})}/>
         <button style={{...s.btnPrimary,alignSelf:"flex-start"}} onClick={add}>Agregar</button>
       </div>}
@@ -1496,6 +1530,7 @@ function OnboardingScreen({client,onComplete}){
         </div>
         <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={handleComplete}>Omitir por ahora</button></div>
       </div>
+    {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
     </div>
   );
 }
@@ -5099,6 +5134,7 @@ function ClientView({client,onLogout}){
   const [diagResult,setDiagResult]=useState(null);
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [showFAQ,setShowFAQ]=useState(false);
+  const [viewingDoc,setViewingDoc]=useState(null);
   const [sociedades,setSociedades]=useState([]);
   const [sociedadActiva,setSociedadActiva]=useState(null);
 
@@ -5243,12 +5279,12 @@ function ClientView({client,onLogout}){
         </div>
         <div style={s.card}>
           {catDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"1.5rem 0"}}>Sin documentos en esta categoría</div>
-          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>window.open(doc.drive_url,"_blank")}>Abrir ↗</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
+          :catDocs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status} label={doc.status}/>{doc.drive_url?<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>setViewingDoc({url:doc.drive_url,name:doc.name})}>Ver</button>:<span style={{...s.muted,marginLeft:8,fontSize:11}}>Sin archivo</span>}</div>)}
         </div>
         <div style={{textAlign:"right",marginTop:16}}><button style={s.btnPrimary} onClick={()=>setShowReq(true)}>+ Solicitar documento</button></div>
       </>}
 
-      {tab==="asambleas"&&<AsambleasTab client={client} isAdmin={false}/>}
+      {tab==="asambleas"&&<AsambleasTab client={clientEfectivo} isAdmin={false}/>}
 
       {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
         :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: {p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
@@ -5263,19 +5299,20 @@ function ClientView({client,onLogout}){
         :requests.map(r=><div key={r.id} style={s.card}><div style={s.flex()}><div style={{flex:1}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{r.label}</div><div style={s.muted}>{r.date}{r.notes?" · "+r.notes:""}</div></div><Badge status={r.status} label={{pendiente:"En revisión",completado:"Completado"}[r.status]||r.status}/></div></div>)}
       </>}
 
-      {tab==="riesgos"&&<ConsecuenciasTab client={client} isAdmin={false} onNavigate={t=>setTab(t)}/>}
-      {tab==="compliance"&&<CompliancePanel client={client} onNavigate={t=>setTab(t)}/>}
-      {tab==="regulatorio"&&<PerfilRegulatorioTab client={client} isAdmin={false}/>}
-      {tab==="marca"&&<BrandingTab client={client} onBrandingUpdate={b=>setBranding&&setBranding(b)}/>}
-      {tab==="personas"&&<PersonasTab client={client} isAdmin={false}/>}
-      {tab==="contratos"&&<ContratosClientTab client={client}/>}
-      {tab==="historial"&&<HistorialClientTab client={client}/>}
-      {tab==="resumen"&&<ResumenClientTab client={client}/>}
+      {tab==="riesgos"&&<ConsecuenciasTab client={clientEfectivo} isAdmin={false} onNavigate={t=>setTab(t)}/>}
+      {tab==="compliance"&&<CompliancePanel client={clientEfectivo} onNavigate={t=>setTab(t)}/>}
+      {tab==="regulatorio"&&<PerfilRegulatorioTab client={clientEfectivo} isAdmin={false}/>}
+      {tab==="marca"&&<BrandingTab client={clientEfectivo} onBrandingUpdate={b=>setBranding&&setBranding(b)}/>}
+      {tab==="personas"&&<PersonasTab client={clientEfectivo} isAdmin={false}/>}
+      {tab==="contratos"&&<ContratosClientTab client={clientEfectivo}/>}
+      {tab==="historial"&&<HistorialClientTab client={clientEfectivo}/>}
+      {tab==="resumen"&&<ResumenClientTab client={clientEfectivo}/>}
       {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);}}/>}
       {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
       {tab==="calendario"&&<CalendarioVencimientos client={clientEfectivo}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
+      {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
           </div>
         </div>
       </div>
@@ -5289,6 +5326,7 @@ function AdminView({onLogout,admin}){
   const [sel,setSel]=useState(null);const [tab,setTab]=useState("panel");
   const [adminSociedades,setAdminSociedades]=useState([]);
   const [adminSocActiva,setAdminSocActiva]=useState(null);
+  const [viewingDocAdmin,setViewingDocAdmin]=useState(null);
   const [areas,setAreas]=useState([]);const [documents,setDocuments]=useState([]);
   const [pendingDocs,setPendingDocs]=useState([]);const [requests,setRequests]=useState([]);
   const [editing,setEditing]=useState(null);const [loading,setLoading]=useState(true);
@@ -5351,7 +5389,7 @@ function AdminView({onLogout,admin}){
   }
   async function addDoc(){
     if(!newDoc.type||!newDoc.name)return;
-    const doc={id:"d"+Date.now(),client_id:sel,...newDoc};
+    const doc={id:"d"+Date.now(),client_id:sel,sociedad_id:adminSocActiva?.id||null,...newDoc};
     await supabase.from("documents").insert(doc);setDocuments(prev=>[...prev,doc]);
     setShowAddDoc(false);setNewDoc({type:"",name:"",person:"",date:"",status:"vigente",drive_url:""});
   }
@@ -5511,22 +5549,23 @@ function AdminView({onLogout,admin}){
         </div>}
         {Object.entries(CAT_LABELS).map(([cat,catLabel])=>{
           const docs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===cat);if(!docs.length)return null;
-          return <div key={cat} style={{marginBottom:16}}><span style={s.label}>{catLabel}</span><div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status}/>{doc.drive_url&&<a href={doc.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:GOLD,marginLeft:8,fontFamily:"system-ui, sans-serif"}}>↗</a>}<button style={{...s.btnDanger,marginLeft:4}} onClick={()=>removeDoc(doc.id)}>×</button></div>)}</div></div>;
+          return <div key={cat} style={{marginBottom:16}}><span style={s.label}>{catLabel}</span><div style={s.card}>{docs.map(doc=><div key={doc.id} style={s.row}><span style={s.dot(doc.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{doc.name}</div><div style={s.muted}>{doc.person?doc.person+" · ":""}{doc.date}</div></div><Badge status={doc.status}/>{doc.drive_url&&<button style={{...s.btnGold,...s.btnSm,marginLeft:8}} onClick={()=>setViewingDocAdmin({url:doc.drive_url,name:doc.name})}>Ver</button>}<button style={{...s.btnDanger,marginLeft:4}} onClick={()=>removeDoc(doc.id)}>×</button></div>)}</div></div>;
         })}
       </>}
 
+      {viewingDocAdmin&&<DocViewerModal url={viewingDocAdmin.url} name={viewingDocAdmin.name} onClose={()=>setViewingDocAdmin(null)}/>}
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
-      {tab==="riesgos"&&client&&<AdminAlertasCriticas client={client}/>}
-      {tab==="compliance"&&client&&<AdminComplianceGeneral client={client}/>}
-      {tab==="calendario"&&<CalendarioVencimientos client={client}/>}
-      {tab==="regulatorio"&&client&&<PerfilRegulatorioTab client={client} isAdmin={true}/>}
-      {tab==="personas"&&client&&<PersonasTab client={client} isAdmin={true}/>}
-      {tab==="contratos"&&client&&<AdminContratosTab client={client}/>}
+      {tab==="riesgos"&&client&&<AdminAlertasCriticas client={{...client,_sociedad:adminSocActiva}}/>}
+      {tab==="compliance"&&client&&<AdminComplianceGeneral client={{...client,_sociedad:adminSocActiva}}/>}
+      {tab==="calendario"&&<CalendarioVencimientos client={clientEfectivo}/>}
+      {tab==="regulatorio"&&client&&<PerfilRegulatorioTab client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
+      {tab==="personas"&&client&&<PersonasTab client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
+      {tab==="contratos"&&client&&<AdminContratosTab key={adminSocActiva?.id||"grupo"} client={{...client,_sociedad:adminSocActiva}}/>}
       {tab==="estatutos"&&client&&<AdminEstatutosTab client={client}/>}
       {tab==="pagos"&&client&&<AdminPagosTab client={client}/>}
       {tab==="tareas"&&client&&<AdminTareasTab client={client} admin={admin}/>}
       {tab==="resumen"&&client&&<AdminResumenTab client={client}/>}
-      {tab==="asambleas"&&client&&<AsambleasTab client={client} isAdmin={true}/>}
+      {tab==="asambleas"&&client&&<AsambleasTab client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
 
       {tab==="pendientes"&&client&&<>
         <div style={{...s.flex(),justifyContent:"space-between",marginBottom:16}}>
