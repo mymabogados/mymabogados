@@ -4962,6 +4962,109 @@ function DocViewerModal({url, name, onClose}){
   );
 }
 
+
+function GestorUsuariosInternos({client, isAdmin=false}){
+  const [users,setUsers]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [editing,setEditing]=useState(null);
+  const [form,setForm]=useState({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true});
+  const [saved,setSaved]=useState("");
+
+  const modulos=(client._sociedad?.modulos||client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;
+  });
+
+  useEffect(()=>{
+    supabase.from("client_users").select("*").eq("client_id",client.id).order("created_at")
+    .then(({data})=>{setUsers(data||[]);setLoading(false);});
+  },[client.id]);
+
+  function toggleModulo(id){
+    setForm(prev=>({...prev,modulos:prev.modulos.includes(id)?prev.modulos.filter(x=>x!==id):[...prev.modulos,id]}));
+  }
+
+  async function save(){
+    if(!form.nombre||!form.email||!form.password)return;
+    if(editing){
+      await supabase.from("client_users").update({nombre:form.nombre,email:form.email,password:form.password,modulos:form.modulos,rol:form.rol,activo:form.activo}).eq("id",editing.id);
+      setUsers(prev=>prev.map(u=>u.id===editing.id?{...u,...form}:u));
+    } else {
+      const nu={client_id:client.id,sociedad_id:client._sociedad?.id||null,nombre:form.nombre,email:form.email,password:form.password,modulos:form.modulos,rol:form.rol||"visor",activo:true};
+      const {data}=await supabase.from("client_users").insert(nu).select().single();
+      if(data)setUsers(prev=>[...prev,data]);
+    }
+    setSaved("Guardado ✓");setTimeout(()=>setSaved(""),2000);
+    setShowForm(false);setEditing(null);setForm({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true});
+  }
+
+  async function toggleActivo(u){
+    await supabase.from("client_users").update({activo:!u.activo}).eq("id",u.id);
+    setUsers(prev=>prev.map(x=>x.id===u.id?{...x,activo:!x.activo}:x));
+  }
+
+  if(loading)return <Spinner/>;
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:14,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>Usuarios internos</div>
+          <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>Personas de tu organización que pueden acceder al panel</div>
+        </div>
+        <button style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:3,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif"}} onClick={()=>{setEditing(null);setForm({nombre:"",email:"",password:"",modulos:[],rol:"visor",activo:true});setShowForm(true);}}>+ Agregar usuario</button>
+      </div>
+
+      {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #DDE4D8",borderRadius:4,padding:"1.25rem",marginBottom:16}}>
+        <div style={{fontSize:12,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:12}}>{editing?"Editar usuario":"Nuevo usuario interno"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} placeholder="Nombre completo" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})}/>
+          <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} placeholder="Email" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+          <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} placeholder="Contraseña" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/>
+          <select style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} value={form.rol} onChange={e=>setForm({...form,rol:e.target.value})}>
+            <option value="visor">Visor — solo lectura</option>
+            <option value="editor">Editor — puede subir docs</option>
+          </select>
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:8}}>Módulos con acceso</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {modulos.map(id=>{
+              const m=MODULOS_CATALOG.find(x=>x.id===id);
+              const active=form.modulos.includes(id);
+              return <button key={id} onClick={()=>toggleModulo(id)} style={{fontSize:11,padding:"4px 10px",borderRadius:3,border:"1px solid "+(active?"#4A5C45":"#DDE4D8"),background:active?"#4A5C45":"none",color:active?"#F0F4EE":"#1E2B1A",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>{id} {m?.nombre||id}</button>;
+            })}
+            {modulos.length===0&&<span style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Sin módulos activos en este cliente</span>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{setShowForm(false);setEditing(null);}} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          <button onClick={save} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>{editing?"Guardar cambios":"Crear usuario"}</button>
+          {saved&&<span style={{fontSize:12,color:"#5A8A3C",fontFamily:"system-ui,sans-serif",alignSelf:"center"}}>{saved}</span>}
+        </div>
+      </div>}
+
+      {users.length===0&&!showForm&&<div style={{textAlign:"center",padding:"2rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin usuarios internos — agrega el primero</div>}
+      {users.map(u=>(
+        <div key={u.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,opacity:u.activo?1:0.5}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>{u.nombre}</div>
+            <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>{u.email} · {u.rol==="editor"?"Editor":"Visor"}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
+              {(u.modulos||[]).map(id=><span key={id} style={{fontSize:9,padding:"2px 6px",borderRadius:2,background:"#E8F0E8",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>{id}</span>)}
+              {(!u.modulos||u.modulos.length===0)&&<span style={{fontSize:11,color:"#C9A84C",fontFamily:"system-ui,sans-serif"}}>Sin módulos asignados</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <button onClick={()=>{setEditing(u);setForm({nombre:u.nombre,email:u.email,password:u.password,modulos:u.modulos||[],rol:u.rol||"visor",activo:u.activo});setShowForm(true);}} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>✎ Editar</button>
+            <button onClick={()=>toggleActivo(u)} style={{fontSize:11,padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:u.activo?"#C0392B":"#5A8A3C"}}>{u.activo?"Desactivar":"Activar"}</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -5199,7 +5302,7 @@ function ClientView({client,onLogout}){
   const catDocs=documents.filter(d=>DOC_TYPES.find(t=>t.id===d.type)?.cat===docCat);
   const poderesDoc=documents.filter(d=>["poder_general","poder_dominio","poder_administracion","poder_pleitos","poder_sat","poder_bancario","poder_laboral"].includes(d.type));
   const poderesPorPersona=poderesDoc.reduce((acc,doc)=>{const key=doc.person||"Sin asignar";if(!acc[key])acc[key]=[];acc[key].push(doc);return acc;},{});
-  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"},{id:"calendario",label:"📅 Calendario"}];
+  const tabs=[{id:"panel",label:"Mi empresa"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"marca",label:"Mi marca"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Mi equipo directivo"},{id:"poderes",label:"Poderes"},{id:"docs",label:"Mis documentos"},{id:"contratos",label:"Mis contratos"},{id:"asambleas",label:"Asambleas"},{id:"historial",label:"Historial"},{id:"resumen",label:"Novedades del despacho"},{id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`},{id:"solicitudes",label:"Solicitar al despacho"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos",label:"👥 Mi equipo"}];
 
   return(
     <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
@@ -5310,6 +5413,7 @@ function ClientView({client,onLogout}){
       {showOnboarding&&<OnboardingScreen client={client} onComplete={()=>{setShowOnboarding(false);}}/>}
       {tab&&tab.startsWith("mod_")&&<ModuloView modId={tab.replace("mod_","")} client={clientEfectivo}/>}
       {tab==="calendario"&&<CalendarioVencimientos client={clientEfectivo}/>}
+      {tab==="usuarios_internos"&&<GestorUsuariosInternos client={clientEfectivo} isAdmin={false}/>}
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
@@ -5422,7 +5526,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"}];
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"}];
 
   if(loading)return <div style={s.wrap}><Spinner/></div>;
 
@@ -5502,6 +5606,7 @@ function AdminView({onLogout,admin}){
       {/* CONTENT */}
       <div style={{flex:1,overflowY:"auto",padding:"1.5rem",maxWidth:"100%",width:"100%",boxSizing:"border-box"}}>
 
+      {tab==="usuarios_internos_admin"&&client&&<GestorUsuariosInternos client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
       {tab==="modulos"&&<AdminModulosTab clients={clients} activeClient={client} activeSociedad={adminSocActiva}/>}
 
@@ -5606,6 +5711,15 @@ function Login({onLogin}){
       onLogin({role:"admin",admin:data});return;
     }
     if(!user){setErr("Ingresa tu usuario");setLoading(false);return;}
+    // Buscar en client_users por email
+    const {data:cu}=await supabase.from("client_users").select("*").eq("email",user).eq("activo",true).maybeSingle();
+    if(cu){
+      if(pass!==cu.password){setErr("Contraseña incorrecta");setLoading(false);return;}
+      const {data:cl}=await supabase.from("clients").select("*").eq("id",cu.client_id).single();
+      if(!cl){setErr("Cliente no encontrado");setLoading(false);return;}
+      onLogin({role:"client_user",client:{...cl,modulos:cu.modulos||[]},clientUser:cu});return;
+    }
+    // Buscar en clients por ID
     const {data}=await supabase.from("clients").select("*").eq("id",user).single();
     if(!data){setErr("Usuario no encontrado");setLoading(false);return;}
     if(pass===data.password){onLogin({role:"client",client:data});return;}
@@ -5664,5 +5778,5 @@ export default function App(){
 
   if(!session)return <Login onLogin={login}/>;
   if(session.role==="admin")return <AdminView onLogout={logout} admin={session.admin}/>;
-  return <ClientView client={session.client} onLogout={logout}/>;
+  return <ClientView client={session.client} onLogout={logout} clientUser={session.clientUser||null}/>;
 }
