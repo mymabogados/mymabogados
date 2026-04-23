@@ -3287,15 +3287,33 @@ function ConsecuenciasTab({client, isAdmin=false, onNavigate}){
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
+  const [alertasModulos, setAlertasModulos] = useState([]);
 
   useEffect(()=>{
     calcConsecuencias(client.id, client.industria||"general").then(a=>{setAlertas(a);setLoading(false);});
-  },[client.id]);
+    // Cargar items no cumple de reglas_compliance
+    const socId=client._sociedad?.id||null;
+    const q=socId
+      ?supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",socId).eq("status","no_cumple")
+      :supabase.from("reglas_compliance").select("*").eq("client_id",client.id).is("sociedad_id",null).eq("status","no_cumple");
+    q.then(({data:d})=>{
+      const grouped={};
+      (d||[]).forEach(x=>{
+        if(!grouped[x.modulo])grouped[x.modulo]=[];
+        const mod=MODULOS_CATALOG.find(m=>m.id===x.modulo);
+        const items=MODULO_DOCS[x.modulo]?.checklist||[];
+        const item=items.find(i=>i.id===x.regla_id);
+        if(item)grouped[x.modulo].push({...x,label:item.label,riesgo:item.riesgo,modNombre:mod?.nombre||x.modulo});
+      });
+      setAlertasModulos(Object.entries(grouped).map(([modId,items])=>({modId,modNombre:items[0]?.modNombre||modId,items})));
+    });
+  },[client.id,client._sociedad?.id]);
 
   if(loading)return <div style={{textAlign:"center",padding:"3rem",color:"#888880",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Analizando riesgos operativos...</div>;
 
   const criticos = alertas.filter(a=>a.nivel==="red");
   const altos = alertas.filter(a=>a.nivel==="amber");
+  const totalNoCumple = alertasModulos.reduce((acc,m)=>acc+m.items.length,0);
   const IMPACTO_COLOR = {CRÍTICO:"#C0392B",ALTO:"#E67E22",MEDIO:"#C9A84C"};
   const IMPACTO_BG = {CRÍTICO:"#fef2f2",ALTO:"#fef9f0",MEDIO:"#fffbeb"};
 
@@ -3315,13 +3333,42 @@ function ConsecuenciasTab({client, isAdmin=false, onNavigate}){
             <div style={{fontSize:24,color:"#C9A84C",fontFamily:"'Georgia',serif"}}>{altos.length}</div>
             <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Atención</div>
           </div>
-          {alertas.length===0&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+          {totalNoCumple>0&&<div style={{background:"rgba(192,57,43,.15)",border:"1px solid rgba(192,57,43,.3)",borderRadius:4,padding:"8px 16px",textAlign:"center"}}>
+            <div style={{fontSize:24,color:"#ff9999",fontFamily:"'Georgia',serif"}}>{totalNoCumple}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontFamily:"system-ui,sans-serif",textTransform:"uppercase",letterSpacing:".06em"}}>Sin cumplir</div>
+          </div>}
+          {alertas.length===0&&totalNoCumple===0&&<div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:20}}>✓</span>
             <span style={{fontSize:13,color:"#5A8A3C",fontFamily:"system-ui,sans-serif"}}>Sin riesgos operativos detectados</span>
           </div>}
         </div>
       </div>
 
+      {alertasModulos.length>0&&<div style={{marginBottom:16}}>
+        <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#C0392B",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>⚠ Items sin cumplir por módulo</div>
+        {alertasModulos.map(mod=>(
+          <div key={mod.modId} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:4,padding:"12px 14px",marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>{mod.modNombre}</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:11,background:"#fef2f2",color:"#991b1b",border:"1px solid #fecaca",borderRadius:3,padding:"2px 8px",fontFamily:"system-ui,sans-serif"}}>{mod.items.length} sin cumplir</span>
+                {onNavigate&&<button onClick={()=>onNavigate("mod_"+mod.modId)} style={{fontSize:11,padding:"3px 10px",borderRadius:3,border:"1px solid #DDE4D8",background:"#fff",cursor:"pointer",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>Ver módulo →</button>}
+              </div>
+            </div>
+            {mod.items.map((item,idx)=>(
+              <div key={idx} style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 0",borderTop:"1px solid #fecaca"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:9,padding:"1px 6px",borderRadius:2,background:item.riesgo==="critico"?"#fef2f2":"#fff7ed",color:item.riesgo==="critico"?"#991b1b":"#9a3412",fontFamily:"system-ui,sans-serif",fontWeight:600,textTransform:"uppercase"}}>{item.riesgo}</span>
+                  <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{item.label}</span>
+                </div>
+                {item.accion_recomendada&&<div style={{fontSize:11,fontFamily:"system-ui,sans-serif",color:"#4A5C45",background:"#F0F4EE",borderRadius:3,padding:"4px 8px",borderLeft:"2px solid #4A5C45"}}>
+                  <span style={{fontWeight:600}}>Próximo paso: </span>{item.accion_recomendada}
+                </div>}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>}
       {alertas.length===0&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:4,padding:"2rem",textAlign:"center"}}>
         <div style={{fontSize:28,marginBottom:8}}>✓</div>
         <div style={{fontSize:15,fontFamily:"'Georgia',serif",color:"#166534"}}>Todo en orden - puedes operar sin interrupciones</div>
@@ -3942,9 +3989,9 @@ function UploadDocForm({onSubmit, onCancel, clientId, clientName, sociedadNombre
   );
 }
 
-function ModuloViewChecklist({modId, client}){
+function ModuloViewChecklist({modId, client, isAdmin=false}){
   const catalog = MODULO_DOCS[modId];
-  const [checks,setChecks]=useState({});const [loading,setLoading]=useState(true);
+  const [checks,setChecks]=useState({});const [acciones,setAcciones]=useState({});const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
 
   useEffect(()=>{
@@ -4017,12 +4064,28 @@ function ModuloViewChecklist({modId, client}){
           const stColor = st==="cumple"?"#5A8A3C":st==="no_cumple"?"#C0392B":st==="parcial"?GOLD:GRAY;
           const stLabel = st==="cumple"?"Cumple":st==="no_cumple"?"No cumple":st==="parcial"?"Parcial":"Sin revisar";
           return(
-            <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:i<items.length-1?"1px solid "+BORDER:"none"}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,marginBottom:3}}>{item.label}</div>
-                <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif"}}>{rc.label}</span>
+            <div key={item.id} style={{padding:"12px 0",borderBottom:i<items.length-1?"1px solid "+BORDER:"none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:TEXT_DARK,marginBottom:3}}>{item.label}</div>
+                  <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:rc.bg,color:rc.color,fontFamily:"system-ui,sans-serif"}}>{rc.label}</span>
+                </div>
+                <select value={st} onChange={e=>toggleCheck(item.id,e.target.value)} disabled={saving} style={{fontSize:11,padding:"4px 8px",borderRadius:4,border:"1.5px solid "+stColor,background:"none",color:stColor,cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,minWidth:100}}>
+                  <option value="sin_revisar">Sin revisar</option>
+                  <option value="cumple">Cumple</option>
+                  <option value="parcial">Parcial</option>
+                  <option value="no_cumple">No cumple</option>
+                </select>
               </div>
-              <button onClick={()=>toggleCheck(item.id,st)} disabled={saving} style={{fontSize:11,padding:"4px 12px",borderRadius:4,border:"1.5px solid "+stColor,background:"none",color:stColor,cursor:"pointer",fontFamily:"system-ui,sans-serif",fontWeight:600,minWidth:90}}>{stLabel}</button>
+              {isAdmin&&<input
+                style={{fontSize:11,padding:"4px 8px",border:"1px dashed #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#F5F2ED",width:"100%",boxSizing:"border-box",marginTop:6,color:"#4A5C45"}}
+                placeholder="Próximo paso para el cliente (visible en su dashboard)..."
+                value={acciones[item.id]||""}
+                onChange={e=>saveAccion(item.id,e.target.value)}
+              />}
+              {!isAdmin&&acciones[item.id]&&st!=="cumple"&&<div style={{fontSize:11,fontFamily:"system-ui,sans-serif",color:"#4A5C45",background:"#F0F4EE",borderRadius:3,padding:"5px 8px",marginTop:6,borderLeft:"2px solid #4A5C45"}}>
+                <span style={{fontWeight:600}}>Próximo paso: </span>{acciones[item.id]}
+              </div>}
             </div>
           );
         })}
@@ -4134,7 +4197,7 @@ function AdminModuloTabs({modId, client}){
         {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
         {activeTab==="datos"&&<ModuloViewDatos modId={modId} client={client}/>}
         {activeTab==="documentos"&&<ModuloViewDocs modId={modId} client={client} isAdmin={true}/>}
-        {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client}/>}
+        {activeTab==="cumplimiento"&&<ModuloViewChecklist modId={modId} client={client} isAdmin={true}/>}
         {activeTab==="riesgos"&&<ModuloViewRiesgos modId={modId}/>}
       </div>
     </div>
@@ -5124,6 +5187,7 @@ function ClientDashboard({client, onNavigate}){
 
   useEffect(()=>{
     async function load(){
+      setLoading(true);
       const [ch,d,ctr]=await Promise.all([
         socId
           ? supabase.from("reglas_compliance").select("*").eq("client_id",client.id).eq("sociedad_id",socId)
@@ -5145,6 +5209,9 @@ function ClientDashboard({client, onNavigate}){
       setLoading(false);
     }
     load();
+    load();
+    const interval = setInterval(load, 60000);
+    return ()=>clearInterval(interval);
   },[client.id,socId]);
 
   const modulos = (client._sociedad?.modulos||client.modulos||[]).filter(id=>{
