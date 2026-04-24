@@ -568,6 +568,36 @@ function getAlertasPredictivas(docs, contratos) {
   return alertas.sort((a, b) => a.diasRestantesParaIniciar - b.diasRestantesParaIniciar);
 }
 
+
+async function downloadDataRoom(client, modulos=[]) {
+  const btns = document.querySelectorAll("#btn-dataroom");
+  try {
+    btns.forEach(b=>{ b.textContent = "Generando ZIP..."; b.disabled = true; });
+    const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
+    const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-dataroom`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ANON_KEY}` },
+      body: JSON.stringify({ client_id: client.id, sociedad_id: client._sociedad?.id || null, modulos: modulos.length ? modulos : null })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "DataRoom_" + (client.name || client.id).replace(/\s+/g,"_") + "_" + new Date().toISOString().slice(0,10) + ".zip";
+    a.click();
+    URL.revokeObjectURL(url);
+    btns.forEach(b=>{ b.textContent = "↓ Data Room"; b.disabled = false; });
+  } catch(e) {
+    alert("Error generando Data Room: " + e.message);
+    btns.forEach(b=>{ b.textContent = "↓ Data Room"; b.disabled = false; });
+  }
+}
+
 async function notifyEvento(clientId, tipo, descripcion, modulo=null){
   try{
     await supabase.functions.invoke("notify-evento",{body:{client_id:clientId,tipo,descripcion,modulo}});
@@ -5478,6 +5508,57 @@ function GestorNotificaciones({client, isAdmin=false}){
   );
 }
 
+
+function DataRoomModal({client, onClose}){
+  const [seleccion,setSeleccion]=useState([]);
+  const [descargando,setDescargando]=useState(false);
+  const modulos=(client._sociedad?.modulos||client.modulos||[]).filter(id=>{
+    const m=MODULOS_CATALOG.find(x=>x.id===id);return m&&m.tier>0;
+  });
+  const opciones=[
+    ...modulos.map(id=>({id,label:id+" — "+(MODULOS_CATALOG.find(x=>x.id===id)?.nombre||id),grupo:"modulos"})),
+    {id:"contratos",label:"Contratos comerciales",grupo:"extra"},
+    {id:"kyc",label:"KYC — Equipo directivo",grupo:"extra"},
+  ];
+  function toggle(id){setSeleccion(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);}
+  function toggleAll(){setSeleccion(seleccion.length===opciones.length?[]:opciones.map(x=>x.id));}
+  async function descargar(){
+    setDescargando(true);
+    await downloadDataRoom(client, seleccion.length===opciones.length?[]:seleccion);
+    setDescargando(false);
+    onClose();
+  }
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem"}} onClick={onClose}>
+      <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",width:"min(480px,100%)",maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:16,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:4}}>Data Room — Due Diligence</div>
+        <div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Selecciona qué incluir en el paquete ZIP</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{fontSize:10,letterSpacing:".1em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Módulos y categorías</span>
+          <button onClick={toggleAll} style={{fontSize:11,padding:"3px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>{seleccion.length===opciones.length?"Deseleccionar todo":"Seleccionar todo"}</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+          {opciones.map(op=>(
+            <div key={op.id} onClick={()=>toggle(op.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:4,border:"1px solid "+(seleccion.includes(op.id)?"#4A5C45":"#DDE4D8"),background:seleccion.includes(op.id)?"#F0F4EE":"#FAFCF8",cursor:"pointer"}}>
+              <div style={{width:16,height:16,borderRadius:3,border:"1.5px solid "+(seleccion.includes(op.id)?"#4A5C45":"#DDE4D8"),background:seleccion.includes(op.id)?"#4A5C45":"none",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {seleccion.includes(op.id)&&<span style={{color:"#F0F4EE",fontSize:10,lineHeight:1}}>✓</span>}
+              </div>
+              <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A"}}>{op.label}</span>
+              {op.grupo==="extra"&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:"#FFF8E7",color:"#92400e",fontFamily:"system-ui,sans-serif",marginLeft:"auto"}}>adicional</span>}
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"8px 16px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          <button onClick={descargar} disabled={descargando||seleccion.length===0} style={{fontSize:12,padding:"8px 16px",border:"none",borderRadius:3,cursor:"pointer",background:seleccion.length===0?"#DDE4D8":"#4A5C45",color:seleccion.length===0?"#7A9070":"#F0F4EE",fontFamily:"system-ui,sans-serif",opacity:descargando?0.7:1}}>
+            {descargando?"Generando ZIP...":"↓ Descargar ZIP ("+seleccion.length+" seleccionados)"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -5685,6 +5766,7 @@ function ClientView({client,onLogout,clientUser=null}){
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [showFAQ,setShowFAQ]=useState(false);
   const [viewingDoc,setViewingDoc]=useState(null);
+  const [showDataRoom,setShowDataRoom]=useState(false);
   const [sociedades,setSociedades]=useState([]);
   const [sociedadActiva,setSociedadActiva]=useState(clientUser?.sociedad_id?null:null);
 
@@ -5817,7 +5899,7 @@ function ClientView({client,onLogout,clientUser=null}){
           <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
             <div style={{display:"flex",gap:8}}>
-              {!isClientUser&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ Reporte IA</button></>}
+              {!isClientUser&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ Reporte IA</button><button id="btn-dataroom" style={{...s.btn,...s.btnSm,borderColor:"#185FA5",color:"#185FA5",background:"#EBF4FF"}} onClick={()=>setShowDataRoom(true)}>↓ Data Room</button></>}
               <button style={{width:32,height:32,borderRadius:"50%",border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontSize:15,color:TEXT_MED,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}} onClick={()=>setShowFAQ(true)}>?</button>
               <NotifBell clientId={client.id}/>
             </div>
@@ -5890,6 +5972,7 @@ function ClientView({client,onLogout,clientUser=null}){
       {showReq&&<RequestModal client={client} onClose={()=>setShowReq(false)} onSubmit={submitRequest}/>}
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
+      {showDataRoom&&<DataRoomModal client={clientEfectivo} onClose={()=>setShowDataRoom(false)}/>}
           </div>
         </div>
       </div>
@@ -5904,6 +5987,7 @@ function AdminView({onLogout,admin}){
   const [adminSociedades,setAdminSociedades]=useState([]);
   const [adminSocActiva,setAdminSocActiva]=useState(null);
   const [viewingDocAdmin,setViewingDocAdmin]=useState(null);
+  const [showDataRoomAdmin,setShowDataRoomAdmin]=useState(false);
   const [areas,setAreas]=useState([]);const [documents,setDocuments]=useState([]);
   const [pendingDocs,setPendingDocs]=useState([]);const [requests,setRequests]=useState([]);
   const [editing,setEditing]=useState(null);const [loading,setLoading]=useState(true);
@@ -6052,7 +6136,7 @@ function AdminView({onLogout,admin}){
             <div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Dashboard"}</div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {saved&&<span style={{fontSize:11,color:"#3A7A30",fontFamily:"system-ui,sans-serif"}}>Guardado ✓</span>}
-              {client&&tab!=="usuarios"&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(client)}>↓ Reporte ejecutivo</button></> }
+              {client&&tab!=="usuarios"&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(client)}>↓ Reporte ejecutivo</button><button id="btn-dataroom" style={{...s.btn,...s.btnSm,borderColor:"#185FA5",color:"#185FA5",background:"#EBF4FF"}} onClick={()=>setShowDataRoomAdmin(true)}>↓ Data Room</button></> }
               <AdminNotifBell/>
             </div>
           </div>
@@ -6133,6 +6217,7 @@ function AdminView({onLogout,admin}){
       </>}
 
       {viewingDocAdmin&&<DocViewerModal url={viewingDocAdmin.url} name={viewingDocAdmin.name} onClose={()=>setViewingDocAdmin(null)}/>}
+      {showDataRoomAdmin&&client&&<DataRoomModal client={{...client,_sociedad:adminSocActiva}} onClose={()=>setShowDataRoomAdmin(false)}/>}
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
       {tab==="riesgos"&&client&&<AdminAlertasCriticas client={{...client,_sociedad:adminSocActiva}}/>}
       {tab==="compliance"&&client&&<AdminComplianceGeneral client={{...client,_sociedad:adminSocActiva}}/>}
