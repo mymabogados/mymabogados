@@ -702,70 +702,82 @@ async function generateReporteEjecutivo(client){
   const today = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
   const pageW=210; const margin=20; const contentW=pageW-margin*2; let y=0;
 
-  // Cargar datos de Supabase
   const modulosActivos = ((client._sociedad?.modulos||client.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist);
-  const {data:checksData} = await supabase.from("reglas_compliance").select("*").eq("client_id",client.id).then(({data:d})=>d);
-  const {data:docsData} = await supabase.from("documents").select("*").eq("client_id",client.id);
-  const checks = {};
-  const riesgosData = {};
-  (checksData||[]).forEach(x=>{
-    checks[x.modulo+"_"+x.regla_id]=x.status;
-    if(x.nivel_riesgo) riesgosData[x.modulo+"_"+x.regla_id]=x.nivel_riesgo;
-  });
+  const [{data:checksData},{data:docsData},{data:ctrsData}] = await Promise.all([
+    supabase.from("reglas_compliance").select("*").eq("client_id",client.id),
+    supabase.from("documents").select("*").eq("client_id",client.id),
+    supabase.from("contratos").select("*").eq("client_id",client.id).not("vencimiento","is",null),
+  ]);
 
-  // Calcular score
-  let totalItems=0; let cumpleItems=0; const alertasCriticas=[];
+  const checks = {};
+  (checksData||[]).forEach(x=>{checks[x.modulo+"_"+x.regla_id]=x.status;});
+
+  let totalItems=0; let cumpleItems=0; const noCumpleItems=[];
   modulosActivos.forEach(modId=>{
     const items = MODULO_DOCS[modId]?.checklist||[];
     items.forEach(item=>{
       totalItems++;
       const st = checks[modId+"_"+item.id];
-      const nivel = riesgosData[modId+"_"+item.id]||item.riesgo||"bajo";
       if(st==="cumple") cumpleItems++;
-      if(st==="no_cumple"&&(nivel==="critico"||nivel==="alto")){
+      if(st==="no_cumple"){
         const modNombre = MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId;
-        alertasCriticas.push({modId,modNombre,label:item.label,nivel});
+        noCumpleItems.push({modId,modNombre,label:item.label,riesgo:item.riesgo});
       }
     });
   });
   const score = totalItems>0?Math.round((cumpleItems/totalItems)*100):0;
   const scoreColor = score>=70?[90,138,60]:score>=40?[201,168,76]:[192,57,43];
+  const alertasCriticas = noCumpleItems.filter(x=>x.riesgo==="critico"||x.riesgo==="alto");
 
-  // Documentos pendientes (requeridos sin archivo)
   const docsPendientes=[];
   modulosActivos.forEach(modId=>{
-    const requeridos = (MODULO_DOCS[modId]?.docs||[]).filter(d=>d.requerido);
-    requeridos.forEach(doc=>{
-      const existe = (docsData||[]).find(d=>d.modulo===modId&&d.tipo===doc.id&&d.drive_url);
-      if(!existe) docsPendientes.push({modId,modNombre:MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId,label:doc.label});
+    (MODULO_DOCS[modId]?.docs||[]).filter(d=>d.requerido).forEach(doc=>{
+      if(!(docsData||[]).find(d=>d.modulo===modId&&d.type===doc.id&&d.drive_url))
+        docsPendientes.push({modId,modNombre:MODULOS_CATALOG.find(x=>x.id===modId)?.nombre||modId,label:doc.label});
     });
   });
 
+  const hoy = new Date();
+  const vencimientos = [
+    ...(docsData||[]).filter(d=>d.fecha_vencimiento).map(d=>({nombre:d.name||d.type,tipo:"Documento",dias:Math.ceil((new Date(d.fecha_vencimiento)-hoy)/(1000*60*60*24))})),
+    ...(ctrsData||[]).map(d=>({nombre:d.nombre,tipo:"Contrato",dias:Math.ceil((new Date(d.vencimiento)-hoy)/(1000*60*60*24))})),
+  ].filter(v=>v.dias<=60).sort((a,b)=>a.dias-b.dias).slice(0,5);
+
+  let analisisIA = "";
+  try {
+    const prompt = "Eres el abogado corporativo de " + client.name + ". Genera un analisis ejecutivo BREVE (maximo 120 palabras) del estado legal de la empresa en lenguaje de CEO, no de abogado. Sin tecnicismos. Directo y accionable.\n\nEstado actual:\n- Cumplimiento general: " + score + "% (" + cumpleItems + " de " + totalItems + " items)\n- Modulos activos: " + modulosActivos.length + "\n- Alertas criticas: " + alertasCriticas.length + " items sin cumplir\n- Documentos pendientes: " + docsPendientes.length + "\n- Vencimientos proximos 60 dias: " + vencimientos.length + "\n\nTop alertas: " + (alertasCriticas.slice(0,3).map(a=>a.label).join(", ")||"Ninguna") + "\n\nFormato: 2-3 parrafos cortos. Primer parrafo: estado general. Segundo: riesgos mas urgentes. Tercero: proximos pasos concretos. Sin bullet points. Espanol mexicano directo.";
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+    });
+    const data = await res.json();
+    analisisIA = data.content?.[0]?.text || "";
+  } catch(e) {
+    analisisIA = "El despacho esta monitoreando activamente el estado legal de su empresa. Contacte a su abogado para un analisis detallado.";
+  }
+
   function checkPage(n=20){if(y+n>272){doc.addPage();y=20;}}
 
-  // ── HEADER ──
   doc.setFillColor(26,26,26); doc.rect(0,0,pageW,32,"F");
   doc.setFillColor(201,168,76); doc.rect(0,30,pageW,1.5,"F");
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
-  doc.text("MILLÁN & MARTÍNEZ ABOGADOS",margin,13);
+  doc.text("MILLAN & MARTINEZ ABOGADOS",margin,13);
   doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(201,168,76);
   doc.text("REPORTE EJECUTIVO DE INMUNIDAD CORPORATIVA",margin,22);
   doc.setTextColor(180,180,180); doc.text(today,pageW-margin,22,{align:"right"});
   y=44;
 
-  // ── CLIENTE ──
   doc.setTextColor(26,26,26); doc.setFontSize(16); doc.setFont("helvetica","bold");
   doc.text(client.name,margin,y); y+=7;
   doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.setTextColor(136,136,128);
-  doc.text("Cliente "+client.id+(client.contact?" · "+client.contact:""),margin,y); y+=14;
+  doc.text("Cliente "+client.id+(client.contact?" - "+client.contact:"")+"   |   "+today,margin,y); y+=14;
 
-  // ── SCORE CARDS ──
   const cW=(contentW-9)/4;
-  [
-    {label:"Salud corporativa",value:String(score)+"%",color:scoreColor},
-    {label:"Módulos activos",value:String(modulosActivos.length),color:[74,92,69]},
-    {label:"Alertas críticas",value:String(alertasCriticas.length),color:[192,57,43]},
-    {label:"Docs pendientes",value:String(docsPendientes.length),color:[201,168,76]},
+  [{label:"Salud corporativa",value:String(score)+"%",color:scoreColor},
+   {label:"Modulos activos",value:String(modulosActivos.length),color:[74,92,69]},
+   {label:"Alertas criticas",value:String(alertasCriticas.length),color:[192,57,43]},
+   {label:"Docs pendientes",value:String(docsPendientes.length),color:[201,168,76]},
   ].forEach((card,i)=>{
     const x=margin+i*(cW+3);
     doc.setFillColor(245,242,237); doc.roundedRect(x,y,cW,22,2,2,"F");
@@ -775,11 +787,20 @@ async function generateReporteEjecutivo(client){
     doc.text(card.label.toUpperCase(),x+cW/2,y+19,{align:"center"});
   }); y+=30;
 
-  // ── ESTADO POR MÓDULO ──
   doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
   doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
-  doc.text("ESTADO DE CUMPLIMIENTO POR MÓDULO",margin,y); y+=6;
+  doc.text("ANALISIS EJECUTIVO - MILLAN & MARTINEZ ABOGADOS",margin,y); y+=6;
+  const lineas = doc.splitTextToSize(analisisIA, contentW-8);
+  const boxH = lineas.length*5+10;
+  doc.setFillColor(240,244,238); doc.roundedRect(margin,y,contentW,boxH,2,2,"F");
+  doc.setFillColor(74,92,69); doc.rect(margin,y,2.5,boxH,"F");
+  doc.setTextColor(30,43,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
+  doc.text(lineas,margin+6,y+7); y+=boxH+10;
 
+  checkPage(20);
+  doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
+  doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
+  doc.text("ESTADO DE CUMPLIMIENTO POR MODULO",margin,y); y+=6;
   modulosActivos.forEach(modId=>{
     checkPage(14);
     const items = MODULO_DOCS[modId]?.checklist||[];
@@ -788,70 +809,86 @@ async function generateReporteEjecutivo(client){
     const noCumple = items.filter(x=>checks[modId+"_"+x.id]==="no_cumple").length;
     const pct = items.length>0?Math.round((cumple/items.length)*100):0;
     const rgb = noCumple>0?[253,245,245]:pct>=70?[245,251,240]:[253,250,240];
-    const lineColor = noCumple>0?[192,57,43]:pct>=70?[90,138,60]:[201,168,76];
+    const lc = noCumple>0?[192,57,43]:pct>=70?[90,138,60]:[201,168,76];
     doc.setFillColor(...rgb); doc.roundedRect(margin,y,contentW,12,1,1,"F");
-    doc.setFillColor(...lineColor); doc.rect(margin,y,2.5,12,"F");
+    doc.setFillColor(...lc); doc.rect(margin,y,2.5,12,"F");
     doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","bold");
-    doc.text(modId+" · "+modNombre,margin+6,y+5);
+    doc.text(modId+" - "+modNombre,margin+6,y+5);
     doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(136,136,128);
-    doc.text(cumple+"/"+items.length+" ítems en cumplimiento",margin+6,y+10);
-    doc.setTextColor(...lineColor); doc.setFontSize(8); doc.setFont("helvetica","bold");
+    doc.text(cumple+"/"+items.length+" items en cumplimiento",margin+6,y+10);
+    doc.setTextColor(...lc); doc.setFontSize(8); doc.setFont("helvetica","bold");
     doc.text(String(pct)+"%",pageW-margin-2,y+7,{align:"right"}); y+=14;
   }); y+=4;
 
-  // ── ALERTAS CRÍTICAS ──
   if(alertasCriticas.length>0){
     checkPage(20);
     doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
     doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
-    doc.text("ALERTAS QUE REQUIEREN ATENCIÓN INMEDIATA",margin,y); y+=6;
+    doc.text("ALERTAS QUE REQUIEREN ATENCION INMEDIATA",margin,y); y+=6;
     alertasCriticas.slice(0,8).forEach(a=>{
       checkPage(12);
-      const rgb = a.nivel==="critico"?[253,245,245]:[253,250,240];
-      const lc = a.nivel==="critico"?[192,57,43]:[201,168,76];
+      const rgb = a.riesgo==="critico"?[253,245,245]:[253,250,240];
+      const lc = a.riesgo==="critico"?[192,57,43]:[201,168,76];
       doc.setFillColor(...rgb); doc.roundedRect(margin,y,contentW,12,1,1,"F");
       doc.setFillColor(...lc); doc.rect(margin,y,2.5,12,"F");
       doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
-      const labelText = doc.splitTextToSize(a.label, contentW-40);
-      doc.text(labelText[0],margin+6,y+5);
+      doc.text(doc.splitTextToSize(a.label,contentW-40)[0],margin+6,y+5);
       doc.setFontSize(7); doc.setTextColor(136,136,128);
-      doc.text(a.modId+" · "+a.modNombre,margin+6,y+10);
+      doc.text(a.modId+" - "+a.modNombre,margin+6,y+10);
       doc.setTextColor(...lc); doc.setFont("helvetica","bold");
-      doc.text(a.nivel.toUpperCase(),pageW-margin-2,y+7,{align:"right"}); y+=14;
+      doc.text(a.riesgo.toUpperCase(),pageW-margin-2,y+7,{align:"right"}); y+=14;
     }); y+=4;
   }
 
-  // ── DOCUMENTOS PENDIENTES ──
+  if(vencimientos.length>0){
+    checkPage(20);
+    doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
+    doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
+    doc.text("VENCIMIENTOS PROXIMOS 60 DIAS",margin,y); y+=6;
+    vencimientos.forEach(v=>{
+      checkPage(10);
+      const lc = v.dias<0?[192,57,43]:v.dias<=7?[192,57,43]:v.dias<=30?[201,168,76]:[90,138,60];
+      doc.setFillColor(253,250,240); doc.roundedRect(margin,y,contentW,10,1,1,"F");
+      doc.setFillColor(...lc); doc.circle(margin+4,y+5,1.5,"F");
+      doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
+      doc.text(v.nombre||v.tipo,margin+9,y+4.5);
+      doc.setFontSize(7); doc.setTextColor(136,136,128);
+      doc.text(v.tipo,margin+9,y+8.5);
+      doc.setTextColor(...lc); doc.setFont("helvetica","bold"); doc.setFontSize(8);
+      doc.text(v.dias<0?"VENCIDO":v.dias===0?"HOY":"en "+v.dias+"d",pageW-margin-2,y+6,{align:"right"}); y+=12;
+    }); y+=4;
+  }
+
   if(docsPendientes.length>0){
     checkPage(20);
     doc.setFillColor(201,168,76); doc.rect(margin,y,contentW,0.5,"F"); y+=8;
     doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(136,136,128);
     doc.text("DOCUMENTOS PENDIENTES DE ENTREGA",margin,y); y+=6;
-    docsPendientes.slice(0,10).forEach(d=>{
+    docsPendientes.slice(0,8).forEach(d=>{
       checkPage(10);
       doc.setFillColor(253,250,240); doc.roundedRect(margin,y,contentW,10,1,1,"F");
       doc.setFillColor(201,168,76); doc.circle(margin+4,y+5,1.5,"F");
       doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont("helvetica","normal");
       doc.text(d.label,margin+9,y+4.5);
       doc.setFontSize(7); doc.setTextColor(136,136,128);
-      doc.text(d.modId+" · "+d.modNombre,margin+9,y+9); y+=12;
-    });
+      doc.text(d.modId+" - "+d.modNombre,margin+9,y+8.5); y+=12;
+    }); y+=4;
   }
 
-  // ── FOOTER ──
-  const pc=doc.getNumberOfPages();
-  for(let i=1;i<=pc;i++){
+  const totalPages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
     doc.setPage(i);
-    doc.setFillColor(26,26,26); doc.rect(0,285,pageW,12,"F");
-    doc.setFillColor(201,168,76); doc.rect(0,284,pageW,0.8,"F");
-    doc.setTextColor(180,180,180); doc.setFontSize(7); doc.setFont("helvetica","normal");
-    doc.text("Millán & Martínez Abogados  ·  panel.mymabogados.mx  ·  jmartinez@mymabogados.mx",margin,292);
-    doc.text("Página "+i+" de "+pc,pageW-margin,292,{align:"right"});
+    doc.setFillColor(26,26,26); doc.rect(0,287,pageW,10,"F");
+    doc.setTextColor(136,136,128); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text("panel.mymabogados.mx   -   Millan & Martinez Abogados",margin,293);
+    doc.text("Pagina "+i+" de "+totalPages,pageW-margin,293,{align:"right"});
   }
 
-  const dt=new Date().toISOString().slice(0,10);
-  doc.save("MM_Reporte_"+client.name.replace(/\s+/g,"_")+"_"+dt+".pdf");
+  const nombre = (client.name||"cliente").replace(/\s+/g,"_").replace(/[^a-zA-Z0-9_]/g,"");
+  doc.save("MM_Reporte_IA_"+nombre+"_"+new Date().toISOString().slice(0,10)+".pdf");
 }
+
+
 
 async function generatePDF(client,areas,documents,pendingDocs){
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
@@ -5705,7 +5742,7 @@ function ClientView({client,onLogout,clientUser=null}){
           <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
             <div style={{display:"flex",gap:8}}>
-              {!isClientUser&&<button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button>}
+              {!isClientUser&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ Reporte IA</button></>}
               <button style={{width:32,height:32,borderRadius:"50%",border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontSize:15,color:TEXT_MED,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}} onClick={()=>setShowFAQ(true)}>?</button>
               <NotifBell clientId={client.id}/>
             </div>
