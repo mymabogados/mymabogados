@@ -514,6 +514,60 @@ const RIESGO_COLORS = {
 };
 const MODULOS_CATS = ["Base","Corporativo","Laboral","Fiscal","Arbitraje","Operativo","Migratorio","Condominal","Protección Patrimonial","Cumplimiento Especializado","Inmobiliario","Salud","Energía","Tecnología","Agroindustria","Entretenimiento"];
 
+
+const TIEMPOS_TRAMITE = {
+  "efirma": { label: "e.firma (FIEL)", dias: 21, instruccion: "Agenda tu cita en el SAT con al menos 3 semanas de anticipación." },
+  "csd": { label: "CSD (Sello Digital)", dias: 3, instruccion: "Renueva desde el portal del SAT con tu e.firma vigente." },
+  "licencia_funcionamiento": { label: "Licencia de funcionamiento", dias: 30, instruccion: "Inicia el trámite ante el municipio con 30 días de anticipación." },
+  "licencia_sanitaria": { label: "Licencia sanitaria COFEPRIS", dias: 45, instruccion: "Presenta la solicitud ante COFEPRIS con 45 días de anticipación." },
+  "registro_sanitario": { label: "Registro sanitario", dias: 90, instruccion: "Inicia el proceso de renovación con 3 meses de anticipación." },
+  "poder_general": { label: "Poder notarial", dias: 14, instruccion: "Agenda cita con notario con 2 semanas de anticipación." },
+  "poder_dominio": { label: "Poder de dominio", dias: 14, instruccion: "Agenda cita con notario con 2 semanas de anticipación." },
+  "cedula_fiscal": { label: "Cédula fiscal", dias: 5, instruccion: "Actualiza datos ante el SAT en el portal." },
+  "constancia_situacion_fiscal": { label: "Constancia de situación fiscal", dias: 1, instruccion: "Descarga desde el portal del SAT con tu e.firma." },
+  "uso_suelo": { label: "Constancia de uso de suelo", dias: 20, instruccion: "Solicita la constancia ante el municipio con 20 días de anticipación." },
+  "lau": { label: "Licencia ambiental (LAU)", dias: 60, instruccion: "Inicia el trámite ante SEMARNAT con 2 meses de anticipación." },
+  "default": { label: "Documento", dias: 15, instruccion: "Inicia el trámite de renovación con anticipación." },
+};
+
+function getAlertasPredictivas(docs, contratos) {
+  const hoy = new Date();
+  const alertas = [];
+  const procesados = new Set();
+
+  [...(docs||[]), ...(contratos||[]).map(c=>({...c, type: "contrato", fecha_vencimiento: c.vencimiento}))].forEach(doc => {
+    if (!doc.fecha_vencimiento) return;
+    const vence = new Date(doc.fecha_vencimiento);
+    const diasHastaVence = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
+    const tipo = doc.type || "default";
+    const tramite = TIEMPOS_TRAMITE[tipo] || TIEMPOS_TRAMITE["default"];
+    const diasParaIniciar = tramite.dias;
+    const diasRestantesParaIniciar = diasHastaVence - diasParaIniciar;
+    const key = tipo + "_" + (doc.id || doc.nombre);
+
+    if (procesados.has(key)) return;
+    procesados.add(key);
+
+    if (diasHastaVence > 0 && diasHastaVence <= 120 && diasRestantesParaIniciar <= 15) {
+      const urgencia = diasRestantesParaIniciar < 0 ? "critico" : diasRestantesParaIniciar <= 7 ? "alto" : "medio";
+      alertas.push({
+        id: key,
+        nombre: doc.name || doc.nombre || tramite.label,
+        tipo: tramite.label,
+        vence: vence,
+        diasHastaVence,
+        diasParaIniciar,
+        diasRestantesParaIniciar,
+        instruccion: tramite.instruccion,
+        urgencia,
+        _tipo: doc.type === "contrato" ? "contrato" : "documento",
+      });
+    }
+  });
+
+  return alertas.sort((a, b) => a.diasRestantesParaIniciar - b.diasRestantesParaIniciar);
+}
+
 async function notifyEvento(clientId, tipo, descripcion, modulo=null){
   try{
     await supabase.functions.invoke("notify-evento",{body:{client_id:clientId,tipo,descripcion,modulo}});
@@ -5428,6 +5482,7 @@ function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
   const [loading,setLoading]=useState(true);
+  const [alertasPredictivas,setAlertasPredictivas]=useState([]);
   const socId = client._sociedad?.id||null;
 
   useEffect(()=>{
@@ -5451,6 +5506,7 @@ function ClientDashboard({client, onNavigate}){
       const docsConFecha=(d.data||[]).map(x=>({...x,_tipo:"documento",fecha_vencimiento:x.fecha_vencimiento,nombre:x.name}));
       const ctrsConFecha=(ctr.data||[]).map(x=>({...x,_tipo:"contrato",fecha_vencimiento:x.vencimiento,nombre:x.nombre}));
       setDocs([...docsConFecha,...ctrsConFecha]);
+      setAlertasPredictivas(getAlertasPredictivas(d.data||[], ctr.data||[]));
       setLoading(false);
     }
     load();
@@ -5537,6 +5593,25 @@ function ClientDashboard({client, onNavigate}){
       </div>}
 
       {/* Vencimientos próximos */}
+      {alertasPredictivas.length>0&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:12,borderLeft:"3px solid #C9A84C"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontWeight:600}}>⏰ Trámites que debes iniciar pronto</div>
+          <span style={{fontSize:10,background:"#FFF8E7",color:"#92400e",border:"1px solid #C9A84C",borderRadius:3,padding:"1px 6px",fontFamily:"system-ui,sans-serif"}}>{alertasPredictivas.length} pendientes</span>
+        </div>
+        {alertasPredictivas.slice(0,4).map((a,i)=>(
+          <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<Math.min(alertasPredictivas.length,4)-1?"1px solid #DDE4D8":"none",alignItems:"flex-start"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",fontWeight:600,marginBottom:2}}>{a.nombre}</div>
+              <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>{a.instruccion}</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:"#F0F4EE",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>Vence en {a.diasHastaVence}d</span>
+                <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:a.diasRestantesParaIniciar<0?"#fef2f2":"#fffbeb",color:a.diasRestantesParaIniciar<0?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif"}}>{a.diasRestantesParaIniciar<0?"Debiste iniciar hace "+Math.abs(a.diasRestantesParaIniciar)+"d":"Iniciar en "+a.diasRestantesParaIniciar+"d"}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>}
+
       {(proxVencer.length>0||vencidos.length>0)&&<div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:12}}>
         <div style={{fontSize:10,letterSpacing:".15em",textTransform:"uppercase",color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:10,fontWeight:600}}>📅 Vencimientos</div>
         {vencidos.map((d,i)=>{
