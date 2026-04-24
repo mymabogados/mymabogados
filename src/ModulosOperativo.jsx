@@ -263,40 +263,320 @@ export function ModO05({client}){
 }
 export function ModO06({client}){ return <ModO05 client={client}/>; }
 export function ModO07({client}){
-  const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{
-    supabase.from("documents").select("*").eq("client_id",client.id)
-      .in("type",["escritura","arrendamiento_comercial","licencia_funcionamiento","uso_suelo"])
-      .then(({data:d})=>{setDocs(d||[]);setLoading(false);});
-  },[client.id]);
-  if(loading)return <Spinner/>;
+  const {data,save,saving}=useModData(client,"O-07");
   return(
     <div>
-      {docs.length===0
-        ?<div style={{...s.card,borderLeft:"3px solid "+MUSGO}}><div style={s.muted}>Sin inmuebles registrados.</div></div>
-        :<div style={s.card}>{docs.map(x=><div key={x.id} style={s.row}><span style={s.dot(x.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.name}</div><div style={s.muted}>{x.type}{x.date?" · "+x.date:""}</div></div><Badge status={x.status} label={x.status}/></div>)}</div>
-      }
+      <InfoBox>Control de inmuebles corporativos — escrituras, uso de suelo, licencias de funcionamiento, arrendamientos y obligaciones registrales.</InfoBox>
+      <SectionTitle>Portafolio inmobiliario</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Número de inmuebles propios"><input style={s.input} type="number" value={data.num_inmuebles_propios||""} onChange={e=>save("num_inmuebles_propios",e.target.value)} placeholder="0"/></Field>
+        <Field label="Número de inmuebles arrendados"><input style={s.input} type="number" value={data.num_inmuebles_arrendados||""} onChange={e=>save("num_inmuebles_arrendados",e.target.value)} placeholder="0"/></Field>
+        <Field label="Valor aproximado del portafolio (MXN)"><input style={s.input} type="number" value={data.valor_portafolio||""} onChange={e=>save("valor_portafolio",e.target.value)} placeholder="0"/></Field>
+        <Field label="Estados donde opera">
+          <input style={s.input} value={data.estados_operacion||""} onChange={e=>save("estados_operacion",e.target.value)} placeholder="CDMX, Monterrey, Guadalajara..."/>
+        </Field>
+      </div>
+
+      <SectionTitle>Escrituras y registro</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Escrituras inscritas en RPP">
+          <select value={data.escrituras_rpp||""} onChange={e=>save("escrituras_rpp",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="todas">Todas inscritas</option>
+            <option value="parcial">Parcialmente inscritas</option>
+            <option value="ninguna">Sin inscripción</option>
+          </select>
+        </Field>
+        <Field label="Folio mercantil / número de escritura principal"><input style={s.input} value={data.folio_escritura||""} onChange={e=>save("folio_escritura",e.target.value)} placeholder="Número de escritura o folio RPP"/></Field>
+        <Field label="Gravámenes o hipotecas activas">
+          <select value={data.gravamenes||""} onChange={e=>save("gravamenes",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="sin_gravamenes">Sin gravámenes</option>
+            <option value="hipoteca">Con hipoteca</option>
+            <option value="embargo">Con embargo</option>
+            <option value="multiple">Múltiples gravámenes</option>
+          </select>
+        </Field>
+        <Field label="Predial al corriente">
+          <select value={data.predial||""} onChange={e=>save("predial",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="corriente">Al corriente</option>
+            <option value="adeudos">Con adeudos</option>
+            <option value="no_aplica">No aplica — arrendados</option>
+          </select>
+        </Field>
+      </div>
+
+      <SectionTitle>Uso de suelo y licencias</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Uso de suelo compatible con actividad">
+          <select value={data.uso_suelo||""} onChange={e=>save("uso_suelo",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="compatible">Compatible — sin restricciones</option>
+            <option value="condicionado">Condicionado — con restricciones</option>
+            <option value="incompatible">Incompatible — riesgo</option>
+            <option value="no_verificado">No verificado</option>
+          </select>
+        </Field>
+        <Field label="Licencia de funcionamiento">
+          <select value={data.licencia_funcionamiento||""} onChange={e=>save("licencia_funcionamiento",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="vigente">Vigente</option>
+            <option value="vencida">Vencida</option>
+            <option value="en_tramite">En trámite</option>
+            <option value="no_requerida">No requerida</option>
+          </select>
+        </Field>
+        <Field label="Vencimiento licencia de funcionamiento"><input style={s.input} type="date" value={data.vencimiento_licencia||""} onChange={e=>save("vencimiento_licencia",e.target.value)}/></Field>
+        <Field label="Aviso de apertura presentado">
+          <select value={data.aviso_apertura||""} onChange={e=>save("aviso_apertura",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="si">Sí — presentado</option>
+            <option value="no">No</option>
+            <option value="na">No aplica</option>
+          </select>
+        </Field>
+      </div>
+
+      <SectionTitle>Arrendamientos</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Contratos de arrendamiento vigentes">
+          <select value={data.arrendamientos_vigentes||""} onChange={e=>save("arrendamientos_vigentes",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="todos_vigentes">Todos vigentes y firmados</option>
+            <option value="parcial">Algunos sin contrato formal</option>
+            <option value="sin_contratos">Sin contratos formales</option>
+            <option value="na">No aplica — solo propios</option>
+          </select>
+        </Field>
+        <Field label="Depósitos en garantía documentados">
+          <select value={data.depositos_garantia||""} onChange={e=>save("depositos_garantia",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="si">Sí — documentados</option>
+            <option value="no">No documentados</option>
+            <option value="na">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Monto total rentas mensuales (MXN)"><input style={s.input} type="number" value={data.monto_rentas||""} onChange={e=>save("monto_rentas",e.target.value)} placeholder="0"/></Field>
+        <Field label="Próximo vencimiento de arrendamiento"><input style={s.input} type="date" value={data.proximo_vencimiento_arr||""} onChange={e=>save("proximo_vencimiento_arr",e.target.value)}/></Field>
+      </div>
+      <Field label="Observaciones inmobiliarias">
+        <textarea style={{...s.input,...s.textarea}} value={data.obs_inmuebles||""} onChange={e=>save("obs_inmuebles",e.target.value)} placeholder="Situaciones especiales, litigios de propiedad, renovaciones en proceso..."/>
+      </Field>
+      {saving&&<div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",textAlign:"right",marginTop:4}}>Guardando...</div>}
     </div>
   );
 }
-export function ModO08({client}){ return <ModO05 client={client}/>; }
+
+export function ModO08({client}){
+  const {data,save,saving}=useModData(client,"O-08");
+  return(
+    <div>
+      <InfoBox>Cumplimiento ambiental y de NOMs aplicables al centro de trabajo. Licencias SEMARNAT, manejo de residuos, emisiones y responsabilidad ambiental corporativa.</InfoBox>
+      <SectionTitle>Licencias y autorizaciones ambientales</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Requiere Manifestación de Impacto Ambiental (MIA)">
+          <select value={data.requiere_mia||""} onChange={e=>save("requiere_mia",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="si_aprobada">Sí — aprobada y vigente</option>
+            <option value="si_tramite">Sí — en trámite</option>
+            <option value="si_requerida">Sí — requerida pero no iniciada</option>
+            <option value="no">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Licencia ambiental única (LAU)">
+          <select value={data.lau||""} onChange={e=>save("lau",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="vigente">Vigente</option>
+            <option value="vencida">Vencida</option>
+            <option value="en_tramite">En trámite</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Vencimiento LAU"><input style={s.input} type="date" value={data.vencimiento_lau||""} onChange={e=>save("vencimiento_lau",e.target.value)}/></Field>
+        <Field label="Cédula de Operación Anual (COA)">
+          <select value={data.coa||""} onChange={e=>save("coa",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="corriente">Al corriente</option>
+            <option value="pendiente">Pendiente de presentar</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+      </div>
+
+      <SectionTitle>Residuos y emisiones</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Genera residuos peligrosos">
+          <select value={data.residuos_peligrosos||""} onChange={e=>save("residuos_peligrosos",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="si_plan">Sí — con plan de manejo</option>
+            <option value="si_sin_plan">Sí — sin plan de manejo</option>
+            <option value="no">No genera</option>
+          </select>
+        </Field>
+        <Field label="Empresa autorizada para manejo de residuos"><input style={s.input} value={data.empresa_residuos||""} onChange={e=>save("empresa_residuos",e.target.value)} placeholder="Nombre o razón social"/></Field>
+        <Field label="Registro de generador de residuos (SEMARNAT)">
+          <select value={data.registro_generador||""} onChange={e=>save("registro_generador",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="vigente">Vigente</option>
+            <option value="no_registrado">No registrado</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Emisiones a la atmósfera">
+          <select value={data.emisiones||""} onChange={e=>save("emisiones",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="sin_emisiones">Sin emisiones significativas</option>
+            <option value="con_autorizacion">Con emisiones — autorización vigente</option>
+            <option value="sin_autorizacion">Con emisiones — sin autorización</option>
+          </select>
+        </Field>
+      </div>
+
+      <SectionTitle>NOMs aplicables</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="NOMs ambientales identificadas">
+          <select value={data.noms_ambientales||""} onChange={e=>save("noms_ambientales",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="identificadas_cumpliendo">Identificadas y en cumplimiento</option>
+            <option value="identificadas_parcial">Identificadas — cumplimiento parcial</option>
+            <option value="no_identificadas">No identificadas formalmente</option>
+          </select>
+        </Field>
+        <Field label="Última auditoría ambiental"><input style={s.input} type="date" value={data.ultima_auditoria_ambiental||""} onChange={e=>save("ultima_auditoria_ambiental",e.target.value)}/></Field>
+        <Field label="Pasivos ambientales identificados">
+          <select value={data.pasivos_ambientales||""} onChange={e=>save("pasivos_ambientales",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="no">No identificados</option>
+            <option value="si_remediacion">Sí — en remediación</option>
+            <option value="si_sin_control">Sí — sin control</option>
+          </select>
+        </Field>
+        <Field label="Seguro de responsabilidad ambiental">
+          <select value={data.seguro_ambiental||""} onChange={e=>save("seguro_ambiental",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="si">Sí — vigente</option>
+            <option value="no">No</option>
+            <option value="en_tramite">En trámite</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Observaciones ambientales">
+        <textarea style={{...s.input,...s.textarea}} value={data.obs_ambiental||""} onChange={e=>save("obs_ambiental",e.target.value)} placeholder="Inspecciones activas, contingencias, sanciones en proceso..."/>
+      </Field>
+      {saving&&<div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",textAlign:"right",marginTop:4}}>Guardando...</div>}
+    </div>
+  );
+}
+
 export function ModO09({client}){
-  const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
-  useEffect(()=>{
-    supabase.from("documents").select("*").eq("client_id",client.id)
-      .in("type",["registro_sanitario","licencia_sanitaria","bpm"])
-      .then(({data:d})=>{setDocs(d||[]);setLoading(false);});
-  },[client.id]);
-  if(loading)return <Spinner/>;
+  const {data,save,saving}=useModData(client,"O-09");
   return(
     <div>
-      {docs.length===0
-        ?<div style={{...s.card,borderLeft:"3px solid "+MUSGO}}><div style={s.muted}>Sin registros sanitarios registrados.</div></div>
-        :<div style={s.card}>{docs.map(x=><div key={x.id} style={s.row}><span style={s.dot(x.status)}/><div style={{flex:1}}><div style={{fontSize:13,fontFamily:"Georgia, serif"}}>{x.name}</div><div style={s.muted}>{x.type}{x.date?" · "+x.date:""}</div></div><Badge status={x.status} label={x.status}/></div>)}</div>
-      }
+      <InfoBox>Cumplimiento regulatorio ante COFEPRIS — registros sanitarios, licencias, BPF/BPD, responsable sanitario y farmacovigilancia. Aplica a empresas del sector salud, alimentos, cosméticos y dispositivos médicos.</InfoBox>
+      <SectionTitle>Registros y licencias COFEPRIS</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Número de registros sanitarios activos"><input style={s.input} type="number" value={data.num_registros_sanitarios||""} onChange={e=>save("num_registros_sanitarios",e.target.value)} placeholder="0"/></Field>
+        <Field label="Licencia sanitaria">
+          <select value={data.licencia_sanitaria||""} onChange={e=>save("licencia_sanitaria",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="vigente">Vigente</option>
+            <option value="vencida">Vencida</option>
+            <option value="en_tramite">En trámite</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Vencimiento licencia sanitaria"><input style={s.input} type="date" value={data.vencimiento_licencia_sanitaria||""} onChange={e=>save("vencimiento_licencia_sanitaria",e.target.value)}/></Field>
+        <Field label="Aviso de funcionamiento">
+          <select value={data.aviso_funcionamiento||""} onChange={e=>save("aviso_funcionamiento",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="presentado">Presentado y vigente</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+      </div>
+
+      <SectionTitle>Responsable sanitario y BPF</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Responsable sanitario designado"><input style={s.input} value={data.responsable_sanitario||""} onChange={e=>save("responsable_sanitario",e.target.value)} placeholder="Nombre y cédula profesional"/></Field>
+        <Field label="Cédula profesional del responsable"><input style={s.input} value={data.cedula_responsable||""} onChange={e=>save("cedula_responsable",e.target.value)} placeholder="Número de cédula"/></Field>
+        <Field label="Certificación BPF/BPD">
+          <select value={data.bpf||""} onChange={e=>save("bpf",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="certificado">Certificado — vigente</option>
+            <option value="en_proceso">En proceso de certificación</option>
+            <option value="no">No certificado</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Próxima renovación BPF/BPD"><input style={s.input} type="date" value={data.renovacion_bpf||""} onChange={e=>save("renovacion_bpf",e.target.value)}/></Field>
+      </div>
+
+      <SectionTitle>Farmacovigilancia y tecnovigilancia</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Sistema de farmacovigilancia">
+          <select value={data.farmacovigilancia||""} onChange={e=>save("farmacovigilancia",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="activo">Activo y reportando</option>
+            <option value="implementado_sin_reportes">Implementado — sin reportes recientes</option>
+            <option value="no_implementado">No implementado</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Reportes COFEPRIS al corriente">
+          <select value={data.reportes_cofepris||""} onChange={e=>save("reportes_cofepris",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="corriente">Al corriente</option>
+            <option value="pendientes">Con reportes pendientes</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+        </Field>
+        <Field label="Alertas sanitarias activas">
+          <select value={data.alertas_sanitarias||""} onChange={e=>save("alertas_sanitarias",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="sin_alertas">Sin alertas activas</option>
+            <option value="con_alertas">Con alertas — en atención</option>
+          </select>
+        </Field>
+        <Field label="Última inspección COFEPRIS"><input style={s.input} type="date" value={data.ultima_inspeccion_cofepris||""} onChange={e=>save("ultima_inspeccion_cofepris",e.target.value)}/></Field>
+      </div>
+
+      <SectionTitle>Sector específico</SectionTitle>
+      <div style={s.grid2}>
+        <Field label="Tipo de establecimiento">
+          <select value={data.tipo_establecimiento||""} onChange={e=>save("tipo_establecimiento",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="farmacia">Farmacia</option>
+            <option value="laboratorio">Laboratorio de fabricación</option>
+            <option value="distribuidor">Distribuidor/importador</option>
+            <option value="clinica">Clínica u hospital</option>
+            <option value="alimentos">Fabricante de alimentos</option>
+            <option value="cosmeticos">Fabricante de cosméticos</option>
+            <option value="dispositivos">Dispositivos médicos</option>
+            <option value="otro">Otro</option>
+          </select>
+        </Field>
+        <Field label="Número de productos con registro sanitario"><input style={s.input} type="number" value={data.num_productos_registro||""} onChange={e=>save("num_productos_registro",e.target.value)} placeholder="0"/></Field>
+        <Field label="Registros próximos a vencer (6 meses)"><input style={s.input} type="number" value={data.registros_por_vencer||""} onChange={e=>save("registros_por_vencer",e.target.value)} placeholder="0"/></Field>
+        <Field label="Importaciones — pedimento sanitario">
+          <select value={data.pedimento_sanitario||""} onChange={e=>save("pedimento_sanitario",e.target.value)} style={{...s.input,cursor:"pointer"}}>
+            <option value="">Seleccionar...</option>
+            <option value="correcto">Correcto y al corriente</option>
+            <option value="irregular">Con irregularidades</option>
+            <option value="no_aplica">No aplica — sin importaciones</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Observaciones sector salud">
+        <textarea style={{...s.input,...s.textarea}} value={data.obs_salud||""} onChange={e=>save("obs_salud",e.target.value)} placeholder="Inspecciones activas, sanciones, productos en proceso de registro..."/>
+      </Field>
+      {saving&&<div style={{fontSize:11,color:GRAY,fontFamily:"system-ui,sans-serif",textAlign:"right",marginTop:4}}>Guardando...</div>}
     </div>
   );
 }
+
+
 export function ModO10({client}){
   const [contratos,setContratos]=useState([]);const [loading,setLoading]=useState(true);
   useEffect(()=>{
