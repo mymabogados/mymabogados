@@ -5810,203 +5810,264 @@ function CalculadoraSocios({admin}){
   const SOCIOS_ADMINS = ["jesus","beto","carlos"];
   if(!SOCIOS_ADMINS.includes(admin?.id)) return null;
 
-  const [config, setConfig] = React.useState({
-    despacho: {jesus:40, beto:40, carlos:20},
-    app: {jesus:50, beto:15, carlos:35},
-    referido: 10,
+  const PRECIOS_MODULOS = {
+    "L":"Laboral","F":"Fiscal","C":"Corporativo","M":"Migratorio",
+    "O":"Operativo","PP":"Prot. Patrimonial","CE":"Cumpl. Especializado",
+    "INM":"Inmobiliario","SC":"Sector Salud","A":"Arbitraje","CON":"Condominal"
+  };
+  const PRECIOS = {
+    "L":5000,"F":5000,"C":6500,"M":3500,"O":4000,
+    "PP":6000,"CE":4500,"INM":4500,"SC":4500,"A":6500,"CON":3500
+  };
+  const SOCIOS = ["jesus","beto","carlos"];
+  const SOCIO_LABEL = {jesus:"Jesús",beto:"Beto",carlos:"Carlos"};
+  const SOCIO_COLOR = {jesus:"#4A5C45",beto:"#185FA5",carlos:"#C9A84C"};
+  const fmt = n => "$"+Math.round(n).toLocaleString("es-MX");
+
+  const [globalConfig, setGlobalConfig] = React.useState({
+    despacho:{jesus:40,beto:40,carlos:20},
+    app:{jesus:50,beto:15,carlos:35},
+    referido:10,
   });
+  const [editGlobal, setEditGlobal] = React.useState(false);
+  const [tempGlobal, setTempGlobal] = React.useState(null);
+  const [loadingClientes, setLoadingClientes] = React.useState(true);
+  const [clientes, setClientes] = React.useState([]);
+  const [expandedClient, setExpandedClient] = React.useState(null);
 
-  const [clientes, setClientes] = React.useState([
-    {id:1, nombre:"Cliente ejemplo", iguala:12000, modulos:16500, app:15000, referidoDespacho:"jesus", referidoApp:"jesus"}
-  ]);
+  React.useEffect(()=>{
+    async function load(){
+      const {data} = await supabase.from("clients").select("id,name,modulos").order("id");
+      if(data){
+        setClientes(data.map(cl=>({
+          id: cl.id,
+          nombre: cl.name,
+          iguala: 12000,
+          modulosApp: (cl.modulos||[]).map(m=>m.split("-")[0]).filter((m,i,a)=>a.indexOf(m)===i).filter(m=>PRECIOS[m]),
+          tieneApp: (cl.modulos||[]).length > 0,
+          referidoDespacho: "",
+          referidoApp: "",
+          pctDespacho: null,
+          pctApp: null,
+        })));
+      }
+      setLoadingClientes(false);
+    }
+    load();
+  },[]);
 
-  const [editConfig, setEditConfig] = React.useState(false);
-  const [tempConfig, setTempConfig] = React.useState(null);
+  function updateCliente(id, key, val){
+    setClientes(prev=>prev.map(cl=>cl.id===id?{...cl,[key]:val}:cl));
+  }
 
   function calcularCliente(cl){
-    const totalDespacho = cl.iguala + cl.modulos;
-    const totalApp = cl.app;
-    const ref = config.referido / 100;
+    const pctD = cl.pctDespacho || globalConfig.despacho;
+    const pctA = cl.pctApp || globalConfig.app;
+    const ref = globalConfig.referido / 100;
+    const totalDespacho = cl.iguala;
+    const totalApp = cl.tieneApp ? (cl.modulosApp||[]).reduce((s,m)=>s+(PRECIOS[m]||0),0) : 0;
 
-    // Despacho
-    const referidoDespachoMonto = cl.referidoDespacho ? totalDespacho * ref : 0;
-    const baseDespacho = totalDespacho - referidoDespachoMonto;
-    const despachoDistribucion = {
-      jesus: baseDespacho * config.despacho.jesus / 100,
-      beto: baseDespacho * config.despacho.beto / 100,
-      carlos: baseDespacho * config.despacho.carlos / 100,
-    };
-    if(cl.referidoDespacho) despachoDistribucion[cl.referidoDespacho] += referidoDespachoMonto;
+    const refDespachoMonto = cl.referidoDespacho ? totalDespacho * ref : 0;
+    const baseD = totalDespacho - refDespachoMonto;
+    const distD = {jesus: baseD*pctD.jesus/100, beto: baseD*pctD.beto/100, carlos: baseD*pctD.carlos/100};
+    if(cl.referidoDespacho) distD[cl.referidoDespacho] += refDespachoMonto;
 
-    // App
-    const referidoAppMonto = cl.referidoApp ? totalApp * ref : 0;
-    const baseApp = totalApp - referidoAppMonto;
-    const appDistribucion = {
-      jesus: baseApp * config.app.jesus / 100,
-      beto: baseApp * config.app.beto / 100,
-      carlos: baseApp * config.app.carlos / 100,
-    };
-    if(cl.referidoApp) appDistribucion[cl.referidoApp] += referidoAppMonto;
+    const refAppMonto = cl.referidoApp && cl.tieneApp ? totalApp * ref : 0;
+    const baseA = totalApp - refAppMonto;
+    const distA = {jesus: baseA*pctA.jesus/100, beto: baseA*pctA.beto/100, carlos: baseA*pctA.carlos/100};
+    if(cl.referidoApp) distA[cl.referidoApp] += refAppMonto;
 
     return {
-      totalDespacho, totalApp,
-      total: totalDespacho + totalApp,
-      despachoDistribucion, appDistribucion,
-      totalPorSocio: {
-        jesus: despachoDistribucion.jesus + appDistribucion.jesus,
-        beto: despachoDistribucion.beto + appDistribucion.beto,
-        carlos: despachoDistribucion.carlos + appDistribucion.carlos,
+      totalDespacho, totalApp, total: totalDespacho+totalApp,
+      distD, distA,
+      porSocio:{
+        jesus: distD.jesus+distA.jesus,
+        beto: distD.beto+distA.beto,
+        carlos: distD.carlos+distA.carlos,
       }
     };
   }
 
-  const calculos = clientes.map(cl => ({...cl, calc: calcularCliente(cl)}));
+  const calculos = clientes.map(cl=>({...cl, calc:calcularCliente(cl)}));
   const totales = {
-    jesus: calculos.reduce((s,cl) => s + cl.calc.totalPorSocio.jesus, 0),
-    beto: calculos.reduce((s,cl) => s + cl.calc.totalPorSocio.beto, 0),
-    carlos: calculos.reduce((s,cl) => s + cl.calc.totalPorSocio.carlos, 0),
+    jesus: calculos.reduce((s,cl)=>s+cl.calc.porSocio.jesus,0),
+    beto: calculos.reduce((s,cl)=>s+cl.calc.porSocio.beto,0),
+    carlos: calculos.reduce((s,cl)=>s+cl.calc.porSocio.carlos,0),
   };
-  const granTotal = totales.jesus + totales.beto + totales.carlos;
+  const granTotal = totales.jesus+totales.beto+totales.carlos;
 
-  const fmt = n => "$"+Math.round(n).toLocaleString("es-MX");
-
-  function addCliente(){
-    setClientes(prev => [...prev, {id:Date.now(), nombre:"Nuevo cliente", iguala:12000, modulos:16500, app:15000, referidoDespacho:"jesus", referidoApp:"jesus"}]);
-  }
-
-  function updateCliente(id, key, val){
-    setClientes(prev => prev.map(cl => cl.id===id ? {...cl, [key]: key==="nombre"?val:Number(val)||0} : cl));
-  }
-
-  function removeCliente(id){
-    setClientes(prev => prev.filter(cl => cl.id !== id));
-  }
-
-  const SOCIOS = ["jesus","beto","carlos"];
-  const SOCIO_LABEL = {jesus:"Jesús", beto:"Beto", carlos:"Carlos"};
-  const SOCIO_COLOR = {jesus:"#4A5C45", beto:"#185FA5", carlos:"#C9A84C"};
+  if(loadingClientes) return <div style={{padding:24,textAlign:"center",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Cargando clientes...</div>;
 
   return(
-    <div style={{maxWidth:900, margin:"0 auto"}}>
+    <div style={{maxWidth:960,margin:"0 auto"}}>
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontSize:18,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:2}}>Calculadora de distribución</div>
-          <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Solo visible para socios — confidencial</div>
+          <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Confidencial — solo socios</div>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>{setTempConfig(JSON.parse(JSON.stringify(config)));setEditConfig(true);}} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>⚙ Editar porcentajes</button>
-          <button onClick={addCliente} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>+ Cliente</button>
-        </div>
+        <button onClick={()=>{setTempGlobal(JSON.parse(JSON.stringify(globalConfig)));setEditGlobal(true);}} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>⚙ Porcentajes globales</button>
       </div>
 
-      {/* Modal editar config */}
-      {editConfig&&tempConfig&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem"}} onClick={()=>setEditConfig(false)}>
-        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",width:"min(480px,100%)"}} onClick={e=>e.stopPropagation()}>
-          <div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:16}}>Editar porcentajes</div>
-          
-          <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>Despacho</div>
-          {SOCIOS.map(s=>(
-            <div key={s} style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-              <span style={{width:60,fontSize:13,fontFamily:"system-ui,sans-serif"}}>{SOCIO_LABEL[s]}</span>
-              <input type="number" value={tempConfig.despacho[s]} onChange={e=>setTempConfig(p=>({...p,despacho:{...p.despacho,[s]:Number(e.target.value)}}))} style={{width:70,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif"}}/>
-              <span style={{fontSize:12,color:"#7A9070"}}>%</span>
+      {/* Modal config global */}
+      {editGlobal&&tempGlobal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem"}} onClick={()=>setEditGlobal(false)}>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",width:"min(440px,100%)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:16}}>Porcentajes globales</div>
+          {[["despacho","Despacho"],["app","App"]].map(([key,label])=>(
+            <div key={key} style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>{label}</div>
+              {SOCIOS.map(s=>(
+                <div key={s} style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+                  <span style={{width:60,fontSize:13,fontFamily:"system-ui,sans-serif"}}>{SOCIO_LABEL[s]}</span>
+                  <input type="number" value={tempGlobal[key][s]} onChange={e=>setTempGlobal(p=>({...p,[key]:{...p[key],[s]:Number(e.target.value)}}))} style={{width:70,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif"}}/>
+                  <span style={{fontSize:12,color:"#7A9070"}}>%</span>
+                </div>
+              ))}
             </div>
           ))}
-          
-          <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8,marginTop:16}}>App</div>
-          {SOCIOS.map(s=>(
-            <div key={s} style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-              <span style={{width:60,fontSize:13,fontFamily:"system-ui,sans-serif"}}>{SOCIO_LABEL[s]}</span>
-              <input type="number" value={tempConfig.app[s]} onChange={e=>setTempConfig(p=>({...p,app:{...p.app,[s]:Number(e.target.value)}}))} style={{width:70,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif"}}/>
-              <span style={{fontSize:12,color:"#7A9070"}}>%</span>
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>% Referido</div>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <input type="number" value={tempGlobal.referido} onChange={e=>setTempGlobal(p=>({...p,referido:Number(e.target.value)}))} style={{width:70,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif"}}/>
+              <span style={{fontSize:12,color:"#7A9070"}}>% para quien trae al cliente</span>
             </div>
-          ))}
-
-          <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8,marginTop:16}}>% Referido</div>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-            <input type="number" value={tempConfig.referido} onChange={e=>setTempConfig(p=>({...p,referido:Number(e.target.value)}))} style={{width:70,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif"}}/>
-            <span style={{fontSize:12,color:"#7A9070"}}>% del ingreso para quien trae al cliente</span>
           </div>
-
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-            <button onClick={()=>setEditConfig(false)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
-            <button onClick={()=>{setConfig(tempConfig);setEditConfig(false);}} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>Guardar</button>
+            <button onClick={()=>setEditGlobal(false)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+            <button onClick={()=>{setGlobalConfig(tempGlobal);setEditGlobal(false);}} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>Guardar</button>
           </div>
         </div>
       </div>}
 
-      {/* Resumen total socios */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
+      {/* Totales */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
         {SOCIOS.map(s=>(
           <div key={s} style={{background:"#FAFCF8",border:"2px solid "+SOCIO_COLOR[s],borderRadius:6,padding:"1rem",textAlign:"center"}}>
-            <div style={{fontSize:11,color:SOCIO_COLOR[s],fontFamily:"system-ui,sans-serif",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{SOCIO_LABEL[s]}</div>
-            <div style={{fontSize:24,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:700}}>{fmt(totales[s])}</div>
-            <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:4}}>/ mes</div>
+            <div style={{fontSize:11,color:SOCIO_COLOR[s],fontFamily:"system-ui,sans-serif",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>{SOCIO_LABEL[s]}</div>
+            <div style={{fontSize:22,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:700}}>{fmt(totales[s])}</div>
+            <div style={{fontSize:9,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>/ mes · {fmt(totales[s]*12)} / año</div>
           </div>
         ))}
       </div>
-
-      {/* Total general */}
       <div style={{background:"#1E2B1A",borderRadius:4,padding:"10px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{fontSize:12,color:"#A8C4A0",fontFamily:"system-ui,sans-serif"}}>Total mensual despacho + app</span>
-        <span style={{fontSize:18,fontFamily:"Georgia,serif",color:"#C9A84C",fontWeight:700}}>{fmt(granTotal)}</span>
+        <span style={{fontSize:12,color:"#A8C4A0",fontFamily:"system-ui,sans-serif"}}>Total consolidado todos los clientes</span>
+        <span style={{fontSize:18,fontFamily:"Georgia,serif",color:"#C9A84C",fontWeight:700}}>{fmt(granTotal)}/mes · {fmt(granTotal*12)}/año</span>
       </div>
 
       {/* Clientes */}
-      {calculos.map(cl=>(
-        <div key={cl.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.25rem",marginBottom:12}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-            <input value={cl.nombre} onChange={e=>updateCliente(cl.id,"nombre",e.target.value)} style={{fontSize:14,fontFamily:"Georgia,serif",color:"#1E2B1A",border:"none",background:"none",borderBottom:"1px dashed #DDE4D8",padding:"2px 4px",minWidth:150}}/>
-            <button onClick={()=>removeCliente(cl.id)} style={{fontSize:11,padding:"3px 8px",border:"1px solid #fecaca",borderRadius:3,cursor:"pointer",background:"none",color:"#dc2626",fontFamily:"system-ui,sans-serif"}}>× Eliminar</button>
-          </div>
-
-          {/* Inputs */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8,marginBottom:12}}>
-            {[["iguala","Iguala base"],["modulos","Módulos"],["app","App"]].map(([key,label])=>(
-              <div key={key}>
-                <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>{label}</div>
-                <input type="number" value={cl[key]} onChange={e=>updateCliente(cl.id,key,e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",boxSizing:"border-box"}}/>
-              </div>
-            ))}
-            <div>
-              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Referido despacho</div>
-              <select value={cl.referidoDespacho||""} onChange={e=>updateCliente(cl.id,"referidoDespacho",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
-                <option value="">Nadie</option>
-                {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Referido app</div>
-              <select value={cl.referidoApp||""} onChange={e=>updateCliente(cl.id,"referidoApp",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
-                <option value="">Nadie</option>
-                {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Distribución */}
-          <div style={{borderTop:"1px solid #DDE4D8",paddingTop:10}}>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {SOCIOS.map(s=>(
-                <div key={s} style={{textAlign:"center",padding:"8px",background:"#F5F8F5",borderRadius:4,borderTop:"2px solid "+SOCIO_COLOR[s]}}>
-                  <div style={{fontSize:10,color:SOCIO_COLOR[s],fontFamily:"system-ui,sans-serif",fontWeight:700,marginBottom:4}}>{SOCIO_LABEL[s]}</div>
-                  <div style={{fontSize:16,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:700}}>{fmt(cl.calc.totalPorSocio[s])}</div>
-                  <div style={{fontSize:9,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:2}}>
-                    D: {fmt(cl.calc.despachoDistribucion[s])} · A: {fmt(cl.calc.appDistribucion[s])}
-                  </div>
+      {calculos.map(cl=>{
+        const expanded = expandedClient===cl.id;
+        return(
+          <div key={cl.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,marginBottom:8,overflow:"hidden"}}>
+            {/* Header cliente */}
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",justifyContent:"space-between"}} onClick={()=>setExpandedClient(expanded?null:cl.id)}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                <span style={{fontSize:16}}>{expanded?"▼":"▶"}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:600}}>{cl.nombre}</div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{cl.tieneApp?"Con app":"Solo despacho"} · {(cl.modulosApp||[]).length} módulos · {fmt(cl.calc.total)}/mes</div>
                 </div>
-              ))}
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                {SOCIOS.map(s=>(
+                  <div key={s} style={{textAlign:"center",minWidth:60}}>
+                    <div style={{fontSize:11,fontFamily:"Georgia,serif",color:SOCIO_COLOR[s],fontWeight:700}}>{fmt(cl.calc.porSocio[s])}</div>
+                    <div style={{fontSize:9,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{SOCIO_LABEL[s]}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{textAlign:"right",marginTop:6,fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>
-              Total cliente: {fmt(cl.calc.total)}/mes · {fmt(cl.calc.total*12)}/año
-            </div>
+
+            {/* Detalle expandido */}
+            {expanded&&<div style={{borderTop:"1px solid #DDE4D8",padding:"16px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Iguala base (despacho)</div>
+                  <input type="number" value={cl.iguala} onChange={e=>updateCliente(cl.id,"iguala",Number(e.target.value))} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>¿Tiene app contratada?</div>
+                  <select value={cl.tieneApp?"si":"no"} onChange={e=>updateCliente(cl.id,"tieneApp",e.target.value==="si")} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
+                    <option value="si">Sí</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Referido despacho</div>
+                  <select value={cl.referidoDespacho||""} onChange={e=>updateCliente(cl.id,"referidoDespacho",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
+                    <option value="">Nadie</option>
+                    {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Referido app</div>
+                  <select value={cl.referidoApp||""} onChange={e=>updateCliente(cl.id,"referidoApp",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
+                    <option value="">Nadie</option>
+                    {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {cl.tieneApp&&<div style={{marginBottom:14}}>
+                <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Módulos en app — {fmt((cl.modulosApp||[]).reduce((s,m)=>s+(PRECIOS[m]||0),0))}/mes</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {Object.entries(PRECIOS_MODULOS).map(([key,label])=>{
+                    const active=(cl.modulosApp||[]).includes(key);
+                    return <button key={key} onClick={()=>{
+                      const curr=cl.modulosApp||[];
+                      updateCliente(cl.id,"modulosApp",active?curr.filter(m=>m!==key):[...curr,key]);
+                    }} style={{fontSize:11,padding:"4px 10px",borderRadius:3,border:"1px solid "+(active?"#4A5C45":"#DDE4D8"),background:active?"#4A5C45":"none",color:active?"#F0F4EE":"#4B5563",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>
+                      {label}{active?" ("+fmt(PRECIOS[key])+")":""}
+                    </button>;
+                  })}
+                </div>
+              </div>}
+
+              {/* Porcentajes por cliente */}
+              <div style={{background:"#F5F8F5",borderRadius:4,padding:"12px",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em"}}>Porcentajes para este cliente</div>
+                  <button onClick={()=>updateCliente(cl.id,"pctDespacho",null)||updateCliente(cl.id,"pctApp",null)} style={{fontSize:10,padding:"2px 8px",border:"1px solid #DDE4D8",borderRadius:2,cursor:"pointer",background:"none",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Usar globales</button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  {[["pctDespacho","Despacho"],["pctApp","App"]].map(([pctKey,pctLabel])=>(
+                    <div key={pctKey}>
+                      <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>{pctLabel}</div>
+                      {SOCIOS.map(s=>(
+                        <div key={s} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{width:50,fontSize:11,fontFamily:"system-ui,sans-serif",color:SOCIO_COLOR[s]}}>{SOCIO_LABEL[s]}</span>
+                          <input type="number" value={(cl[pctKey]||globalConfig[pctKey==="pctDespacho"?"despacho":"app"])[s]} onChange={e=>{
+                            const base = cl[pctKey]||{...globalConfig[pctKey==="pctDespacho"?"despacho":"app"]};
+                            updateCliente(cl.id, pctKey, {...base,[s]:Number(e.target.value)});
+                          }} style={{width:55,padding:"3px 6px",border:"1px solid #DDE4D8",borderRadius:2,fontSize:12,fontFamily:"system-ui,sans-serif"}}/>
+                          <span style={{fontSize:10,color:"#7A9070"}}>%</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Distribución final */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                {SOCIOS.map(s=>(
+                  <div key={s} style={{textAlign:"center",padding:"10px",background:"#FAFCF8",borderRadius:4,borderTop:"2px solid "+SOCIO_COLOR[s]}}>
+                    <div style={{fontSize:10,color:SOCIO_COLOR[s],fontFamily:"system-ui,sans-serif",fontWeight:700,marginBottom:4}}>{SOCIO_LABEL[s]}</div>
+                    <div style={{fontSize:18,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:700}}>{fmt(cl.calc.porSocio[s])}</div>
+                    <div style={{fontSize:9,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:3}}>
+                      D: {fmt(cl.calc.distD[s])} · A: {fmt(cl.calc.distA[s])}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
+
 
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
