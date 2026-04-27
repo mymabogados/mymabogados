@@ -1141,8 +1141,8 @@ const s={
   row:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid "+BORDER},
   flex:(gap=8)=>({display:"flex",gap,alignItems:"center"}),
   col:(gap=8)=>({display:"flex",flexDirection:"column",gap}),
-  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"stretch",justifyContent:"center",background:CONTENT_BG,padding:0},
-  loginBox:{background:CARD_BG,border:"none",padding:"3rem 3.5rem",width:"min(520px,100%)",display:"flex",flexDirection:"column",gap:16,boxShadow:"none",margin:"auto",justifyContent:"center"},
+  loginWrap:{minHeight:"100vh",display:"flex",alignItems:"stretch",justifyContent:"center",background:CONTENT_BG,padding:0,overflowX:"hidden",flexDirection:(typeof window!=="undefined"&&window.innerWidth<768)?"column":"row"},
+  loginBox:{background:CARD_BG,border:"none",padding:"1.5rem 1.2rem",width:"min(480px,calc(100vw - 2rem))",display:"flex",flexDirection:"column",gap:16,boxShadow:"none",margin:"auto",justifyContent:"center",boxSizing:"border-box"},
 };
 
 function Badge({status,label}){return <span style={s.badge(status)}>{label||status}</span>;}
@@ -5559,6 +5559,237 @@ function DataRoomModal({client, onClose}){
   );
 }
 
+
+function PendientesClientTab({pendingDocs, setPendingDocs, client}){
+  const TIPOS_COLOR = {
+    documento:{bg:"#EBF4FF",color:"#185FA5",label:"Documento"},
+    tramite:{bg:"#FFF8E7",color:"#92400E",label:"Trámite"},
+    informacion:{bg:"#F0F4EE",color:"#4A5C45",label:"Información"},
+    firma:{bg:"#FEF2F2",color:"#991b1b",label:"Firma"},
+    pago:{bg:"#F5F2ED",color:"#7A9070",label:"Pago"},
+  };
+  const STATUS_COLOR = {
+    pendiente:{bg:"#FEF2F2",color:"#991b1b",label:"Pendiente"},
+    en_proceso:{bg:"#FFF8E7",color:"#92400E",label:"En proceso"},
+    completado:{bg:"#F0FDF4",color:"#166534",label:"Completado"},
+  };
+
+  async function marcarStatus(id, newStatus){
+    await supabase.from("pending_docs").update({status:newStatus}).eq("id",id);
+    setPendingDocs(prev=>prev.map(p=>p.id===id?{...p,status:newStatus}:p));
+  }
+
+  const pendientes = pendingDocs.filter(p=>!p.status||p.status==="pendiente");
+  const enProceso = pendingDocs.filter(p=>p.status==="en_proceso");
+  const completados = pendingDocs.filter(p=>p.status==="completado");
+
+  if(pendingDocs.length===0) return(
+    <div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:13,fontFamily:"system-ui,sans-serif"}}>
+      Sin pendientes asignados por el despacho
+    </div>
+  );
+
+  function renderItem(p){
+    const tc = TIPOS_COLOR[p.tipo]||TIPOS_COLOR.documento;
+    const sc = STATUS_COLOR[p.status||"pendiente"];
+    const venceDate = p.due ? new Date(p.due) : null;
+    const dias = venceDate ? Math.ceil((venceDate - new Date())/(1000*60*60*24)) : null;
+    return(
+      <div key={p.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:8,borderLeft:"3px solid "+(p.status==="completado"?"#5A8A3C":p.status==="en_proceso"?"#C9A84C":"#C0392B")}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:4}}>{p.name}</div>
+            {p.note&&<div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>{p.note}</div>}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:tc.bg,color:tc.color,fontFamily:"system-ui,sans-serif"}}>{tc.label}</span>
+              {dias!==null&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:dias<0?"#fef2f2":dias<=7?"#fef2f2":dias<=30?"#fffbeb":"#f0fdf4",color:dias<0?"#991b1b":dias<=7?"#991b1b":dias<=30?"#92400e":"#166534",fontFamily:"system-ui,sans-serif"}}>{dias<0?"Venció hace "+Math.abs(dias)+"d":"Vence en "+dias+"d"}</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:sc.bg,color:sc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{sc.label}</span>
+            {p.status!=="completado"&&<button onClick={()=>marcarStatus(p.id, p.status==="pendiente"?"en_proceso":"completado")} style={{fontSize:11,padding:"3px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>{p.status==="pendiente"?"En proceso →":"Completar ✓"}</button>}
+            {p.status==="completado"&&<button onClick={()=>marcarStatus(p.id,"pendiente")} style={{fontSize:11,padding:"3px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#7A9070"}}>Reabrir</button>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div>
+      {pendientes.length>0&&<>
+        <div style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:"#C0392B",fontFamily:"system-ui,sans-serif",marginBottom:8,fontWeight:600}}>⚠ Pendientes ({pendientes.length})</div>
+        {pendientes.map(renderItem)}
+        <div style={{marginBottom:16}}/>
+      </>}
+      {enProceso.length>0&&<>
+        <div style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:"#C9A84C",fontFamily:"system-ui,sans-serif",marginBottom:8,fontWeight:600}}>🔄 En proceso ({enProceso.length})</div>
+        {enProceso.map(renderItem)}
+        <div style={{marginBottom:16}}/>
+      </>}
+      {completados.length>0&&<>
+        <div style={{fontSize:10,letterSpacing:".12em",textTransform:"uppercase",color:"#5A8A3C",fontFamily:"system-ui,sans-serif",marginBottom:8,fontWeight:600}}>✓ Completados ({completados.length})</div>
+        {completados.map(renderItem)}
+      </>}
+    </div>
+  );
+}
+
+function AdminPendientesTab({client, pendingDocs=[], setPendingDocs}){
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({name:"",note:"",due:"",tipo:"documento",asignado_a:"cliente"});
+  const [localDocs,setLocalDocs]=useState(pendingDocs);
+  const [waCopied,setWaCopied]=useState(false);
+
+  useEffect(()=>{setLocalDocs(pendingDocs);},[pendingDocs]);
+
+  const TIPOS=["documento","tramite","informacion","firma","pago"];
+  const STATUS_COLOR = {
+    pendiente:{bg:"#FEF2F2",color:"#991b1b",label:"Pendiente"},
+    en_proceso:{bg:"#FFF8E7",color:"#92400E",label:"En proceso"},
+    completado:{bg:"#F0FDF4",color:"#166534",label:"Completado"},
+  };
+
+  async function add(){
+    if(!form.name)return;
+    const p={id:"p"+Date.now(),client_id:client.id,sociedad_id:client._sociedad?.id||null,...form,status:"pendiente",created_at:new Date().toISOString()};
+    const {data}=await supabase.from("pending_docs").insert(p).select().single();
+    const nuevo=data||p;
+    setLocalDocs(prev=>[nuevo,...prev]);
+    if(setPendingDocs) setPendingDocs(prev=>[nuevo,...prev]);
+    setShowForm(false);setForm({name:"",note:"",due:"",tipo:"documento",asignado_a:"cliente"});
+  }
+
+  async function updateStatus(id,status){
+    await supabase.from("pending_docs").update({status}).eq("id",id);
+    setLocalDocs(prev=>prev.map(p=>p.id===id?{...p,status}:p));
+    if(setPendingDocs) setPendingDocs(prev=>prev.map(p=>p.id===id?{...p,status}:p));
+  }
+
+  async function del(id){
+    await supabase.from("pending_docs").delete().eq("id",id);
+    setLocalDocs(prev=>prev.filter(p=>p.id!==id));
+    if(setPendingDocs) setPendingDocs(prev=>prev.filter(p=>p.id!==id));
+  }
+
+  function generarWhatsApp(){
+    const pendientes = localDocs.filter(p=>p.status==="pendiente"||p.status==="en_proceso");
+    if(pendientes.length===0){alert("Sin pendientes activos");return;}
+    const texto = [
+      "Hola, te comparto los pendientes que tenemos por atender:",
+      "",
+      ...pendientes.map((p,i)=>{
+        const dias = p.due ? Math.ceil((new Date(p.due)-new Date())/(1000*60*60*24)) : null;
+        return `${i+1}. *${p.name}*${p.note?" — "+p.note:""}${dias!==null?" (vence en "+dias+"d)":""}`;
+      }),
+      "",
+      "Por favor confírmame cuando puedas atender cada uno. Quedamos en contacto.",
+    ].join("\n");
+    navigator.clipboard.writeText(texto).then(()=>{setWaCopied(true);setTimeout(()=>setWaCopied(false),3000);});
+  }
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <span style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A"}}>{localDocs.length} pendientes</span>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={generarWhatsApp} style={{fontSize:12,padding:"7px 14px",border:"1px solid #25D366",borderRadius:3,cursor:"pointer",background:"none",color:"#25D366",fontFamily:"system-ui,sans-serif"}}>
+            {waCopied?"✓ Copiado":"📱 Copiar para WhatsApp"}
+          </button>
+          <button onClick={()=>setShowForm(!showForm)} style={{background:"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:3,padding:"7px 14px",fontSize:12,cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>+ Pendiente</button>
+        </div>
+      </div>
+
+      {showForm&&<div style={{background:"#F5F2ED",border:"1px solid #DDE4D8",borderRadius:4,padding:"1.25rem",marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",gridColumn:"1/-1"}} placeholder="Nombre del pendiente" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+          <select style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>
+            {TIPOS.map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+          </select>
+          <input style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}} type="date" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/>
+          <textarea style={{fontSize:12,padding:"8px 10px",border:"1px solid #DDE4D8",borderRadius:3,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",resize:"vertical",gridColumn:"1/-1"}} rows={2} placeholder="Descripción o instrucciones" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setShowForm(false)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          <button onClick={add} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>Agregar</button>
+        </div>
+      </div>}
+
+      {localDocs.length===0&&!showForm&&<div style={{textAlign:"center",padding:"2rem",color:"#7A9070",fontSize:12,fontFamily:"system-ui,sans-serif"}}>Sin pendientes registrados</div>}
+      {localDocs.map(p=>{
+        const sc=STATUS_COLOR[p.status||"pendiente"];
+        const dias=p.due?Math.ceil((new Date(p.due)-new Date())/(1000*60*60*24)):null;
+        return(
+          <div key={p.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,padding:"1rem",marginBottom:8,borderLeft:"3px solid "+(p.status==="completado"?"#5A8A3C":p.status==="en_proceso"?"#C9A84C":"#C0392B")}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:3}}>{p.name}</div>
+                {p.note&&<div style={{fontSize:12,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>{p.note}</div>}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:sc.bg,color:sc.color,fontFamily:"system-ui,sans-serif",fontWeight:600}}>{sc.label}</span>
+                  {p.tipo&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:"#F0F4EE",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>{p.tipo}</span>}
+                  {dias!==null&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:2,background:dias<0?"#fef2f2":dias<=7?"#fef2f2":"#fffbeb",color:dias<0?"#991b1b":dias<=7?"#991b1b":"#92400e",fontFamily:"system-ui,sans-serif"}}>{dias<0?"Venció":"Vence en "+dias+"d"}</span>}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <select value={p.status||"pendiente"} onChange={e=>updateStatus(p.id,e.target.value)} style={{fontSize:11,padding:"3px 8px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_proceso">En proceso</option>
+                  <option value="completado">Completado</option>
+                </select>
+                <button onClick={()=>del(p.id)} style={{fontSize:11,padding:"3px 8px",border:"1px solid #fecaca",borderRadius:3,cursor:"pointer",background:"none",color:"#dc2626",fontFamily:"system-ui,sans-serif"}}>×</button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[], onMore}){
+  const [showMore, setShowMore] = useState(false);
+  const mainItems = [
+    {id:"panel", icon:"🏠", label:"Inicio"},
+    {id:"mod_", icon:"📋", label:"Módulos", prefix:true},
+    {id:"alertas", icon:"🚨", label:"Alertas", badge:pendingAlertas},
+    {id:"documentos", icon:"📁", label:"Docs"},
+    {id:"mas", icon:"☰", label:"Más"},
+  ];
+  const isActive = (item) => {
+    if(item.prefix) return tab.startsWith("mod_");
+    if(item.id==="mas") return false;
+    if(item.id==="alertas") return tab==="alertas"||tab==="panel_alertas";
+    if(item.id==="documentos") return tab==="documentos"||tab==="contratos";
+    return tab===item.id;
+  };
+  return(
+    <>
+      {showMore&&<div style={{position:"fixed",inset:0,zIndex:398}} onClick={()=>setShowMore(false)}/>}
+      {showMore&&<div style={{position:"fixed",bottom:60,left:0,right:0,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",zIndex:399,maxHeight:"60vh",overflowY:"auto",borderRadius:"16px 16px 0 0",boxShadow:"0 -4px 20px rgba(0,0,0,.15)"}}>
+        <div style={{padding:"12px 16px 4px",fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontWeight:600}}>Más secciones</div>
+        {extraItems.map(item=>(
+          <button key={item.id} onClick={()=>{setTab(item.id);setShowMore(false);}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"12px 16px",border:"none",background:tab===item.id?"#F0F4EE":"none",borderLeft:tab===item.id?"3px solid #4A5C45":"3px solid transparent",cursor:"pointer",fontFamily:"system-ui,sans-serif",fontSize:13,color:tab===item.id?"#1E2B1A":"#4B5563",textAlign:"left"}}>
+            {item.label}
+            {item.badge>0&&<span style={{marginLeft:"auto",background:"#C0392B",color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:700}}>{item.badge}</span>}
+          </button>
+        ))}
+      </div>}
+      <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",display:"flex",alignItems:"stretch",zIndex:400,boxShadow:"0 -2px 10px rgba(0,0,0,.08)"}}>
+        {mainItems.map(item=>(
+          <button key={item.id} onClick={()=>item.id==="mas"?setShowMore(!showMore):item.prefix?setTab("mod_"):setTab(item.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"none",cursor:"pointer",position:"relative",color:isActive(item)?"#4A5C45":"#7A9070",touchAction:"manipulation"}}>
+            <span style={{fontSize:20,lineHeight:1}}>{item.icon}</span>
+            <span style={{fontSize:9,fontFamily:"system-ui,sans-serif",fontWeight:isActive(item)?700:400}}>{item.label}</span>
+            {item.badge>0&&<span style={{position:"absolute",top:6,right:"50%",marginRight:-18,background:"#C0392B",color:"#fff",borderRadius:10,fontSize:9,padding:"1px 5px",fontWeight:700}}>{item.badge}</span>}
+            {isActive(item)&&<div style={{position:"absolute",top:0,left:"20%",right:"20%",height:2,background:"#4A5C45",borderRadius:1}}/>}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -5747,7 +5978,21 @@ function ClientDashboard({client, onNavigate}){
 }
 
 function ClientView({client,onLogout,clientUser=null}){
-  const [sidebarOpen,setSidebarOpen]=useState(true);
+  const [isMobile,setIsMobile]=useState(()=>typeof window!=="undefined"?window.innerWidth<768:false);
+  const [sidebarOpen,setSidebarOpen]=useState(()=>typeof window!=="undefined"?window.innerWidth>=768:true);
+  useEffect(()=>{
+    const mob=window.innerWidth<768;
+    setIsMobile(mob);
+    setSidebarOpen(!mob);
+    const handler=()=>{
+      const m=window.innerWidth<768;
+      setIsMobile(m);
+      if(!m) setSidebarOpen(true);
+      else setSidebarOpen(false);
+    };
+    window.addEventListener("resize",handler);
+    return ()=>window.removeEventListener("resize",handler);
+  },[]);
   const [tab,setTab]=useState("panel");
   // Permisos del usuario interno
   const isClientUser = !!clientUser;
@@ -5851,7 +6096,7 @@ function ClientView({client,onLogout,clientUser=null}){
     {id:"asambleas",label:"Asambleas",cat:"despacho"},
     {id:"historial",label:"Historial",cat:"despacho"},
     {id:"resumen",label:"Novedades del despacho",cat:"despacho"},
-    {id:"pendientes",label:`Pendientes${pendingDocs.length>0?" · "+pendingDocs.length:""}`,cat:"despacho"},
+    {id:"pendientes",label:`Pendientes${pendingDocs.filter(p=>p.status==="pendiente"||!p.status).length>0?" · "+pendingDocs.filter(p=>p.status==="pendiente"||!p.status).length:""}`,cat:"despacho"},
     {id:"solicitudes",label:"Solicitar al despacho",cat:"despacho"},
     {id:"calendario",label:"📅 Calendario",cat:"despacho"},
     {id:"usuarios_internos",label:"👥 Mi equipo",cat:"principal",soloAdmin:true},{id:"notificaciones",label:"🔔 Notificaciones",cat:"principal"},
@@ -5859,9 +6104,9 @@ function ClientView({client,onLogout,clientUser=null}){
   const tabs=allTabs.filter(t=>tienePermiso(t.cat,t.id)&&(!t.soloAdmin||!isClientUser));
 
   return(
-    <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden"}}>
+    <div style={{fontFamily:"Georgia, serif",color:TEXT_DARK,background:CONTENT_BG,height:"100vh",display:"flex",overflow:"hidden",position:"relative"}}>
         {/* SIDEBAR */}
-        <div style={{width:sidebarOpen?204:0,background:(client.branding?.color||MUSGO),borderRight:sidebarOpen?"1px solid rgba(0,0,0,.15)":"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+        <div style={{width:isMobile?0:sidebarOpen?220:0,background:(client.branding?.color||MUSGO),borderRight:!isMobile&&sidebarOpen?"1px solid rgba(0,0,0,.15)":"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",overflowY:"auto"}}>
           <div style={{padding:"22px 18px 14px"}}>
             {client.branding?.logo?<img src={client.branding.logo} style={{height:24,maxWidth:140,objectFit:"contain",filter:"brightness(0) invert(1)"}} alt="logo"/>:<div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>}
             <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>{client.branding?.nombre_portal||"Panel corporativo"}</div>
@@ -5894,14 +6139,20 @@ function ClientView({client,onLogout,clientUser=null}){
           </div>
         </div>
         {/* MAIN AREA */}
+        {isMobile&&sidebarOpen&&<div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:299}}/>}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
           {/* TOPBAR */}
-          <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}><button style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:18,color:TEXT_MED,lineHeight:1}} onClick={()=>setSidebarOpen(!sidebarOpen)}>{sidebarOpen?"←":"☰"}</button><div style={{fontSize:14,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div></div>
-            <div style={{display:"flex",gap:8}}>
-              {!isClientUser&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ Reporte IA</button><button id="btn-dataroom" style={{...s.btn,...s.btnSm,borderColor:"#185FA5",color:"#185FA5",background:"#EBF4FF"}} onClick={()=>setShowDataRoom(true)}>↓ Data Room</button></>}
+          <div style={{background:CARD_BG,borderBottom:"1px solid "+BORDER,padding:"0 12px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
+              {!isMobile&&<button style={{background:"none",border:"none",cursor:"pointer",padding:"6px 8px",fontSize:22,color:TEXT_MED,lineHeight:1,touchAction:"manipulation",flexShrink:0}} onClick={()=>setSidebarOpen(!sidebarOpen)}>☰</button>}
+              <div style={{fontSize:13,fontWeight:600,color:TEXT_DARK,fontFamily:"system-ui,sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tabs.find(t=>t.id===tab)?.label||"Mi empresa"}</div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+              {!isClientUser&&!isMobile&&<><button style={{...s.btn,...s.btnSm,borderColor:BORDER,color:TEXT_MED}} onClick={()=>generatePDF(client,areas,documents,pendingDocs)}>↓ PDF</button><button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ Reporte IA</button><button id="btn-dataroom" style={{...s.btn,...s.btnSm,borderColor:"#185FA5",color:"#185FA5",background:"#EBF4FF"}} onClick={()=>setShowDataRoom(true)}>↓ Data Room</button></>}
+              {!isClientUser&&isMobile&&<button style={{...s.btn,...s.btnSm,borderColor:"#C9A84C",color:"#92400E",background:"#fffbeb"}} onClick={()=>generateReporteEjecutivo(clientEfectivo)}>↓ IA</button>}
               <button style={{width:32,height:32,borderRadius:"50%",border:"1px solid "+BORDER,background:"none",cursor:"pointer",fontSize:15,color:TEXT_MED,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}} onClick={()=>setShowFAQ(true)}>?</button>
               <NotifBell clientId={client.id}/>
+              <button onClick={onLogout} style={{background:"none",border:"1px solid #DDE4D8",borderRadius:4,cursor:"pointer",padding:"4px 8px",fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",touchAction:"manipulation"}}>Salir</button>
             </div>
           </div>
           {/* CONTENT */}
@@ -5915,7 +6166,7 @@ function ClientView({client,onLogout,clientUser=null}){
             ))}
             {sociedadActiva?.rfc&&<span style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginLeft:4}}>RFC: {sociedadActiva.rfc}</span>}
           </div>}
-          <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
+          <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 10px":"24px",paddingBottom:isMobile?"72px":"24px",boxSizing:"border-box",overflowX:"hidden",maxWidth:"100%"}}>
 
       {tab==="panel"&&<ClientDashboard client={clientEfectivo} onNavigate={t=>setTab(t)}/>}
 
@@ -5943,8 +6194,9 @@ function ClientView({client,onLogout,clientUser=null}){
 
       {tab==="asambleas"&&<AsambleasTab client={clientEfectivo} isAdmin={false}/>}
 
-      {tab==="pendientes"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
-        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={`Vence: {p.due}`}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
+      {tab==="pendientes"&&<PendientesClientTab pendingDocs={pendingDocs} setPendingDocs={setPendingDocs} client={clientEfectivo}/>}
+      {tab==="pendientes_old_disabled"&&(pendingDocs.length===0?<div style={{...s.muted,textAlign:"center",padding:"3rem 0"}}>Sin pendientes</div>
+        :pendingDocs.map(p=><div key={p.id} style={{...s.card,borderLeft:"3px solid "+GOLD}}><div style={{...s.flex(),justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontSize:14,fontFamily:"Georgia, serif"}}>{p.name}</div><Badge status="pendiente" label={"Vence: "+p.due}/></div><div style={{...s.muted,marginTop:6}}>{p.note}</div></div>)
       )}
 
       {tab==="solicitudes"&&<>
@@ -5973,6 +6225,7 @@ function ClientView({client,onLogout,clientUser=null}){
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
       {showDataRoom&&<DataRoomModal client={clientEfectivo} onClose={()=>setShowDataRoom(false)}/>}
+      {true&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={areas.filter(a=>a.status==="red").length} extraItems={tabs.filter(t=>!["panel","alertas","documentos","contratos"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
           </div>
         </div>
       </div>
@@ -5981,6 +6234,12 @@ function ClientView({client,onLogout,clientUser=null}){
 
 
 function AdminView({onLogout,admin}){
+  const [isMobile,setIsMobile]=useState(typeof window!=="undefined"?window.innerWidth<768:false);
+  useEffect(()=>{
+    const h=()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener("resize",h);
+    return ()=>window.removeEventListener("resize",h);
+  },[]);
   const [sidebarOpen,setSidebarOpen]=useState(true);
   const [clients,setClients]=useState([]);const [admins,setAdmins]=useState([]);
   const [sel,setSel]=useState(null);const [tab,setTab]=useState("panel");
@@ -6091,9 +6350,10 @@ function AdminView({onLogout,admin}){
     <div style={{fontFamily:"Georgia, serif",color:BLACK,background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* TOP NAV */}
       {/* SIDEBAR + MAIN */}
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative"}}>
+        {isMobile&&sidebarOpen&&<div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:299}}/>}
         {/* SIDEBAR */}
-        <div style={{width:sidebarOpen?204:0,background:MUSGO,borderRight:sidebarOpen?"1px solid "+MUSGO_DARK:"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+        <div style={{width:sidebarOpen?204:0,minWidth:0,background:MUSGO,borderRight:sidebarOpen?"1px solid "+MUSGO_DARK:"none",overflow:"hidden",transition:"width .2s",flexShrink:0,display:"flex",flexDirection:"column",overflowY:"auto",position:window.innerWidth<640?"fixed":"relative",left:0,top:0,bottom:0,zIndex:window.innerWidth<640?200:1,height:window.innerWidth<640?"100%":"auto"}}>
           <div style={{padding:"22px 18px 14px"}}>
             <div style={{fontSize:12,fontWeight:700,color:MUSGO_TEXT,letterSpacing:".02em"}}>M&M Abogados</div>
             <div style={{fontSize:10,color:"rgba(240,244,238,.45)",marginTop:2}}>Panel administrativo</div>
@@ -6142,7 +6402,7 @@ function AdminView({onLogout,admin}){
           </div>
           {tab==="usuarios"&&<div style={{padding:"8px 16px",background:CARD_BG,borderBottom:"1px solid "+BORDER}}><button style={{...s.btn,...s.btnSm}} onClick={()=>setShowAddClient(!showAddClient)}>+ Cliente</button></div>}
           {/* CONTENT */}
-          <div style={{flex:1,overflowY:"auto",padding:"24px",boxSizing:"border-box"}}>
+          <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 10px":"24px",boxSizing:"border-box",overflowX:"hidden",maxWidth:"100%"}}>
 
       {showAddClient&&<div style={{...s.card,...s.col(),marginBottom:16}}>
         <span style={{...s.label,margin:0}}>Nuevo cliente</span>
@@ -6347,7 +6607,7 @@ function Login({onLogin}){
   return(
     <div style={s.loginWrap}>
       {/* Left panel - brand */}
-      <div style={{background:MUSGO,flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4rem",minHeight:"100vh",backgroundSize:"cover",backgroundPosition:"center",position:"relative"}}>
+      <div style={{background:MUSGO,flex:1,display:(typeof window!=="undefined"&&window.innerWidth<768)?"none":"flex",flexDirection:"column",justifyContent:"center",padding:"4rem",minHeight:"100vh",backgroundSize:"cover",backgroundPosition:"center",position:"relative"}}>
         <div style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,244,238,.5)",fontFamily:"system-ui,sans-serif",marginBottom:32}}>Millán & Martínez Abogados</div>
         <div style={{fontSize:42,fontFamily:"Georgia, serif",fontWeight:400,color:MUSGO_TEXT,lineHeight:1.15,marginBottom:8}}>Tu empresa,</div>
         <div style={{fontSize:42,fontFamily:"Georgia, serif",fontWeight:400,color:"rgba(240,244,238,.6)",fontStyle:"italic",lineHeight:1.15,marginBottom:32}}>protegida.</div>
@@ -6355,7 +6615,7 @@ function Login({onLogin}){
         <div style={{fontSize:14,color:"rgba(240,244,238,.5)",fontFamily:"system-ui,sans-serif",lineHeight:1.7,maxWidth:380}}>Panel de gestión corporativa para empresas que tienen demasiado construido para dejarlo en manos equivocadas.</div>
       </div>
       {/* Right panel - login form */}
-      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:CONTENT_BG,minHeight:"100vh"}}>
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:CONTENT_BG,minHeight:"100vh",width:"100%",boxSizing:"border-box"}}>
       <div style={s.loginBox}>
         <div style={{marginBottom:24}}>
           <div style={{fontSize:22,fontFamily:"Georgia, serif",fontWeight:400,color:TEXT_DARK,lineHeight:1.2,marginBottom:6}}>Acceder</div>
