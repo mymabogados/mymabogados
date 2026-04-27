@@ -605,6 +605,14 @@ async function downloadDataRoom(client, modulos=[]) {
   }
 }
 
+
+async function hashPassword(pass){
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pass);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
 async function notifyEvento(clientId, tipo, descripcion, modulo=null){
   try{
     await supabase.functions.invoke("notify-evento",{body:{client_id:clientId,tipo,descripcion,modulo}});
@@ -5036,7 +5044,8 @@ function UsersTab({clients,setClients,admins,setAdmins}){
   const [saved,setSaved]=useState("");const [confirmDelete,setConfirmDelete]=useState(null);
 
   async function saveClient(c){
-    await supabase.from("clients").update({name:c.name,contact:c.contact,email:c.email,password:c.password,modulos:c.modulos||[]}).eq("id",c.id);
+    const pwToSave = c.password?.length===64 ? c.password : await hashPassword(c.password);
+    await supabase.from("clients").update({name:c.name,contact:c.contact,email:c.email,password:pwToSave,modulos:c.modulos||[]}).eq("id",c.id);
     setClients(prev=>prev.map(x=>x.id===c.id?c:x));setEditingClient(null);
     setSaved("Cliente actualizado ✓");setTimeout(()=>setSaved(""),2000);
   }
@@ -5046,12 +5055,14 @@ function UsersTab({clients,setClients,admins,setAdmins}){
     setSaved("Cliente eliminado");setTimeout(()=>setSaved(""),2000);
   }
   async function saveAdmin(a){
-    await supabase.from("admins").update({name:a.name,password:a.password}).eq("id",a.id);
+    const pwAdmin = a.password?.length===64 ? a.password : await hashPassword(a.password);
+    await supabase.from("admins").update({name:a.name,password:pwAdmin}).eq("id",a.id);
     setAdmins(prev=>prev.map(x=>x.id===a.id?a:x));setEditingAdmin(null);
     setSaved("Usuario actualizado ✓");setTimeout(()=>setSaved(""),2000);
   }
   async function addAdmin(){
     if(!newAdmin.id||!newAdmin.password)return;
+    newAdmin = {...newAdmin, password: await hashPassword(newAdmin.password)};
     await supabase.from("admins").insert(newAdmin);setAdmins(prev=>[...prev,newAdmin]);
     setShowNewAdmin(false);setNewAdmin({id:"",name:"",password:""});
     setSaved("Usuario creado ✓");setTimeout(()=>setSaved(""),2000);
@@ -5308,10 +5319,12 @@ function GestorUsuariosInternos({client, isAdmin=false}){
   async function save(){
     if(!form.nombre||!form.email||!form.password)return;
     if(editing){
-      await supabase.from("client_users").update({nombre:form.nombre,email:form.email,password:form.password,modulos:form.permisos?.modulos||[],rol:form.rol,activo:form.activo,permisos:form.permisos}).eq("id",editing.id);
+      const pwCU = form.password?.length===64 ? form.password : await hashPassword(form.password);
+      await supabase.from("client_users").update({nombre:form.nombre,email:form.email,password:pwCU,modulos:form.permisos?.modulos||[],rol:form.rol,activo:form.activo,permisos:form.permisos}).eq("id",editing.id);
       setUsers(prev=>prev.map(u=>u.id===editing.id?{...u,...form}:u));
     } else {
-      const nu={client_id:client.id,sociedad_id:client._sociedad?.id||null,nombre:form.nombre,email:form.email,password:form.password,modulos:form.permisos?.modulos||[],rol:form.rol||"visor",activo:true,permisos:form.permisos};
+      const pwCUNew = await hashPassword(form.password);
+      const nu={client_id:client.id,sociedad_id:client._sociedad?.id||null,nombre:form.nombre,email:form.email,password:pwCUNew,modulos:form.permisos?.modulos||[],rol:form.rol||"visor",activo:true,permisos:form.permisos};
       const {data}=await supabase.from("client_users").insert(nu).select().single();
       if(data)setUsers(prev=>[...prev,data]);
     }
@@ -6603,6 +6616,7 @@ function AdminView({onLogout,admin}){
   async function resolveRequest(rid){await supabase.from("requests").update({status:"completado"}).eq("id",rid);setRequests(prev=>prev.map(r=>r.id===rid?{...r,status:"completado"}:r));}
   async function addClient(){
     if(!newClient.id||!newClient.name||!newClient.password)return;
+    newClient = {...newClient, password: await hashPassword(newClient.password)};
     const nc={...newClient,industria:newClient.industria||"general",updated_at:new Date().toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})};
     await supabase.from("clients").insert(nc);
     const da=[
@@ -6812,7 +6826,8 @@ function Login({onLogin}){
     setErr("");setLoading(true);
     if(who==="admin"){
       const {data}=await supabase.from("admins").select("*").eq("id",user.toLowerCase()).single();
-      if(!data||data.password!==pass){setErr("Usuario o contraseña incorrectos");setLoading(false);return;}
+      const passHash = await hashPassword(pass);
+      if(!data||(data.password!==pass && data.password!==passHash)){setErr("Usuario o contraseña incorrectos");setLoading(false);return;}
       // Admin no requiere OTP
       onLogin({role:"admin",admin:data});return;
     }
@@ -6820,7 +6835,8 @@ function Login({onLogin}){
     // Buscar en client_users por email
     const {data:cu}=await supabase.from("client_users").select("*").eq("email",user).eq("activo",true).maybeSingle();
     if(cu){
-      if(pass!==cu.password){setErr("Contraseña incorrecta");setLoading(false);return;}
+      const passHashCU = await hashPassword(pass);
+      if(cu.password!==pass && cu.password!==passHashCU){setErr("Contraseña incorrecta");setLoading(false);return;}
       const {data:cl}=await supabase.from("clients").select("*").eq("id",cu.client_id).single();
       if(!cl){setErr("Cliente no encontrado");setLoading(false);return;}
       // Enviar OTP
@@ -6831,7 +6847,8 @@ function Login({onLogin}){
     // Buscar en clients por ID
     const {data}=await supabase.from("clients").select("*").eq("id",user).single();
     if(!data){setErr("Usuario no encontrado");setLoading(false);return;}
-    if(pass===data.password){
+    const passHashAdmin = await hashPassword(pass);
+    if(pass===data.password || passHashAdmin===data.password){
       // Enviar OTP
       await sendOTP(data.email||data.id, data.name);
       setPendingSession({role:"client",client:data});
