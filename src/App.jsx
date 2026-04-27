@@ -5747,7 +5747,7 @@ function AdminPendientesTab({client, pendingDocs=[], setPendingDocs}){
 }
 
 
-function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[], onMore, firstModulo="panel"}){
+function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[], onMore, firstModulo="panel", moduloItems=[]}){
   const [showMore, setShowMore] = useState(false);
   const mainItems = [
     {id:"panel", icon:"🏠", label:"Inicio"},
@@ -5763,9 +5763,10 @@ function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[],
     if(item.id==="docs") return tab==="docs"||tab==="contratos";
     return tab===item.id;
   };
+  const [showModulos, setShowModulos] = useState(false);
   return(
     <>
-      {showMore&&<div style={{position:"fixed",inset:0,zIndex:398}} onClick={()=>setShowMore(false)}/>}
+      {(showMore||showModulos)&&<div style={{position:"fixed",inset:0,zIndex:398}} onClick={()=>{setShowMore(false);setShowModulos(false);}}/>}
       {showMore&&<div style={{position:"fixed",bottom:60,left:0,right:0,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",zIndex:399,maxHeight:"60vh",overflowY:"auto",borderRadius:"16px 16px 0 0",boxShadow:"0 -4px 20px rgba(0,0,0,.15)"}}>
         <div style={{padding:"12px 16px 4px",fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontWeight:600}}>Más secciones</div>
         {extraItems.map(item=>(
@@ -5775,9 +5776,17 @@ function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[],
           </button>
         ))}
       </div>}
+      {showModulos&&<div style={{position:"fixed",bottom:60,left:0,right:0,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",zIndex:399,maxHeight:"60vh",overflowY:"auto",borderRadius:"16px 16px 0 0",boxShadow:"0 -4px 20px rgba(0,0,0,.15)"}}>
+        <div style={{padding:"12px 16px 4px",fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7A9070",fontFamily:"system-ui,sans-serif",fontWeight:600}}>Módulos activos</div>
+        {moduloItems.map(item=>(
+          <button key={item.id} onClick={()=>{setTab(item.id);setShowModulos(false);}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"12px 16px",border:"none",background:tab===item.id?"#F0F4EE":"none",borderLeft:tab===item.id?"3px solid #4A5C45":"3px solid transparent",cursor:"pointer",fontFamily:"system-ui,sans-serif",fontSize:13,color:tab===item.id?"#1E2B1A":"#4B5563",textAlign:"left"}}>
+            {item.label}
+          </button>
+        ))}
+      </div>}
       <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",display:"flex",alignItems:"stretch",zIndex:400,boxShadow:"0 -2px 10px rgba(0,0,0,.08)"}}>
         {mainItems.map(item=>(
-          <button key={item.id} onClick={()=>item.id==="mas"?setShowMore(!showMore):item.prefix?setTab(firstModulo||"panel"):setTab(item.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"none",cursor:"pointer",position:"relative",color:isActive(item)?"#4A5C45":"#7A9070",touchAction:"manipulation"}}>
+          <button key={item.id} onClick={()=>item.id==="mas"?setShowMore(!showMore):item.prefix?(setShowModulos(!showModulos),setShowMore(false)):setTab(item.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"none",cursor:"pointer",position:"relative",color:(isActive(item)||item.prefix&&tab.startsWith("mod_"))?"#4A5C45":"#7A9070",touchAction:"manipulation"}}>
             <span style={{fontSize:20,lineHeight:1}}>{item.icon}</span>
             <span style={{fontSize:9,fontFamily:"system-ui,sans-serif",fontWeight:isActive(item)?700:400}}>{item.label}</span>
             {item.badge>0&&<span style={{position:"absolute",top:6,right:"50%",marginRight:-18,background:"#C0392B",color:"#fff",borderRadius:10,fontSize:9,padding:"1px 5px",fontWeight:700}}>{item.badge}</span>}
@@ -6224,7 +6233,7 @@ function ClientView({client,onLogout,clientUser=null}){
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
       {showDataRoom&&<DataRoomModal client={clientEfectivo} onClose={()=>setShowDataRoom(false)}/>}
-      {true&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={areas.filter(a=>a.status==="red").length} firstModulo={"mod_"+((clientEfectivo._sociedad?.modulos||clientEfectivo.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist)[0]||""} extraItems={tabs.filter(t=>!["panel","riesgos","docs","contratos"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
+      {true&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={areas.filter(a=>a.status==="red").length} moduloItems={tabs.filter(t=>t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label}))} extraItems={tabs.filter(t=>!["panel","riesgos","docs","contratos"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
           </div>
         </div>
       </div>
