@@ -6697,7 +6697,7 @@ function AdminView({onLogout,admin}){
           </div>
           {tab==="usuarios"&&<div style={{padding:"8px 16px",background:CARD_BG,borderBottom:"1px solid "+BORDER}}><button style={{...s.btn,...s.btnSm}} onClick={()=>setShowAddClient(!showAddClient)}>+ Cliente</button></div>}
           {/* CONTENT */}
-          <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 10px":"24px",boxSizing:"border-box",overflowX:"hidden",maxWidth:"100%"}}>
+          <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 10px":"24px",paddingBottom:isMobile?"72px":"24px",boxSizing:"border-box",overflowX:"hidden",maxWidth:"100%"}}>
 
       {showAddClient&&<div style={{...s.card,...s.col(),marginBottom:16}}>
         <span style={{...s.label,margin:0}}>Nuevo cliente</span>
@@ -6774,6 +6774,7 @@ function AdminView({onLogout,admin}){
 
       {viewingDocAdmin&&<DocViewerModal url={viewingDocAdmin.url} name={viewingDocAdmin.name} onClose={()=>setViewingDocAdmin(null)}/>}
       {showDataRoomAdmin&&client&&<DataRoomModal client={{...client,_sociedad:adminSocActiva}} onClose={()=>setShowDataRoomAdmin(false)}/>}
+      {isMobile&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={0} moduloItems={client?((adminSocActiva?.modulos||client.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist).map(id=>({id:"mod_"+id,label:MODULOS_CATALOG.find(m=>m.id===id)?.nombre||id})):[]} extraItems={tabs.filter(t=>!["dashboard","panel","riesgos","compliance","calendario"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
       {tab==="dashboard"&&<AdminDashboard clients={clients} onSelectClient={id=>{setSel(id);setTab("panel");}}/>}
       {tab==="riesgos"&&client&&<AdminAlertasCriticas client={{...client,_sociedad:adminSocActiva}}/>}
       {tab==="compliance"&&client&&<AdminComplianceGeneral client={{...client,_sociedad:adminSocActiva}}/>}
