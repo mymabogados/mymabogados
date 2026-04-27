@@ -6638,6 +6638,24 @@ function Login({onLogin}){
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={error:null};}
+  static getDerivedStateFromError(e){return {error:e};}
+  render(){
+    if(this.state.error){
+      return <div style={{padding:24,fontFamily:"system-ui,sans-serif"}}>
+        <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:20,marginBottom:16}}>
+          <div style={{fontWeight:700,color:"#991b1b",marginBottom:8}}>Error en el panel</div>
+          <div style={{fontSize:12,color:"#7f1d1d",wordBreak:"break-all"}}>{this.state.error.toString()}</div>
+          {this.state.error.stack&&<div style={{fontSize:11,color:"#9ca3af",marginTop:8,whiteSpace:"pre-wrap"}}>{this.state.error.stack.slice(0,500)}</div>}
+        </div>
+        <button onClick={()=>{localStorage.removeItem("mm_session");window.location.reload();}} style={{background:"#4A5C45",color:"#fff",border:"none",borderRadius:4,padding:"10px 20px",cursor:"pointer",fontFamily:"system-ui,sans-serif"}}>Cerrar sesión y reintentar</button>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function App(){
   const [session,setSession]=useState(()=>{
     try{const s=localStorage.getItem("mm_session");return s?JSON.parse(s):null;}
@@ -6655,6 +6673,6 @@ export default function App(){
   }
 
   if(!session)return <Login onLogin={login}/>;
-  if(session.role==="admin")return <AdminView onLogout={logout} admin={session.admin}/>;
-  return <ClientView client={session.client} onLogout={logout} clientUser={session.clientUser||null}/>;
+  if(session.role==="admin")return <ErrorBoundary><AdminView onLogout={logout} admin={session.admin}/></ErrorBoundary>;
+  return <ErrorBoundary><ClientView client={session.client} onLogout={logout} clientUser={session.clientUser||null}/></ErrorBoundary>;
 }
