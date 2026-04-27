@@ -15,7 +15,6 @@ import { ModL01,ModL02,ModL03,ModL04,ModL05,ModL06,ModL07,ModL08,LABORAL_DOCS } 
 import { ModCON01,ModCON02,ModCON03,ModCON04,ModCON05,CONDOMINAL_DOCS } from "./ModulosCondominal";
 import { ModPP01,ModPP02,ModPP03,ModPP04,ModCE01,ModCE02,ModCE03,ModCE04,ModINM01,ModINM02,ModINM03,ModINM04,ModINM05,ModSC01,ModSC02,ModSC03,ModSC04,ModEN01,ModEN02,ModEN03,ModEN04,ModTD01,ModTD02,ModTD03,ModTD04,ModAG01,ModAG02,ModAG03,ModAG04,ModEM01,ModEM02,ModEM03,ModEM04,ESPECIALIZADO_DOCS } from "./ModulosEspecializados";
 import { DriveUploader } from "./DriveUploader";
-import { DriveUploaderMultiple } from "./DriveUploaderMultiple";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -6132,6 +6131,126 @@ function CalculadoraSocios({admin}){
 }
 
 
+
+
+function DriveUploaderMultiple({clientId, clientName, onUploaded, label="Subir archivos"}){
+  const [status, setStatus] = React.useState("idle");
+  const [progreso, setProgreso] = React.useState([]);
+  const [token, setToken] = React.useState(null);
+  const fileRef = React.useRef(null);
+
+  async function getToken(){
+    return new Promise((resolve,reject)=>{
+      if(!window.google?.accounts){
+        const s=document.createElement("script");
+        s.src="https://accounts.google.com/gsi/client";
+        s.onload=()=>init(resolve,reject);
+        document.head.appendChild(s);
+      } else { init(resolve,reject); }
+    });
+    function init(resolve,reject){
+      const client=window.google.accounts.oauth2.initTokenClient({
+        client_id:import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        scope:"https://www.googleapis.com/auth/drive",
+        callback:(r)=>r.error?reject(new Error(r.error)):resolve(r.access_token)
+      });
+      client.requestAccessToken({prompt:""});
+    }
+  }
+
+  async function getOrCreate(name, parentId, tok){
+    const q=`name='${name.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,{headers:{Authorization:`Bearer ${tok}`}});
+    const d=await r.json();
+    if(d.files?.length) return d.files[0].id;
+    const r2=await fetch("https://www.googleapis.com/drive/v3/files?fields=id",{method:"POST",headers:{Authorization:`Bearer ${tok}`,"Content-Type":"application/json"},body:JSON.stringify({name,mimeType:"application/vnd.google-apps.folder",parents:[parentId]})});
+    const d2=await r2.json();
+    return d2.id;
+  }
+
+  async function getRootId(tok){
+    const cached=localStorage.getItem("mm_drive_root_id");
+    if(cached) return cached;
+    const q=`name='MM_Panel' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,{headers:{Authorization:`Bearer ${tok}`}});
+    const d=await r.json();
+    if(d.files?.length){localStorage.setItem("mm_drive_root_id",d.files[0].id);return d.files[0].id;}
+    const r2=await fetch("https://www.googleapis.com/drive/v3/files?fields=id",{method:"POST",headers:{Authorization:`Bearer ${tok}`,"Content-Type":"application/json"},body:JSON.stringify({name:"MM_Panel",mimeType:"application/vnd.google-apps.folder"})});
+    const d2=await r2.json();
+    localStorage.setItem("mm_drive_root_id",d2.id);
+    return d2.id;
+  }
+
+  function detectarTipo(nombre){
+    const n=nombre.toLowerCase();
+    if(n.includes("constit")||n.includes("escritura")) return "escritura_constitutiva";
+    if(n.includes("asamblea")||n.includes("acta")) return "acta_asamblea";
+    if(n.includes("poder")) return "poder";
+    if(n.includes("capital")||n.includes("aumento")) return "variacion_capital";
+    if(n.includes("accion")||n.includes("transm")) return "transmision_acciones";
+    if(n.includes("consejo")||n.includes("sesion")) return "sesion_consejo";
+    return "otro";
+  }
+
+  async function handleClick(){
+    if(status==="uploading") return;
+    if(!token){
+      setStatus("auth");
+      try{ const t=await getToken(); setToken(t); setStatus("idle"); fileRef.current?.click(); }
+      catch(e){ setStatus("error"); setTimeout(()=>setStatus("idle"),3000); }
+    } else { fileRef.current?.click(); }
+  }
+
+  async function handleFiles(e){
+    const files=Array.from(e.target.files);
+    if(!files.length||!token) return;
+    setStatus("uploading");
+    setProgreso(files.map(f=>({name:f.name,status:"pendiente"})));
+    const rootId=await getRootId(token);
+    const san=(s)=>(s||"").replace(/[^a-zA-Z0-9_\s]/g,"").trim().replace(/\s+/g,"_");
+    const clientFolder=await getOrCreate(`${clientId}_${san(clientName)}`,rootId,token);
+    const auditoriaFolder=await getOrCreate("Auditoria_Legal",clientFolder,token);
+    const resultados=[];
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
+      setProgreso(prev=>prev.map((p,idx)=>idx===i?{...p,status:"subiendo"}:p));
+      try{
+        const meta={name:file.name,parents:[auditoriaFolder]};
+        const form=new FormData();
+        form.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"}));
+        form.append("file",file);
+        const r=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form});
+        const d=await r.json();
+        if(!d.id) throw new Error("Sin ID");
+        await fetch(`https://www.googleapis.com/drive/v3/files/${d.id}/permissions`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})});
+        setProgreso(prev=>prev.map((p,idx)=>idx===i?{...p,status:"listo"}:p));
+        resultados.push({nombre:file.name,drive_url:d.webViewLink,tipo:detectarTipo(file.name)});
+      } catch(err){
+        setProgreso(prev=>prev.map((p,idx)=>idx===i?{...p,status:"error"}:p));
+      }
+    }
+    setStatus("done");
+    onUploaded&&onUploaded(resultados);
+    e.target.value="";
+  }
+
+  return(
+    <div>
+      <input ref={fileRef} type="file" multiple accept=".pdf,.PDF" style={{display:"none"}} onChange={handleFiles}/>
+      <button onClick={handleClick} disabled={status==="uploading"||status==="auth"} style={{background:status==="done"?"#5A8A3C":"#4A5C45",color:"#F0F4EE",border:"none",borderRadius:4,padding:"10px 20px",fontSize:13,cursor:"pointer",fontFamily:"system-ui,sans-serif",opacity:(status==="uploading"||status==="auth")?0.7:1}}>
+        {status==="auth"?"Conectando...":status==="uploading"?"Subiendo archivos...":status==="done"?"✓ Listos":label}
+      </button>
+      {progreso.length>0&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:3}}>
+        {progreso.map((p,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,fontFamily:"system-ui,sans-serif"}}>
+            <span style={{color:p.status==="listo"?"#5A8A3C":p.status==="error"?"#C0392B":p.status==="subiendo"?"#C9A84C":"#7A9070"}}>{p.status==="listo"?"✓":p.status==="error"?"✗":p.status==="subiendo"?"⏳":"○"}</span>
+            <span style={{color:"#333",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{p.name}</span>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
 
 function AuditoriaLegalTab({client}){
   const [docs, setDocs] = React.useState([]);
