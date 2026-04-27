@@ -7226,6 +7226,7 @@ function AdminView({onLogout,admin}){
       {tab==="personas"&&client&&<PersonasTab client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
       {tab==="contratos"&&client&&<AdminContratosTab key={adminSocActiva?.id||"grupo"} client={{...client,_sociedad:adminSocActiva}}/>}
       {tab==="estatutos"&&client&&<AdminEstatutosTab client={client}/>}
+              {tab==="auditoria"&&client&&<AuditoriaLegalTab client={client}/>}
       {tab==="pagos"&&client&&<AdminPagosTab client={client}/>}
       {tab==="tareas"&&client&&<AdminTareasTab client={client} admin={admin}/>}
       {tab==="resumen"&&client&&<AdminResumenTab client={client}/>}
