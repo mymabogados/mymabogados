@@ -6224,7 +6224,7 @@ function ClientView({client,onLogout,clientUser=null}){
       {showFAQ&&<FAQModal onClose={()=>setShowFAQ(false)}/>}
       {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
       {showDataRoom&&<DataRoomModal client={clientEfectivo} onClose={()=>setShowDataRoom(false)}/>}
-      {true&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={areas.filter(a=>a.status==="red").length} firstModulo={tabs.filter(t=>t.id.startsWith("mod_"))[0]?.id||"panel"} extraItems={tabs.filter(t=>!["panel","riesgos","docs","contratos"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
+      {true&&<BottomNav tab={tab} setTab={(t)=>{setTab(t);setSidebarOpen(false);}} pendingAlertas={areas.filter(a=>a.status==="red").length} firstModulo={"mod_"+((clientEfectivo._sociedad?.modulos||clientEfectivo.modulos)||[]).filter(id=>MODULO_DOCS[id]?.checklist)[0]||""} extraItems={tabs.filter(t=>!["panel","riesgos","docs","contratos"].includes(t.id)&&!t.id.startsWith("mod_")).map(t=>({id:t.id,label:t.label,badge:0}))} />}
           </div>
         </div>
       </div>
