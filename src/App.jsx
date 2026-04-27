@@ -6131,6 +6131,395 @@ function CalculadoraSocios({admin}){
 }
 
 
+
+function AuditoriaLegalTab({client}){
+  const [docs, setDocs] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [extrayendo, setExtrayendo] = React.useState(false);
+  const [datosExtraidos, setDatosExtraidos] = React.useState(null);
+  const [editando, setEditando] = React.useState(false);
+  const [generando, setGenerando] = React.useState(false);
+  const [showUpload, setShowUpload] = React.useState(false);
+  const [newDoc, setNewDoc] = React.useState({nombre:"",tipo:"escritura_constitutiva",fecha_doc:"",notas:""});
+  const [uploadRef, setUploadRef] = React.useState(null);
+
+  const TIPOS_DOC = {
+    escritura_constitutiva: "📋 Escritura constitutiva",
+    acta_asamblea: "📝 Acta de asamblea",
+    poder: "⚖️ Poder notarial",
+    variacion_capital: "💰 Variación de capital",
+    transmision_acciones: "📊 Transmisión de acciones",
+    sesion_consejo: "🏛 Sesión de consejo",
+    otro: "📄 Otro",
+  };
+
+  React.useEffect(()=>{
+    load();
+  },[client.id]);
+
+  async function load(){
+    setLoading(true);
+    const {data} = await supabase.from("auditoria_docs").select("*").eq("client_id",client.id).order("fecha_doc",{ascending:true});
+    setDocs(data||[]);
+    const {data:rep} = await supabase.from("auditoria_reportes").select("*").eq("client_id",client.id).order("created_at",{ascending:false}).limit(1).single();
+    if(rep?.datos) setDatosExtraidos(rep.datos);
+    setLoading(false);
+  }
+
+  async function subirDoc(driveUrl, driveName){
+    if(!driveUrl) return;
+    const doc = {
+      client_id: client.id,
+      nombre: newDoc.nombre || driveName || "Documento",
+      tipo: newDoc.tipo,
+      fecha_doc: newDoc.fecha_doc || null,
+      notas: newDoc.notas,
+      drive_url: driveUrl,
+    };
+    const {data} = await supabase.from("auditoria_docs").insert(doc).select().single();
+    if(data) setDocs(prev=>[...prev,data]);
+    setShowUpload(false);
+    setNewDoc({nombre:"",tipo:"escritura_constitutiva",fecha_doc:"",notas:""});
+  }
+
+  async function eliminarDoc(id){
+    await supabase.from("auditoria_docs").delete().eq("id",id);
+    setDocs(prev=>prev.filter(d=>d.id!==id));
+  }
+
+  async function extraerConIA(){
+    if(docs.length===0){alert("Sube al menos un documento primero");return;}
+    setExtrayendo(true);
+    try {
+      const docsInfo = docs.map(d=>`- ${TIPOS_DOC[d.tipo]||d.tipo}: ${d.nombre}${d.fecha_doc?" ("+d.fecha_doc+")":""}${d.notas?" — "+d.notas:""}`).join("\n");
+      
+      const prompt = `Eres un abogado corporativo mexicano experto en auditorías legales. 
+Basándote en la lista de documentos del cliente ${client.name}, genera la estructura de datos para un reporte de auditoría legal corporativa.
+
+Documentos disponibles:
+${docsInfo}
+
+Genera un JSON con la siguiente estructura exacta (llena con los datos que puedas inferir de los nombres y tipos de documentos, y deja en blanco lo que no puedas determinar):
+
+{
+  "empresa": {
+    "nombre": "",
+    "abreviatura": "",
+    "domicilio": "",
+    "duracion": "",
+    "objeto": "",
+    "capital_original": "",
+    "series_acciones": ""
+  },
+  "constitucion": {
+    "escritura_num": "",
+    "fecha": "",
+    "notario": "",
+    "num_notario": "",
+    "ciudad": "",
+    "folio_mercantil": "",
+    "administrador_original": "",
+    "comisario_original": ""
+  },
+  "asambleas": [],
+  "variaciones_capital": [],
+  "poderes": [],
+  "estructura_actual": {
+    "organo_administracion": "",
+    "administrador": "",
+    "comisario": "",
+    "accionistas": []
+  },
+  "abreviaturas": [],
+  "observaciones_generales": "",
+  "recomendaciones": ""
+}
+
+IMPORTANTE: Responde SOLO con el JSON, sin texto adicional, sin markdown, sin explicaciones.`;
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:4000,
+          messages:[{role:"user",content:prompt}]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text||"{}";
+      const clean = text.replace(/```json|```/g,"").trim();
+      const parsed = JSON.parse(clean);
+      
+      await supabase.from("auditoria_reportes").upsert({
+        client_id: client.id,
+        datos: parsed,
+        revisado: false,
+      });
+      setDatosExtraidos(parsed);
+      setEditando(true);
+    } catch(e){
+      alert("Error al extraer datos: "+e.message);
+    }
+    setExtrayendo(false);
+  }
+
+  async function guardarDatos(nuevoDatos){
+    await supabase.from("auditoria_reportes").upsert({
+      client_id: client.id,
+      datos: nuevoDatos,
+      revisado: true,
+    });
+    setDatosExtraidos(nuevoDatos);
+    setEditando(false);
+  }
+
+  async function generarWord(){
+    if(!datosExtraidos){alert("Primero extrae los datos con IA");return;}
+    setGenerando(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:4000,
+          messages:[{role:"user",content:`Eres un abogado corporativo mexicano. Con base en estos datos de auditoría legal, genera el contenido completo y detallado para cada sección del reporte. Usa lenguaje jurídico formal mexicano. Datos: ${JSON.stringify(datosExtraidos)}. Responde SOLO con JSON con campos: introduccion, texto_constitucion, texto_asambleas, texto_variaciones, texto_poderes, texto_estructura_actual, texto_observaciones, texto_recomendaciones.`}]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text||"{}";
+      const clean = text.replace(/```json|```/g,"").trim();
+      const textos = JSON.parse(clean);
+      
+      // Enviar al servidor para generar Word
+      const payload = {
+        cliente: client.name,
+        fecha: new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"}),
+        datos: datosExtraidos,
+        textos,
+        docs,
+      };
+      
+      // Guardar payload en Supabase para que la Edge Function lo procese
+      const {data:saved} = await supabase.from("auditoria_reportes").upsert({
+        client_id: client.id,
+        datos: {...datosExtraidos, _textos: textos, _payload: payload},
+        revisado: true,
+      }).select().single();
+
+      alert("Reporte listo para generar. Usa el botón de descarga.");
+      setGenerando(false);
+      
+      // Trigger descarga via edge function o generación local
+      await generarWordLocal(payload);
+      
+    } catch(e){
+      alert("Error generando reporte: "+e.message);
+      setGenerando(false);
+    }
+  }
+
+  async function generarWordLocal(payload){
+    // Llamar Edge Function generate-auditoria
+    const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
+    const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-auditoria`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.text();
+      throw new Error(err);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Auditoria_Legal_"+(client.name||client.id).replace(/\s+/g,"_")+".docx";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if(loading) return <div style={{padding:24,textAlign:"center",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
+
+  return(
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:18,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:2}}>Auditoría Legal Corporativa</div>
+          <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{docs.length} documentos cargados</div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={()=>setShowUpload(true)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>+ Subir documento</button>
+          {docs.length>0&&<button onClick={extraerConIA} disabled={extrayendo} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif",opacity:extrayendo?0.7:1}}>{extrayendo?"Analizando con IA...":"🤖 Extraer datos con IA"}</button>}
+          {datosExtraidos&&<button onClick={generarWord} disabled={generando} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#C9A84C",color:"#1E2B1A",fontFamily:"system-ui,sans-serif",fontWeight:700,opacity:generando?0.7:1}}>{generando?"Generando...":"↓ Generar Word"}</button>}
+        </div>
+      </div>
+
+      {/* Modal subir documento */}
+      {showUpload&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem"}} onClick={()=>setShowUpload(false)}>
+        <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",width:"min(480px,100%)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:16}}>Subir documento de auditoría</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+            <div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Tipo de documento</div>
+              <select value={newDoc.tipo} onChange={e=>setNewDoc(p=>({...p,tipo:e.target.value}))} style={{width:"100%",padding:"8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
+                {Object.entries(TIPOS_DOC).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Nombre</div>
+              <input value={newDoc.nombre} onChange={e=>setNewDoc(p=>({...p,nombre:e.target.value}))} placeholder="Ej. Escritura 53151 - Constitución" style={{width:"100%",padding:"8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Fecha del documento</div>
+              <input type="date" value={newDoc.fecha_doc} onChange={e=>setNewDoc(p=>({...p,fecha_doc:e.target.value}))} style={{width:"100%",padding:"8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Notas (datos clave del documento)</div>
+              <textarea value={newDoc.notas} onChange={e=>setNewDoc(p=>({...p,notas:e.target.value}))} placeholder="Ej. Escritura 53151, NP Juan García, Folio 156772, constitución MHML..." rows={3} style={{width:"100%",padding:"8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box",resize:"vertical"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Archivo PDF</div>
+              <DriveUploaderInline onUpload={(url,name)=>subirDoc(url,name)} label="Subir PDF al Drive"/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>setShowUpload(false)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Lista de documentos */}
+      {docs.length===0?<div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:13,fontFamily:"system-ui,sans-serif",border:"2px dashed #DDE4D8",borderRadius:6}}>
+        Sin documentos cargados. Sube las escrituras y actas para iniciar la auditoría.
+      </div>:<div style={{marginBottom:20}}>
+        <div style={{fontSize:10,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>Documentos cargados</div>
+        {docs.map(doc=>(
+          <div key={doc.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,marginBottom:6}}>
+            <span style={{fontSize:18}}>{TIPOS_DOC[doc.tipo]?.split(" ")[0]||"📄"}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",fontWeight:600}}>{doc.nombre}</div>
+              <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{TIPOS_DOC[doc.tipo]||doc.tipo}{doc.fecha_doc?" · "+doc.fecha_doc:""}{doc.notas?" · "+doc.notas.slice(0,60):""}
+              </div>
+            </div>
+            {doc.drive_url&&<a href={doc.drive_url} target="_blank" rel="noreferrer" style={{fontSize:11,padding:"3px 8px",border:"1px solid #DDE4D8",borderRadius:2,color:"#4A5C45",textDecoration:"none",fontFamily:"system-ui,sans-serif"}}>Ver</a>}
+            <button onClick={()=>eliminarDoc(doc.id)} style={{fontSize:12,padding:"3px 8px",border:"1px solid #fecaca",borderRadius:2,cursor:"pointer",background:"none",color:"#dc2626",fontFamily:"system-ui,sans-serif"}}>×</button>
+          </div>
+        ))}
+      </div>}
+
+      {/* Datos extraídos */}
+      {datosExtraidos&&!editando&&<div style={{background:"#F0F4EE",border:"1px solid #C8DCC8",borderRadius:6,padding:"1.25rem",marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:600}}>✓ Datos extraídos por IA</div>
+          <button onClick={()=>setEditando(true)} style={{fontSize:12,padding:"5px 12px",border:"1px solid #4A5C45",borderRadius:3,cursor:"pointer",background:"none",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>Editar datos</button>
+        </div>
+        <div style={{fontSize:11,color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>
+          <strong>{datosExtraidos.empresa?.nombre||client.name}</strong> · 
+          Constitución: {datosExtraidos.constitucion?.fecha||"--"} · 
+          {(datosExtraidos.asambleas||[]).length} asambleas · 
+          {(datosExtraidos.poderes||[]).length} poderes
+        </div>
+      </div>}
+
+      {/* Editor de datos */}
+      {editando&&datosExtraidos&&<EditorDatosAuditoria datos={datosExtraidos} onSave={guardarDatos} onCancel={()=>setEditando(false)} clientName={client.name}/>}
+    </div>
+  );
+}
+
+function EditorDatosAuditoria({datos, onSave, onCancel, clientName}){
+  const [d, setD] = React.useState(JSON.parse(JSON.stringify(datos)));
+  
+  function upd(path, val){
+    const keys = path.split(".");
+    setD(prev=>{
+      const next = {...prev};
+      let obj = next;
+      for(let i=0;i<keys.length-1;i++){
+        obj[keys[i]] = {...obj[keys[i]]};
+        obj = obj[keys[i]];
+      }
+      obj[keys[keys.length-1]] = val;
+      return next;
+    });
+  }
+
+  const inp = (label, path, type="text", placeholder="") => (
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>{label}</div>
+      {type==="textarea"
+        ?<textarea value={d[path.split(".")[0]]?.[path.split(".")[1]]||""} onChange={e=>upd(path,e.target.value)} placeholder={placeholder} rows={4} style={{width:"100%",padding:"7px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box",resize:"vertical"}}/>
+        :<input type={type} value={d[path.split(".")[0]]?.[path.split(".")[1]]||""} onChange={e=>upd(path,e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"7px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}/>
+      }
+    </div>
+  );
+
+  return(
+    <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",marginBottom:16}}>
+      <div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:16}}>Revisar y editar datos extraídos</div>
+      
+      <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Datos de la empresa</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        {inp("Nombre de la empresa","empresa.nombre","text",clientName)}
+        {inp("Abreviatura","empresa.abreviatura","text","Ej. MHML")}
+        {inp("Domicilio social","empresa.domicilio")}
+        {inp("Duración","empresa.duracion","text","Ej. 99 años")}
+        {inp("Capital social original","empresa.capital_original")}
+        {inp("Series de acciones","empresa.series_acciones")}
+      </div>
+      <div>{inp("Objeto social","empresa.objeto","textarea")}</div>
+
+      <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10,marginTop:16}}>Constitución</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        {inp("Número de escritura","constitucion.escritura_num")}
+        {inp("Fecha","constitucion.fecha","date")}
+        {inp("Notario","constitucion.notario")}
+        {inp("Número de notaría","constitucion.num_notario")}
+        {inp("Ciudad","constitucion.ciudad")}
+        {inp("Folio mercantil","constitucion.folio_mercantil")}
+        {inp("Administrador original","constitucion.administrador_original")}
+        {inp("Comisario original","constitucion.comisario_original")}
+      </div>
+
+      <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10,marginTop:16}}>Observaciones generales y recomendaciones</div>
+      <div>
+        <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Observaciones generales</div>
+        <textarea value={d.observaciones_generales||""} onChange={e=>setD(p=>({...p,observaciones_generales:e.target.value}))} rows={5} placeholder="Observaciones detectadas durante la auditoría..." style={{width:"100%",padding:"7px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box",resize:"vertical",marginBottom:10}}/>
+        <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:3}}>Recomendaciones</div>
+        <textarea value={d.recomendaciones||""} onChange={e=>setD(p=>({...p,recomendaciones:e.target.value}))} rows={5} placeholder="Acciones recomendadas para subsanar deficiencias..." style={{width:"100%",padding:"7px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box",resize:"vertical"}}/>
+      </div>
+
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+        <button onClick={onCancel} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif"}}>Cancelar</button>
+        <button onClick={()=>onSave(d)} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif"}}>Guardar y revisar</button>
+      </div>
+    </div>
+  );
+}
+
+function DriveUploaderInline({onUpload, label="Subir archivo"}){
+  const [uploading, setUploading] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+
+  async function handleClick(){
+    setUploading(true);
+    try {
+      const {url, name} = await uploadToDrive(null);
+      if(url){ setDone(true); onUpload(url, name); }
+    } catch(e){ alert("Error: "+e.message); }
+    setUploading(false);
+  }
+
+  return(
+    <button onClick={handleClick} disabled={uploading||done} style={{fontSize:12,padding:"8px 14px",border:"1px solid #4A5C45",borderRadius:3,cursor:"pointer",background:done?"#F0F4EE":"none",color:"#4A5C45",fontFamily:"system-ui,sans-serif",width:"100%"}}>
+      {done?"✓ Subido":uploading?"Subiendo...":label}
+    </button>
+  );
+}
 function ClientDashboard({client, onNavigate}){
   const [checks,setChecks]=useState({});
   const [docs,setDocs]=useState([]);
@@ -6684,7 +7073,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"},{id:"notificaciones_admin",label:"🔔 Notificaciones"},...(["jesus","beto","carlos"].includes(admin?.id)?[{id:"calculadora",label:"📊 Calculadora socios"}]:[]),
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"auditoria",label:"⚖️ Auditoría Legal"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"},{id:"notificaciones_admin",label:"🔔 Notificaciones"},...(["jesus","beto","carlos"].includes(admin?.id)?[{id:"calculadora",label:"📊 Calculadora socios"}]:[]),
     ...( ["jesus","beto","carlos"].includes(admin?.id) ? [{id:"calculadora",label:"📊 Calculadora socios"}] : [] )
   ];
 
