@@ -6383,7 +6383,7 @@ IMPORTANTE: Responde SOLO con el JSON, sin texto adicional, sin markdown, sin ex
             </div>
             <div>
               <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Archivo PDF</div>
-              <DriveUploaderInline onUpload={(url,name)=>subirDoc(url,name)} label="Subir PDF al Drive"/>
+              <DriveUploaderInline onUpload={(url,name)=>subirDoc(url,name)} label="Subir PDF al Drive" clientId={client.id} clientName={client.name}/>
             </div>
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
@@ -6501,23 +6501,28 @@ function EditorDatosAuditoria({datos, onSave, onCancel, clientName}){
   );
 }
 
-function DriveUploaderInline({onUpload, label="Subir archivo"}){
+function DriveUploaderInline({onUpload, label="Subir archivo", clientId="", clientName=""}){
   const [uploading, setUploading] = React.useState(false);
   const [done, setDone] = React.useState(false);
 
   async function handleClick(){
     setUploading(true);
     try {
-      const {url, name} = await uploadToDrive(null);
-      if(url){ setDone(true); onUpload(url, name); }
+      // usa DriveUploader externo
     } catch(e){ alert("Error: "+e.message); }
     setUploading(false);
   }
 
   return(
-    <button onClick={handleClick} disabled={uploading||done} style={{fontSize:12,padding:"8px 14px",border:"1px solid #4A5C45",borderRadius:3,cursor:"pointer",background:done?"#F0F4EE":"none",color:"#4A5C45",fontFamily:"system-ui,sans-serif",width:"100%"}}>
-      {done?"✓ Subido":uploading?"Subiendo...":label}
-    </button>
+    <DriveUploader
+      clientId={clientId}
+      clientName={clientName}
+      modId="auditoria"
+      modNombre="Auditoria Legal"
+      docLabel="Documento de auditoria"
+      label={label}
+      onUploaded={(url, name)=>{ if(url) onUpload(url, name||""); }}
+    />
   );
 }
 function ClientDashboard({client, onNavigate}){
