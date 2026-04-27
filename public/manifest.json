@@ -1,0 +1,15 @@
+{
+  "name": "Panel de Inmunidad Corporativa",
+  "short_name": "M&M Panel",
+  "description": "Panel corporativo M&M Abogados",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1E2B1A",
+  "theme_color": "#1E2B1A",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

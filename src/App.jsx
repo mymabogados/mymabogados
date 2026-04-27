@@ -6560,7 +6560,7 @@ function AdminView({onLogout,admin}){
   const hasDrafts=areas.some(a=>a.draft);
   const pendingReqs=requests.filter(r=>r.status==="pendiente").length;
   const tareas_pendientes=0;
-  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"},{id:"notificaciones_admin",label:"🔔 Notificaciones"},
+  const tabs=[{id:"dashboard",label:"Dashboard"},{id:"panel",label:"Estado del cliente"},{id:"riesgos",label:"🚨 Alertas críticas"},{id:"compliance",label:"Estado corporativo"},{id:"regulatorio",label:"Ante autoridades"},{id:"personas",label:"Equipo directivo"},{id:"docs",label:"Documentos"},{id:"contratos",label:"Contratos"},{id:"estatutos",label:"Análisis estatutos"},{id:"pagos",label:"Facturación"},{id:"tareas",label:`Tareas${tareas_pendientes>0?" · "+tareas_pendientes:""}`},{id:"resumen",label:"Novedades"},{id:"asambleas",label:"Asambleas"},{id:"pendientes",label:"Pendientes"},{id:"solicitudes",label:`Solicitudes${pendingReqs>0?" · "+pendingReqs:""}`},{id:"usuarios",label:"Usuarios"},{id:"modulos",label:"Módulos"},{id:"calendario",label:"📅 Calendario"},{id:"usuarios_internos_admin",label:"👥 Usuarios internos"},{id:"notificaciones_admin",label:"🔔 Notificaciones"},...(["jesus","beto","carlos"].includes(admin?.id)?[{id:"calculadora",label:"📊 Calculadora socios"}]:[]),
     ...( ["jesus","beto","carlos"].includes(admin?.id) ? [{id:"calculadora",label:"📊 Calculadora socios"}] : [] )
   ];
 
@@ -6645,6 +6645,7 @@ function AdminView({onLogout,admin}){
 
       {tab==="usuarios_internos_admin"&&client&&<GestorUsuariosInternos client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
       {tab==="notificaciones_admin"&&client&&<GestorNotificaciones client={{...client,_sociedad:adminSocActiva}} isAdmin={true}/>}
+              {tab==="calculadora"&&<CalculadoraSocios admin={admin}/>}
       {tab==="usuarios"&&<UsersTab clients={clients} setClients={c=>{setClients(c);if(!c.find(x=>x.id===sel))setSel(c[0]?.id||null);}} admins={admins} setAdmins={setAdmins}/>}
       {tab==="modulos"&&<AdminModulosTab clients={clients} activeClient={client} activeSociedad={adminSocActiva}/>}
 
