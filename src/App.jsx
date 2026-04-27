@@ -1703,7 +1703,6 @@ function OnboardingScreen({client,onComplete}){
         </div>
         <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#888880",fontFamily:"system-ui,sans-serif"}} onClick={handleComplete}>Omitir por ahora</button></div>
       </div>
-    {viewingDoc&&<DocViewerModal url={viewingDoc.url} name={viewingDoc.name} onClose={()=>setViewingDoc(null)}/>}
     </div>
   );
 }
