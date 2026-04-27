@@ -5767,6 +5767,30 @@ function AdminPendientesTab({client, pendingDocs=[], setPendingDocs}){
 }
 
 
+
+function Pagination({total, perPage, page, setPage}){
+  const totalPages = Math.ceil(total/perPage);
+  if(totalPages<=1) return null;
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:16,flexWrap:"wrap"}}>
+      <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"4px 8px",border:"1px solid #DDE4D8",borderRadius:3,cursor:page===1?"default":"pointer",background:"none",fontSize:11,color:page===1?"#DDE4D8":"#4A5C45",fontFamily:"system-ui,sans-serif"}}>«</button>
+      <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:page===1?"default":"pointer",background:"none",fontSize:11,color:page===1?"#DDE4D8":"#4A5C45",fontFamily:"system-ui,sans-serif"}}>‹</button>
+      {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>Math.abs(p-page)<=2||p===1||p===totalPages).reduce((acc,p,i,arr)=>{
+        if(i>0&&p-arr[i-1]>1) acc.push("...");
+        acc.push(p);
+        return acc;
+      },[]).map((p,i)=>
+        p==="..."
+          ? <span key={"e"+i} style={{fontSize:11,color:"#7A9070",padding:"0 4px"}}>...</span>
+          : <button key={p} onClick={()=>setPage(p)} style={{padding:"4px 10px",border:"1px solid "+(page===p?"#4A5C45":"#DDE4D8"),borderRadius:3,cursor:"pointer",background:page===p?"#4A5C45":"none",fontSize:11,color:page===p?"#F0F4EE":"#4A5C45",fontFamily:"system-ui,sans-serif",fontWeight:page===p?700:400}}>{p}</button>
+      )}
+      <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"4px 10px",border:"1px solid #DDE4D8",borderRadius:3,cursor:page===totalPages?"default":"pointer",background:"none",fontSize:11,color:page===totalPages?"#DDE4D8":"#4A5C45",fontFamily:"system-ui,sans-serif"}}>›</button>
+      <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"4px 8px",border:"1px solid #DDE4D8",borderRadius:3,cursor:page===totalPages?"default":"pointer",background:"none",fontSize:11,color:page===totalPages?"#DDE4D8":"#4A5C45",fontFamily:"system-ui,sans-serif"}}>»</button>
+      <span style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginLeft:4}}>{page}/{totalPages} · {total} items</span>
+    </div>
+  );
+}
+
 function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[], onMore, firstModulo="panel", moduloItems=[]}){
   const [showMore, setShowMore] = useState(false);
   const mainItems = [
@@ -5828,9 +5852,12 @@ function CalculadoraSocios({admin}){
     "O":"Operativo","PP":"Prot. Patrimonial","CE":"Cumpl. Especializado",
     "INM":"Inmobiliario","SC":"Sector Salud","A":"Arbitraje","CON":"Condominal"
   };
-  const PRECIOS = {
-    "L":5000,"F":5000,"C":6500,"M":3500,"O":4000,
-    "PP":6000,"CE":4500,"INM":4500,"SC":4500,"A":6500,"CON":3500
+  const PRECIOS = {"L":5000,"F":5000,"C":6500,"M":3500,"O":4000,"PP":6000,"CE":4500,"INM":4500,"SC":4500,"A":6500,"CON":3500};
+  const TIPOS_INGRESO = {
+    iguala:{label:"Iguala mensual",icon:"📅",recurrente:true},
+    proyecto:{label:"Proyecto",icon:"🏗",recurrente:false},
+    gestion:{label:"Gestión",icon:"📋",recurrente:false},
+    documento:{label:"Documento",icon:"📄",recurrente:false},
   };
   const SOCIOS = ["jesus","beto","carlos"];
   const SOCIO_LABEL = {jesus:"Jesús",beto:"Beto",carlos:"Carlos"};
@@ -5855,13 +5882,15 @@ function CalculadoraSocios({admin}){
         setClientes(data.map(cl=>({
           id: cl.id,
           nombre: cl.name,
-          iguala: 12000,
+          tieneApp: (cl.modulos||[]).length>0,
           modulosApp: (cl.modulos||[]).map(m=>m.split("-")[0]).filter((m,i,a)=>a.indexOf(m)===i).filter(m=>PRECIOS[m]),
-          tieneApp: (cl.modulos||[]).length > 0,
-          referidoDespacho: "",
-          referidoApp: "",
-          pctDespacho: null,
-          pctApp: null,
+          referidoDespacho:"",
+          referidoApp:"",
+          pctDespacho:null,
+          pctApp:null,
+          ingresos:[
+            {id:"i1",tipo:"iguala",descripcion:"Iguala base",monto:12000,referido:"",pctCustom:null},
+          ],
         })));
       }
       setLoadingClientes(false);
@@ -5873,22 +5902,48 @@ function CalculadoraSocios({admin}){
     setClientes(prev=>prev.map(cl=>cl.id===id?{...cl,[key]:val}:cl));
   }
 
+  function addIngreso(clientId){
+    setClientes(prev=>prev.map(cl=>cl.id===clientId?{...cl,ingresos:[...cl.ingresos,{id:"i"+Date.now(),tipo:"proyecto",descripcion:"",monto:0,referido:"",pctCustom:null}]}:cl));
+  }
+
+  function updateIngreso(clientId, ingresoId, key, val){
+    setClientes(prev=>prev.map(cl=>cl.id===clientId?{...cl,ingresos:cl.ingresos.map(ing=>ing.id===ingresoId?{...ing,[key]:val}:ing)}:cl));
+  }
+
+  function removeIngreso(clientId, ingresoId){
+    setClientes(prev=>prev.map(cl=>cl.id===clientId?{...cl,ingresos:cl.ingresos.filter(ing=>ing.id!==ingresoId)}:cl));
+  }
+
   function calcularCliente(cl){
     const pctD = cl.pctDespacho || globalConfig.despacho;
     const pctA = cl.pctApp || globalConfig.app;
-    const ref = globalConfig.referido / 100;
-    const totalDespacho = cl.iguala;
+    const ref = globalConfig.referido/100;
+
+    // Ingresos del despacho (todos los tipos excepto app)
+    let distD = {jesus:0,beto:0,carlos:0};
+    let totalDespacho = 0;
+    (cl.ingresos||[]).forEach(ing=>{
+      const monto = ing.monto||0;
+      totalDespacho += monto;
+      const pct = ing.pctCustom || pctD;
+      const refMonto = ing.referido ? monto*ref : 0;
+      const base = monto - refMonto;
+      distD.jesus += base*pct.jesus/100;
+      distD.beto += base*pct.beto/100;
+      distD.carlos += base*pct.carlos/100;
+      if(ing.referido) distD[ing.referido] = (distD[ing.referido]||0) + refMonto;
+    });
+
+    // App
     const totalApp = cl.tieneApp ? (cl.modulosApp||[]).reduce((s,m)=>s+(PRECIOS[m]||0),0) : 0;
-
-    const refDespachoMonto = cl.referidoDespacho ? totalDespacho * ref : 0;
-    const baseD = totalDespacho - refDespachoMonto;
-    const distD = {jesus: baseD*pctD.jesus/100, beto: baseD*pctD.beto/100, carlos: baseD*pctD.carlos/100};
-    if(cl.referidoDespacho) distD[cl.referidoDespacho] += refDespachoMonto;
-
-    const refAppMonto = cl.referidoApp && cl.tieneApp ? totalApp * ref : 0;
+    const refAppMonto = cl.referidoApp && cl.tieneApp ? totalApp*ref : 0;
     const baseA = totalApp - refAppMonto;
-    const distA = {jesus: baseA*pctA.jesus/100, beto: baseA*pctA.beto/100, carlos: baseA*pctA.carlos/100};
-    if(cl.referidoApp) distA[cl.referidoApp] += refAppMonto;
+    let distA = {
+      jesus: baseA*pctA.jesus/100,
+      beto: baseA*pctA.beto/100,
+      carlos: baseA*pctA.carlos/100,
+    };
+    if(cl.referidoApp) distA[cl.referidoApp] = (distA[cl.referidoApp]||0) + refAppMonto;
 
     return {
       totalDespacho, totalApp, total: totalDespacho+totalApp,
@@ -5901,7 +5956,7 @@ function CalculadoraSocios({admin}){
     };
   }
 
-  const calculos = clientes.map(cl=>({...cl, calc:calcularCliente(cl)}));
+  const calculos = clientes.map(cl=>({...cl,calc:calcularCliente(cl)}));
   const totales = {
     jesus: calculos.reduce((s,cl)=>s+cl.calc.porSocio.jesus,0),
     beto: calculos.reduce((s,cl)=>s+cl.calc.porSocio.beto,0),
@@ -5913,7 +5968,6 @@ function CalculadoraSocios({admin}){
 
   return(
     <div style={{maxWidth:960,margin:"0 auto"}}>
-      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontSize:18,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:2}}>Calculadora de distribución</div>
@@ -5922,7 +5976,6 @@ function CalculadoraSocios({admin}){
         <button onClick={()=>{setTempGlobal(JSON.parse(JSON.stringify(globalConfig)));setEditGlobal(true);}} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>⚙ Porcentajes globales</button>
       </div>
 
-      {/* Modal config global */}
       {editGlobal&&tempGlobal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:"1rem"}} onClick={()=>setEditGlobal(false)}>
         <div style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,padding:"1.5rem",width:"min(440px,100%)"}} onClick={e=>e.stopPropagation()}>
           <div style={{fontSize:15,fontFamily:"Georgia,serif",color:"#1E2B1A",marginBottom:16}}>Porcentajes globales</div>
@@ -5962,8 +6015,8 @@ function CalculadoraSocios({admin}){
           </div>
         ))}
       </div>
-      <div style={{background:"#1E2B1A",borderRadius:4,padding:"10px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{fontSize:12,color:"#A8C4A0",fontFamily:"system-ui,sans-serif"}}>Total consolidado todos los clientes</span>
+      <div style={{background:"#1E2B1A",borderRadius:4,padding:"10px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <span style={{fontSize:12,color:"#A8C4A0",fontFamily:"system-ui,sans-serif"}}>Total consolidado</span>
         <span style={{fontSize:18,fontFamily:"Georgia,serif",color:"#C9A84C",fontWeight:700}}>{fmt(granTotal)}/mes · {fmt(granTotal*12)}/año</span>
       </div>
 
@@ -5972,18 +6025,17 @@ function CalculadoraSocios({admin}){
         const expanded = expandedClient===cl.id;
         return(
           <div key={cl.id} style={{background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:6,marginBottom:8,overflow:"hidden"}}>
-            {/* Header cliente */}
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",justifyContent:"space-between"}} onClick={()=>setExpandedClient(expanded?null:cl.id)}>
               <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
-                <span style={{fontSize:16}}>{expanded?"▼":"▶"}</span>
+                <span style={{fontSize:14}}>{expanded?"▼":"▶"}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13,fontFamily:"Georgia,serif",color:"#1E2B1A",fontWeight:600}}>{cl.nombre}</div>
-                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{cl.tieneApp?"Con app":"Solo despacho"} · {(cl.modulosApp||[]).length} módulos · {fmt(cl.calc.total)}/mes</div>
+                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{(cl.ingresos||[]).length} conceptos · {fmt(cl.calc.total)}/mes</div>
                 </div>
               </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <div style={{display:"flex",gap:8,flexShrink:0}}>
                 {SOCIOS.map(s=>(
-                  <div key={s} style={{textAlign:"center",minWidth:60}}>
+                  <div key={s} style={{textAlign:"center",minWidth:55}}>
                     <div style={{fontSize:11,fontFamily:"Georgia,serif",color:SOCIO_COLOR[s],fontWeight:700}}>{fmt(cl.calc.porSocio[s])}</div>
                     <div style={{fontSize:9,color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>{SOCIO_LABEL[s]}</div>
                   </div>
@@ -5991,37 +6043,23 @@ function CalculadoraSocios({admin}){
               </div>
             </div>
 
-            {/* Detalle expandido */}
             {expanded&&<div style={{borderTop:"1px solid #DDE4D8",padding:"16px"}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:14}}>
-                <div>
-                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Iguala base (despacho)</div>
-                  <input type="number" value={cl.iguala} onChange={e=>updateCliente(cl.id,"iguala",Number(e.target.value))} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",boxSizing:"border-box"}}/>
-                </div>
-                <div>
-                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>¿Tiene app contratada?</div>
-                  <select value={cl.tieneApp?"si":"no"} onChange={e=>updateCliente(cl.id,"tieneApp",e.target.value==="si")} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
-                    <option value="si">Sí</option>
-                    <option value="no">No</option>
-                  </select>
-                </div>
-                <div>
-                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Referido despacho</div>
-                  <select value={cl.referidoDespacho||""} onChange={e=>updateCliente(cl.id,"referidoDespacho",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
-                    <option value="">Nadie</option>
-                    {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:4}}>Referido app</div>
-                  <select value={cl.referidoApp||""} onChange={e=>updateCliente(cl.id,"referidoApp",e.target.value)} style={{width:"100%",padding:"6px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:13,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",boxSizing:"border-box"}}>
-                    <option value="">Nadie</option>
-                    {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
-                  </select>
-                </div>
+              
+              {/* App toggle */}
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,padding:"10px 12px",background:"#F0F4EE",borderRadius:4}}>
+                <span style={{fontSize:12,fontFamily:"system-ui,sans-serif",color:"#1E2B1A",flex:1}}>¿Tiene app contratada?</span>
+                <select value={cl.tieneApp?"si":"no"} onChange={e=>updateCliente(cl.id,"tieneApp",e.target.value==="si")} style={{padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}>
+                  <option value="si">Sí</option>
+                  <option value="no">No</option>
+                </select>
+                {cl.tieneApp&&<select value={cl.referidoApp||""} onChange={e=>updateCliente(cl.id,"referidoApp",e.target.value)} style={{padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}>
+                  <option value="">Referido app: Nadie</option>
+                  {SOCIOS.map(s=><option key={s} value={s}>Referido: {SOCIO_LABEL[s]}</option>)}
+                </select>}
               </div>
 
-              {cl.tieneApp&&<div style={{marginBottom:14}}>
+              {/* Módulos app */}
+              {cl.tieneApp&&<div style={{marginBottom:16}}>
                 <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>Módulos en app — {fmt((cl.modulosApp||[]).reduce((s,m)=>s+(PRECIOS[m]||0),0))}/mes</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                   {Object.entries(PRECIOS_MODULOS).map(([key,label])=>{
@@ -6036,29 +6074,40 @@ function CalculadoraSocios({admin}){
                 </div>
               </div>}
 
-              {/* Porcentajes por cliente */}
-              <div style={{background:"#F5F8F5",borderRadius:4,padding:"12px",marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em"}}>Porcentajes para este cliente</div>
-                  <button onClick={()=>updateCliente(cl.id,"pctDespacho",null)||updateCliente(cl.id,"pctApp",null)} style={{fontSize:10,padding:"2px 8px",border:"1px solid #DDE4D8",borderRadius:2,cursor:"pointer",background:"none",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Usar globales</button>
+              {/* Ingresos del despacho */}
+              <div style={{marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em"}}>Ingresos del despacho</div>
+                  <button onClick={()=>addIngreso(cl.id)} style={{fontSize:11,padding:"4px 10px",border:"1px solid #4A5C45",borderRadius:3,cursor:"pointer",background:"none",color:"#4A5C45",fontFamily:"system-ui,sans-serif"}}>+ Agregar</button>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                  {[["pctDespacho","Despacho"],["pctApp","App"]].map(([pctKey,pctLabel])=>(
-                    <div key={pctKey}>
-                      <div style={{fontSize:10,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:6}}>{pctLabel}</div>
+                {(cl.ingresos||[]).map(ing=>(
+                  <div key={ing.id} style={{background:"#F5F8F5",borderRadius:4,padding:"10px 12px",marginBottom:8,border:"1px solid #DDE4D8"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"auto 1fr auto auto auto",gap:8,alignItems:"center",marginBottom:ing.pctCustom?8:0,flexWrap:"wrap"}}>
+                      <select value={ing.tipo} onChange={e=>updateIngreso(cl.id,ing.id,"tipo",e.target.value)} style={{padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}>
+                        {Object.entries(TIPOS_INGRESO).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                      </select>
+                      <input placeholder="Descripción" value={ing.descripcion} onChange={e=>updateIngreso(cl.id,ing.id,"descripcion",e.target.value)} style={{padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8",minWidth:0}}/>
+                      <input type="number" placeholder="Monto" value={ing.monto||""} onChange={e=>updateIngreso(cl.id,ing.id,"monto",Number(e.target.value))} style={{width:90,padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}/>
+                      <select value={ing.referido||""} onChange={e=>updateIngreso(cl.id,ing.id,"referido",e.target.value)} style={{padding:"5px 8px",border:"1px solid #DDE4D8",borderRadius:3,fontSize:12,fontFamily:"system-ui,sans-serif",background:"#FAFCF8"}}>
+                        <option value="">Referido: Nadie</option>
+                        {SOCIOS.map(s=><option key={s} value={s}>{SOCIO_LABEL[s]}</option>)}
+                      </select>
+                      <div style={{display:"flex",gap:4}}>
+                        <button onClick={()=>updateIngreso(cl.id,ing.id,"pctCustom",ing.pctCustom?null:{...globalConfig.despacho})} style={{fontSize:10,padding:"3px 7px",border:"1px solid #DDE4D8",borderRadius:2,cursor:"pointer",background:ing.pctCustom?"#4A5C45":"none",color:ing.pctCustom?"#F0F4EE":"#7A9070",fontFamily:"system-ui,sans-serif"}}>%</button>
+                        <button onClick={()=>removeIngreso(cl.id,ing.id)} style={{fontSize:12,padding:"3px 7px",border:"1px solid #fecaca",borderRadius:2,cursor:"pointer",background:"none",color:"#dc2626",fontFamily:"system-ui,sans-serif"}}>×</button>
+                      </div>
+                    </div>
+                    {ing.pctCustom&&<div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:8,borderTop:"1px solid #DDE4D8"}}>
                       {SOCIOS.map(s=>(
-                        <div key={s} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                          <span style={{width:50,fontSize:11,fontFamily:"system-ui,sans-serif",color:SOCIO_COLOR[s]}}>{SOCIO_LABEL[s]}</span>
-                          <input type="number" value={(cl[pctKey]||globalConfig[pctKey==="pctDespacho"?"despacho":"app"])[s]} onChange={e=>{
-                            const base = cl[pctKey]||{...globalConfig[pctKey==="pctDespacho"?"despacho":"app"]};
-                            updateCliente(cl.id, pctKey, {...base,[s]:Number(e.target.value)});
-                          }} style={{width:55,padding:"3px 6px",border:"1px solid #DDE4D8",borderRadius:2,fontSize:12,fontFamily:"system-ui,sans-serif"}}/>
+                        <div key={s} style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:11,color:SOCIO_COLOR[s],fontFamily:"system-ui,sans-serif",fontWeight:600}}>{SOCIO_LABEL[s]}</span>
+                          <input type="number" value={ing.pctCustom[s]} onChange={e=>updateIngreso(cl.id,ing.id,"pctCustom",{...ing.pctCustom,[s]:Number(e.target.value)})} style={{width:55,padding:"3px 6px",border:"1px solid #DDE4D8",borderRadius:2,fontSize:11,fontFamily:"system-ui,sans-serif"}}/>
                           <span style={{fontSize:10,color:"#7A9070"}}>%</span>
                         </div>
                       ))}
-                    </div>
-                  ))}
-                </div>
+                    </div>}
+                  </div>
+                ))}
               </div>
 
               {/* Distribución final */}
