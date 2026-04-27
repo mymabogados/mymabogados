@@ -1,3 +1,10 @@
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("/sw.js").catch(()=>{});
+  });
+}
+
 import React, { useState, useEffect, useRef } from "react";
 import { ModA01,ModA02,ModA03,ModA04,ModA05,ModA06,ARBITRAJE_DOCS } from "./ModulosArbitraje";
 import { ModC01,ModC02,ModC03,ModC04,ModC05,ModC06,ModC07,ModC08,CORPORATIVO_DOCS } from "./ModulosCorporativo";
