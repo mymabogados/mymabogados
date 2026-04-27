@@ -218,6 +218,35 @@ export const OPERATIVO_DOCS = {
   },
 };
 
+function useModData(client, mod){
+  const [data, setData] = React.useState({});
+  const [saving, setSaving] = React.useState(false);
+  const socId = client._sociedad?.id || null;
+  React.useEffect(()=>{
+    const q = socId
+      ? supabase.from("modulos_data").select("datos").eq("client_id", client.id).eq("modulo", mod).eq("sociedad_id", socId).single()
+      : supabase.from("modulos_data").select("datos").eq("client_id", client.id).eq("modulo", mod).is("sociedad_id", null).single();
+    q.then(({data:d})=>{ if(d?.datos) setData(d.datos); });
+  }, [client.id, mod, socId]);
+
+  async function save(key, val){
+    const newData = {...data, [key]: val};
+    setData(newData);
+    setSaving(true);
+    const socVal = socId || null;
+    const {data:existing} = socVal
+      ? await supabase.from("modulos_data").select("id").eq("client_id", client.id).eq("modulo", mod).eq("sociedad_id", socVal).single()
+      : await supabase.from("modulos_data").select("id").eq("client_id", client.id).eq("modulo", mod).is("sociedad_id", null).single();
+    if(existing?.id){
+      await supabase.from("modulos_data").update({datos: newData}).eq("id", existing.id);
+    } else {
+      await supabase.from("modulos_data").insert({client_id: client.id, modulo: mod, sociedad_id: socVal, datos: newData});
+    }
+    setSaving(false);
+  }
+  return {data, save, saving};
+}
+
 export function ModO01({client}){
   const [docs,setDocs]=useState([]);const [loading,setLoading]=useState(true);
   useEffect(()=>{
