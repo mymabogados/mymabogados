@@ -15,6 +15,7 @@ import { ModL01,ModL02,ModL03,ModL04,ModL05,ModL06,ModL07,ModL08,LABORAL_DOCS } 
 import { ModCON01,ModCON02,ModCON03,ModCON04,ModCON05,CONDOMINAL_DOCS } from "./ModulosCondominal";
 import { ModPP01,ModPP02,ModPP03,ModPP04,ModCE01,ModCE02,ModCE03,ModCE04,ModINM01,ModINM02,ModINM03,ModINM04,ModINM05,ModSC01,ModSC02,ModSC03,ModSC04,ModEN01,ModEN02,ModEN03,ModEN04,ModTD01,ModTD02,ModTD03,ModTD04,ModAG01,ModAG02,ModAG03,ModAG04,ModEM01,ModEM02,ModEM03,ModEM04,ESPECIALIZADO_DOCS } from "./ModulosEspecializados";
 import { DriveUploader } from "./DriveUploader";
+import { DriveUploaderMultiple } from "./DriveUploaderMultiple";
 import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 
@@ -6191,9 +6192,48 @@ function AuditoriaLegalTab({client}){
     if(docs.length===0){alert("Sube al menos un documento primero");return;}
     setExtrayendo(true);
     try {
+      // Leer contenido real de los PDFs
+      const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
+      const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
+      
+      // Descargar y convertir PDFs a base64
+      const pdfContents = [];
+      for(const doc of docs.slice(0,10)){ // máximo 10 docs
+        try {
+          const fileId = doc.drive_url?.match(/[-\w]{25,}/)?.[0];
+          if(!fileId) continue;
+          const pdfRes = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`);
+          if(!pdfRes.ok) continue;
+          const buf = await pdfRes.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          pdfContents.push({
+            nombre: doc.nombre,
+            tipo: doc.tipo,
+            base64,
+            mediaType: "application/pdf"
+          });
+        } catch(e) {
+          console.warn("No se pudo leer PDF:", doc.nombre, e.message);
+        }
+      }
+
+      // Construir mensaje con PDFs reales o fallback a nombres
       const docsInfo = docs.map(d=>`- ${TIPOS_DOC[d.tipo]||d.tipo}: ${d.nombre}${d.fecha_doc?" ("+d.fecha_doc+")":""}${d.notas?" — "+d.notas:""}`).join("\n");
       
-      const prompt = `Eres un abogado corporativo mexicano experto en auditorías legales. 
+      const mensajeContent = pdfContents.length > 0
+        ? [
+            ...pdfContents.map(p=>({
+              type:"document",
+              source:{type:"base64",media_type:p.mediaType,data:p.base64},
+              title: p.nombre
+            })),
+            {type:"text",text:`Eres un abogado corporativo mexicano experto en auditorías legales. Lee todos los documentos adjuntos y extrae la información para generar el reporte de auditoría legal de ${client.name}. Responde SOLO con JSON sin texto adicional.`}
+          ]
+        : [{type:"text",text:`Eres un abogado corporativo mexicano. Con base en estos documentos: ${docsInfo}. Genera datos para auditoría de ${client.name}. Responde SOLO con JSON.`}];
+
+      const prompt = pdfContents.length > 0 
+        ? "IGNORAR — usando content array" 
+        : `Eres un abogado corporativo mexicano experto en auditorías legales. 
 Basándote en la lista de documentos del cliente ${client.name}, genera la estructura de datos para un reporte de auditoría legal corporativa.
 
 Documentos disponibles:
@@ -6243,7 +6283,7 @@ IMPORTANTE: Responde SOLO con el JSON, sin texto adicional, sin markdown, sin ex
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:4000,
-          messages:[{role:"user",content:prompt}]
+          messages:[{role:"user",content:pdfContents.length>0?mensajeContent:prompt}]
         })
       });
       const data = await res.json();
@@ -6392,10 +6432,44 @@ IMPORTANTE: Responde SOLO con el JSON, sin texto adicional, sin markdown, sin ex
         </div>
       </div>}
 
+      {/* Subida múltiple */}
+      {docs.length===0&&<div style={{textAlign:"center",padding:"3rem",border:"2px dashed #DDE4D8",borderRadius:6,marginBottom:16}}>
+        <div style={{fontSize:14,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginBottom:16}}>Sube todas las escrituras y actas de una vez</div>
+        <DriveUploaderMultiple
+          clientId={client.id}
+          clientName={client.name}
+          label="📂 Seleccionar PDFs (múltiples)"
+          onUploaded={async (resultados)=>{
+            const nuevos = [];
+            for(const r of resultados){
+              const doc = {client_id:client.id, nombre:r.nombre, tipo:r.tipo, drive_url:r.drive_url};
+              const {data} = await supabase.from("auditoria_docs").insert(doc).select().single();
+              if(data) nuevos.push(data);
+            }
+            setDocs(prev=>[...prev,...nuevos]);
+          }}
+        />
+        <div style={{fontSize:11,color:"#7A9070",fontFamily:"system-ui,sans-serif",marginTop:12}}>Acepta múltiples PDFs — escrituras, actas, poderes</div>
+      </div>}
+
       {/* Lista de documentos */}
-      {docs.length===0?<div style={{textAlign:"center",padding:"3rem",color:"#7A9070",fontSize:13,fontFamily:"system-ui,sans-serif",border:"2px dashed #DDE4D8",borderRadius:6}}>
-        Sin documentos cargados. Sube las escrituras y actas para iniciar la auditoría.
-      </div>:<div style={{marginBottom:20}}>
+      {docs.length>0&&<div style={{marginBottom:8,display:"flex",justifyContent:"flex-end"}}>
+        <DriveUploaderMultiple
+          clientId={client.id}
+          clientName={client.name}
+          label="+ Agregar más PDFs"
+          onUploaded={async (resultados)=>{
+            const nuevos = [];
+            for(const r of resultados){
+              const doc = {client_id:client.id, nombre:r.nombre, tipo:r.tipo, drive_url:r.drive_url};
+              const {data} = await supabase.from("auditoria_docs").insert(doc).select().single();
+              if(data) nuevos.push(data);
+            }
+            setDocs(prev=>[...prev,...nuevos]);
+          }}
+        />
+      </div>}
+      {docs.length===0?<div style={{display:"none"}}/>:<div style={{marginBottom:20}}>
         <div style={{fontSize:10,fontWeight:700,color:"#4A5C45",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>Documentos cargados</div>
         {docs.map(doc=>(
           <div key={doc.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#FAFCF8",border:"1px solid #DDE4D8",borderRadius:4,marginBottom:6}}>
