@@ -5752,15 +5752,15 @@ function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[],
   const mainItems = [
     {id:"panel", icon:"🏠", label:"Inicio"},
     {id:"mod_", icon:"📋", label:"Módulos", prefix:true},
-    {id:"alertas", icon:"🚨", label:"Alertas", badge:pendingAlertas},
-    {id:"documentos", icon:"📁", label:"Docs"},
+    {id:"riesgos", icon:"🚨", label:"Alertas", badge:pendingAlertas},
+    {id:"docs", icon:"📁", label:"Docs"},
     {id:"mas", icon:"☰", label:"Más"},
   ];
   const isActive = (item) => {
     if(item.prefix) return tab.startsWith("mod_");
     if(item.id==="mas") return false;
-    if(item.id==="alertas") return tab==="alertas"||tab==="panel_alertas";
-    if(item.id==="documentos") return tab==="documentos"||tab==="contratos";
+    if(item.id==="riesgos") return tab==="riesgos";
+    if(item.id==="docs") return tab==="docs"||tab==="contratos";
     return tab===item.id;
   };
   return(
@@ -5777,7 +5777,7 @@ function BottomNav({tab, setTab, pendingAlertas=0, pendingDocs=0, extraItems=[],
       </div>}
       <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,background:"#FAFCF8",borderTop:"1px solid #DDE4D8",display:"flex",alignItems:"stretch",zIndex:400,boxShadow:"0 -2px 10px rgba(0,0,0,.08)"}}>
         {mainItems.map(item=>(
-          <button key={item.id} onClick={()=>item.id==="mas"?setShowMore(!showMore):item.prefix?setTab("mod_"):setTab(item.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"none",cursor:"pointer",position:"relative",color:isActive(item)?"#4A5C45":"#7A9070",touchAction:"manipulation"}}>
+          <button key={item.id} onClick={()=>item.id==="mas"?setShowMore(!showMore):item.prefix?setTab("mod_"+(extraItems.find(x=>x.id.startsWith("mod_"))?.id.replace("mod_","")||"")):setTab(item.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"none",cursor:"pointer",position:"relative",color:isActive(item)?"#4A5C45":"#7A9070",touchAction:"manipulation"}}>
             <span style={{fontSize:20,lineHeight:1}}>{item.icon}</span>
             <span style={{fontSize:9,fontFamily:"system-ui,sans-serif",fontWeight:isActive(item)?700:400}}>{item.label}</span>
             {item.badge>0&&<span style={{position:"absolute",top:6,right:"50%",marginRight:-18,background:"#C0392B",color:"#fff",borderRadius:10,fontSize:9,padding:"1px 5px",fontWeight:700}}>{item.badge}</span>}
