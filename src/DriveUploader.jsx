@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 
-const GOOGLE_CLIENT_ID = "530367322306-kssjas0e33hovkjiinnv4hsc6no553fv.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const ROOT_FOLDER_NAME = "MM_Panel";
 const ROOT_ID_KEY = "mm_drive_root_id";
 
