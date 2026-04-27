@@ -6311,106 +6311,20 @@ function AuditoriaLegalTab({client}){
     if(docs.length===0){alert("Sube al menos un documento primero");return;}
     setExtrayendo(true);
     try {
-      // Leer contenido real de los PDFs
       const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
       const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
-      
-      // Descargar y convertir PDFs a base64
-      const pdfContents = [];
-      for(const doc of docs.slice(0,10)){ // máximo 10 docs
-        try {
-          const fileId = doc.drive_url?.match(/[-\w]{25,}/)?.[0];
-          if(!fileId) continue;
-          const pdfRes = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`);
-          if(!pdfRes.ok) continue;
-          const buf = await pdfRes.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-          pdfContents.push({
-            nombre: doc.nombre,
-            tipo: doc.tipo,
-            base64,
-            mediaType: "application/pdf"
-          });
-        } catch(e) {
-          console.warn("No se pudo leer PDF:", doc.nombre, e.message);
-        }
-      }
-
-      // Construir mensaje con PDFs reales o fallback a nombres
-      const docsInfo = docs.map(d=>`- ${TIPOS_DOC[d.tipo]||d.tipo}: ${d.nombre}${d.fecha_doc?" ("+d.fecha_doc+")":""}${d.notas?" — "+d.notas:""}`).join("\n");
-      
-      const mensajeContent = pdfContents.length > 0
-        ? [
-            ...pdfContents.map(p=>({
-              type:"document",
-              source:{type:"base64",media_type:p.mediaType,data:p.base64},
-              title: p.nombre
-            })),
-            {type:"text",text:`Eres un abogado corporativo mexicano experto en auditorías legales. Lee todos los documentos adjuntos y extrae la información para generar el reporte de auditoría legal de ${client.name}. Responde SOLO con JSON sin texto adicional.`}
-          ]
-        : [{type:"text",text:`Eres un abogado corporativo mexicano. Con base en estos documentos: ${docsInfo}. Genera datos para auditoría de ${client.name}. Responde SOLO con JSON.`}];
-
-      const prompt = pdfContents.length > 0 
-        ? "IGNORAR — usando content array" 
-        : `Eres un abogado corporativo mexicano experto en auditorías legales. 
-Basándote en la lista de documentos del cliente ${client.name}, genera la estructura de datos para un reporte de auditoría legal corporativa.
-
-Documentos disponibles:
-${docsInfo}
-
-Genera un JSON con la siguiente estructura exacta (llena con los datos que puedas inferir de los nombres y tipos de documentos, y deja en blanco lo que no puedas determinar):
-
-{
-  "empresa": {
-    "nombre": "",
-    "abreviatura": "",
-    "domicilio": "",
-    "duracion": "",
-    "objeto": "",
-    "capital_original": "",
-    "series_acciones": ""
-  },
-  "constitucion": {
-    "escritura_num": "",
-    "fecha": "",
-    "notario": "",
-    "num_notario": "",
-    "ciudad": "",
-    "folio_mercantil": "",
-    "administrador_original": "",
-    "comisario_original": ""
-  },
-  "asambleas": [],
-  "variaciones_capital": [],
-  "poderes": [],
-  "estructura_actual": {
-    "organo_administracion": "",
-    "administrador": "",
-    "comisario": "",
-    "accionistas": []
-  },
-  "abreviaturas": [],
-  "observaciones_generales": "",
-  "recomendaciones": ""
-}
-
-IMPORTANTE: Responde SOLO con el JSON, sin texto adicional, sin markdown, sin explicaciones.`;
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const extractRes = await fetch(`${SUPABASE_URL}/functions/v1/extract-auditoria-docs`, {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:4000,
-          messages:[{role:"user",content:pdfContents.length>0?mensajeContent:prompt}]
+          client_name: client.name,
+          docs: docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,drive_url:d.drive_url,notas:d.notas||""}))
         })
       });
-      const data = await res.json();
-      const text = data.content?.[0]?.text||"{}";
-      const clean = text.replace(/```json|```/g,"").trim();
-      const parsed = JSON.parse(clean);
-      
-      await supabase.from("auditoria_reportes").upsert({
+      if(!extractRes.ok) throw new Error("Error en Edge Function: "+await extractRes.text());
+      const extractData = await extractRes.json();
+      const parsed = extractData.datos;
+            await supabase.from("auditoria_reportes").upsert({
         client_id: client.id,
         datos: parsed,
         revisado: false,
