@@ -6394,25 +6394,35 @@ function AuditoriaLegalTab({client}){
   }
 
   async function generarWordLocal(payload){
-    // Llamar Edge Function generate-auditoria
     const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
     const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-auditoria`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
-      body:JSON.stringify(payload)
-    });
-    if(!res.ok){
-      const err = await res.text();
-      throw new Error(err);
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 120000); // 2 minutos
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-auditoria`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
+        body:JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if(!res.ok){
+        const err = await res.text();
+        throw new Error("Edge Function error: "+err);
+      }
+      const blob = await res.blob();
+      if(blob.size < 100) throw new Error("Respuesta vacía de la Edge Function");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Auditoria_Legal_"+(client.name||client.id).replace(/\s+/g,"_")+".docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      clearTimeout(timeout);
+      if(e.name === "AbortError") throw new Error("Timeout — la generación tardó más de 2 minutos. Intenta de nuevo.");
+      throw e;
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Auditoria_Legal_"+(client.name||client.id).replace(/\s+/g,"_")+".docx";
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   if(loading) return <div style={{padding:24,textAlign:"center",color:"#7A9070",fontFamily:"system-ui,sans-serif"}}>Cargando...</div>;
