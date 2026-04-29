@@ -6313,31 +6313,41 @@ function AuditoriaLegalTab({client}){
     try {
       const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
       const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
-      // Descargar PDFs desde el frontend (tiene token de Google)
+      // Obtener token de Google Drive via OAuth (misma forma que DriveUploader)
       const pdfDocs = [];
-      for(const doc of docs.slice(0,8)){
-        if(!doc.drive_url) continue;
-        try {
-          const fileId = doc.drive_url.match(/[-\w]{25,}/)?.[0];
-          if(!fileId) continue;
-          // Intentar descarga directa con el token de Google almacenado
-          const driveToken = localStorage.getItem("mm_drive_token");
-          let pdfRes;
-          if(driveToken){
-            pdfRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${driveToken}`}});
-          }
-          if(!pdfRes?.ok){
-            pdfRes = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`);
-          }
-          if(!pdfRes?.ok) continue;
-          const buf = await pdfRes.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          let b64 = "";
-          for(let i=0;i<bytes.length;i+=8192) b64 += String.fromCharCode(...bytes.slice(i,i+8192));
-          pdfDocs.push({nombre:doc.nombre,tipo:doc.tipo,notas:doc.notas||"",base64:btoa(b64)});
-          console.log("PDF descargado:", doc.nombre, buf.byteLength, "bytes");
-        } catch(e){ console.warn("No se pudo descargar:", doc.nombre, e.message); }
-      }
+      try {
+        await new Promise((resolve) => {
+          if(window.google?.accounts){ resolve(null); return; }
+          const s = document.createElement("script");
+          s.src = "https://accounts.google.com/gsi/client";
+          s.onload = resolve;
+          document.head.appendChild(s);
+        });
+        const driveToken = await new Promise((resolve, reject) => {
+          const client = window.google.accounts.oauth2.initTokenClient({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            scope: "https://www.googleapis.com/auth/drive.readonly",
+            callback: (r) => r.error ? reject(new Error(r.error)) : resolve(r.access_token),
+          });
+          client.requestAccessToken({prompt:""});
+        });
+
+        for(const doc of docs.slice(0,8)){
+          if(!doc.drive_url) continue;
+          try {
+            const fileId = doc.drive_url.match(/[-\w]{25,}/)?.[0];
+            if(!fileId) continue;
+            const pdfRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${driveToken}`}});
+            if(!pdfRes.ok) continue;
+            const buf = await pdfRes.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let b64 = "";
+            for(let i=0;i<bytes.length;i+=8192) b64 += String.fromCharCode(...bytes.slice(i,i+8192));
+            pdfDocs.push({nombre:doc.nombre,tipo:doc.tipo,notas:doc.notas||"",base64:btoa(b64)});
+            console.log("PDF descargado:", doc.nombre, buf.byteLength+"b");
+          } catch(e){ console.warn("Error descargando:", doc.nombre); }
+        }
+      } catch(e){ console.warn("No se pudo autenticar con Google:", e.message); }
       console.log("PDFs descargados:", pdfDocs.length, "de", docs.length);
 
       const extractRes = await fetch(`${SUPABASE_URL}/functions/v1/extract-auditoria-docs`, {
