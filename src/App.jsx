@@ -6313,17 +6313,45 @@ function AuditoriaLegalTab({client}){
     try {
       const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
       const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
+      // Descargar PDFs desde el frontend (tiene token de Google)
+      const pdfDocs = [];
+      for(const doc of docs.slice(0,8)){
+        if(!doc.drive_url) continue;
+        try {
+          const fileId = doc.drive_url.match(/[-\w]{25,}/)?.[0];
+          if(!fileId) continue;
+          // Intentar descarga directa con el token de Google almacenado
+          const driveToken = localStorage.getItem("mm_drive_token");
+          let pdfRes;
+          if(driveToken){
+            pdfRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${driveToken}`}});
+          }
+          if(!pdfRes?.ok){
+            pdfRes = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`);
+          }
+          if(!pdfRes?.ok) continue;
+          const buf = await pdfRes.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let b64 = "";
+          for(let i=0;i<bytes.length;i+=8192) b64 += String.fromCharCode(...bytes.slice(i,i+8192));
+          pdfDocs.push({nombre:doc.nombre,tipo:doc.tipo,notas:doc.notas||"",base64:btoa(b64)});
+          console.log("PDF descargado:", doc.nombre, buf.byteLength, "bytes");
+        } catch(e){ console.warn("No se pudo descargar:", doc.nombre, e.message); }
+      }
+      console.log("PDFs descargados:", pdfDocs.length, "de", docs.length);
+
       const extractRes = await fetch(`${SUPABASE_URL}/functions/v1/extract-auditoria-docs`, {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
         body:JSON.stringify({
           client_name: client.name,
-          docs: docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,drive_url:d.drive_url,notas:d.notas||""}))
+          docs: pdfDocs.length > 0 ? pdfDocs : docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,notas:d.notas||""})),
+          tiene_pdfs: pdfDocs.length > 0
         })
       });
       const extractText = await extractRes.text();
-      console.log("Extract response:", extractRes.status, extractText.slice(0,500));
-      if(!extractRes.ok) throw new Error("Error en Edge Function: "+extractText);
+      console.log("Extract response:", extractRes.status, extractText.slice(0,200));
+      if(!extractRes.ok) throw new Error("Error: "+extractText);
       const extractData = JSON.parse(extractText);
       const parsed = extractData.datos;
             await supabase.from("auditoria_reportes").upsert({
