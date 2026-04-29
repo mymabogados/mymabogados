@@ -6351,46 +6351,32 @@ function AuditoriaLegalTab({client}){
     if(!datosExtraidos){alert("Primero extrae los datos con IA");return;}
     setGenerando(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:4000,
-          messages:[{role:"user",content:`Eres un abogado corporativo mexicano. Con base en estos datos de auditoría legal, genera el contenido completo y detallado para cada sección del reporte. Usa lenguaje jurídico formal mexicano. Datos: ${JSON.stringify(datosExtraidos)}. Responde SOLO con JSON con campos: introduccion, texto_constitucion, texto_asambleas, texto_variaciones, texto_poderes, texto_estructura_actual, texto_observaciones, texto_recomendaciones.`}]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.[0]?.text||"{}";
-      const clean = text.replace(/```json|```/g,"").trim();
-      const textos = JSON.parse(clean);
-      
-      // Enviar al servidor para generar Word
+      const SUPABASE_URL = "https://indylgidkojwtaqylljb.supabase.co";
+      const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluZHlsZ2lka29qd3RhcXlsbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjI5NzcsImV4cCI6MjA5MTkzODk3N30.w1wViFpTPo9KqLtxh4MOCkdB0jJ1fMC_ENVXxte6zj4";
       const payload = {
         cliente: client.name,
         fecha: new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"}),
         datos: datosExtraidos,
-        textos,
         docs,
+        generar_textos: true,
       };
-      
-      // Guardar payload en Supabase para que la Edge Function lo procese
-      const {data:saved} = await supabase.from("auditoria_reportes").upsert({
-        client_id: client.id,
-        datos: {...datosExtraidos, _textos: textos, _payload: payload},
-        revisado: true,
-      }).select().single();
-
-      alert("Reporte listo para generar. Usa el botón de descarga.");
-      setGenerando(false);
-      
-      // Trigger descarga via edge function o generación local
-      await generarWordLocal(payload);
-      
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-auditoria`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
+        body:JSON.stringify(payload)
+      });
+      if(!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Auditoria_Legal_"+(client.name||client.id).replace(/\s+/g,"_")+".docx";
+      a.click();
+      URL.revokeObjectURL(url);
     } catch(e){
       alert("Error generando reporte: "+e.message);
-      setGenerando(false);
     }
+    setGenerando(false);
   }
 
   async function generarWordLocal(payload){
