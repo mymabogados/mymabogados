@@ -6471,6 +6471,7 @@ function AuditoriaLegalTab({client}){
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={()=>setShowUpload(true)} style={{fontSize:12,padding:"7px 14px",border:"1px solid #DDE4D8",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#4A5C45"}}>+ Subir documento</button>
           {docs.length>0&&<button onClick={extraerConIA} disabled={extrayendo} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#4A5C45",color:"#F0F4EE",fontFamily:"system-ui,sans-serif",opacity:extrayendo?0.7:1}}>{extrayendo?"Analizando con IA...":"🤖 Extraer datos con IA"}</button>}
+          {datosExtraidos&&<button onClick={async()=>{if(!confirm("¿Limpiar datos extraídos?"))return;await supabase.from("auditoria_reportes").delete().eq("client_id",client.id);setDatosExtraidos(null);setEditando(false);}} style={{fontSize:12,padding:"7px 14px",border:"1px solid #fecaca",borderRadius:3,cursor:"pointer",background:"none",fontFamily:"system-ui,sans-serif",color:"#dc2626"}}>🗑 Limpiar extracción</button>}
           {datosExtraidos&&<button onClick={generarWord} disabled={generando} style={{fontSize:12,padding:"7px 14px",border:"none",borderRadius:3,cursor:"pointer",background:"#C9A84C",color:"#1E2B1A",fontFamily:"system-ui,sans-serif",fontWeight:700,opacity:generando?0.7:1}}>{generando?"Generando...":"↓ Generar Word"}</button>}
         </div>
       </div>
