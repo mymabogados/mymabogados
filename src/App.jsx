@@ -6321,8 +6321,10 @@ function AuditoriaLegalTab({client}){
           docs: docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,drive_url:d.drive_url,notas:d.notas||""}))
         })
       });
-      if(!extractRes.ok) throw new Error("Error en Edge Function: "+await extractRes.text());
-      const extractData = await extractRes.json();
+      const extractText = await extractRes.text();
+      console.log("Extract response:", extractRes.status, extractText.slice(0,500));
+      if(!extractRes.ok) throw new Error("Error en Edge Function: "+extractText);
+      const extractData = JSON.parse(extractText);
       const parsed = extractData.datos;
             await supabase.from("auditoria_reportes").upsert({
         client_id: client.id,

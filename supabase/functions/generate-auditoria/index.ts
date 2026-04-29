@@ -42,7 +42,7 @@ function buildZip(files:{name:string;data:Uint8Array}[]): Uint8Array {
   return out;
 }
 
-function xmlEsc(s: string) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function xmlEsc(s: string) { return (s||"").replace(/&/g,"&").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 function para(text: string, bold=false, size=24, color="000000", italic=false): string {
   const b = bold ? "<w:b/><w:bCs/>" : "";
@@ -106,21 +106,21 @@ serve(async (req) => {
 
     // Portada
     body += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="1440" w:after="0"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="40"/><w:color w:val="1E2B1A"/></w:rPr><w:t>${xmlEsc(empresa.nombre||cliente)}</w:t></w:r></w:p>`;
-    body += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="200" w:after="200"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/><w:color w:val="4A5C45"/></w:rPr><w:t>Auditor&#237;a Legal</w:t></w:r></w:p>`;
+    body += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="200" w:after="200"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/><w:color w:val="4A5C45"/></w:rPr><w:t>Auditoría Legal</w:t></w:r></w:p>`;
     body += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="200"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/><w:color w:val="7A9070"/></w:rPr><w:t>${xmlEsc(fecha||"")}</w:t></w:r></w:p>`;
-    body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="C9A84C"/></w:rPr><w:t>Mill&#225;n &amp; Mart&#237;nez Abogados</w:t></w:r></w:p>`;
+    body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="C9A84C"/></w:rPr><w:t>Millán & Martínez Abogados</w:t></w:r></w:p>`;
     body += pageBreak();
 
     // Índice
-    body += heading("&#205;ndice", 1);
-    ["i) Abreviaturas","ii) Constituci&#243;n","iii) Asambleas de Accionistas","iv) Variaciones de Capital","v) Poderes y facultades","vi) Estructura accionaria y gobierno corporativo actual","vii) Comentarios Generales y Recomendaciones"].forEach(s=>{
+    body += heading("Índice", 1);
+    ["i) Abreviaturas","ii) Constitución","iii) Asambleas de Accionistas","iv) Variaciones de Capital","v) Poderes y facultades","vi) Estructura accionaria y gobierno corporativo actual","vii) Comentarios Generales y Recomendaciones"].forEach(s=>{
       body += `<w:p><w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${s}</w:t></w:r></w:p>`;
     });
     body += pageBreak();
 
     // Introducción
-    body += heading("Introducci&#243;n", 1);
-    body += para(t.introduccion || `El presente Reporte de Auditor&#237;a Legal de la sociedad ${empresa.nombre||cliente} (&#8220;${empresa.abreviatura||"la Sociedad"}&#8221;) presenta un panorama general del estado corporativo que actualmente guarda la Sociedad. El reporte se elabor&#243; tomando en consideraci&#243;n la informaci&#243;n proporcionada a Mill&#225;n &amp; Mart&#237;nez Abogados, por lo que en caso de existir informaci&#243;n adicional, ser&#225; necesario emitir un reporte en alcance al presente.`, false, 22);
+    body += heading("Introducción", 1);
+    body += para(t.introduccion || `El presente Reporte de Auditoría Legal de la sociedad ${empresa.nombre||cliente} ("${empresa.abreviatura||"la Sociedad"}") presenta un panorama general del estado corporativo que actualmente guarda la Sociedad. El reporte se elaboró tomando en consideración la información proporcionada a Millán & Martínez Abogados, por lo que en caso de existir información adicional, será necesario emitir un reporte en alcance al presente.`, false, 22);
     body += `<w:p/>`;
 
     // Abreviaturas
@@ -131,19 +131,19 @@ serve(async (req) => {
       (d.abreviaturas||[]).forEach((a:any)=>{ body += tableRow([a.abreviatura||"",a.significado||""]); });
       body += `</w:tbl>`;
     } else {
-      body += para(`${empresa.abreviatura||"La Sociedad"} &#8212; ${empresa.nombre||cliente}`, false, 22);
+      body += para(`${empresa.abreviatura||"La Sociedad"} — ${empresa.nombre||cliente}`, false, 22);
     }
     body += `<w:p/>`;
 
     // Constitución
-    body += heading("ii) Constituci&#243;n", 2);
-    body += para(t.texto_constitucion || `Escritura n&#250;mero ${constitucion.escritura_num||"[n&#250;mero]"} de fecha ${constitucion.fecha||"[fecha]"}, otorgada ante la fe del ${constitucion.notario||"[notario]"}, Notario P&#250;blico n&#250;mero ${constitucion.num_notario||"[n&#250;mero]"} de ${constitucion.ciudad||"[ciudad]"}, inscrito en el RPPC en el FM ${constitucion.folio_mercantil||"[folio]"}.`, false, 22);
+    body += heading("ii) Constitución", 2);
+    body += para(t.texto_constitucion || `Escritura número ${constitucion.escritura_num||"[número]"} de fecha ${constitucion.fecha||"[fecha]"}, otorgada ante la fe del ${constitucion.notario||"[notario]"}, Notario Público número ${constitucion.num_notario||"[número]"} de ${constitucion.ciudad||"[ciudad]"}, inscrito en el RPPC en el FM ${constitucion.folio_mercantil||"[folio]"}.`, false, 22);
     body += `<w:p/>`;
     body += `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr>`;
     [
-      ["Denominaci&#243;n:", empresa.nombre||cliente],
+      ["Denominación:", empresa.nombre||cliente],
       ["Domicilio Social:", empresa.domicilio||""],
-      ["Duraci&#243;n:", empresa.duracion||""],
+      ["Duración:", empresa.duracion||""],
       ["Objeto:", empresa.objeto||""],
       ["Capital social original:", empresa.capital_original||""],
       ["Series de Acciones:", empresa.series_acciones||""],
@@ -160,10 +160,10 @@ serve(async (req) => {
         body += `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:i/><w:sz w:val="22"/></w:rPr><w:t>${xmlEsc((a.tipo||"Asamblea")+" "+(a.fecha||"")+(a.descripcion?". "+a.descripcion:""))}</w:t></w:r></w:p>`;
         if (a.acuerdos) body += para(a.acuerdos, false, 22);
         if (a.observacion) {
-          body += `<w:p><w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="C0392B"/></w:rPr><w:t xml:space="preserve">Observaci&#243;n: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="C0392B"/></w:rPr><w:t>${xmlEsc(a.observacion)}</w:t></w:r></w:p>`;
+          body += `<w:p><w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="C0392B"/></w:rPr><w:t xml:space="preserve">Observación: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="C0392B"/></w:rPr><w:t>${xmlEsc(a.observacion)}</w:t></w:r></w:p>`;
         }
         if (a.recomendacion) {
-          body += `<w:p><w:pPr><w:spacing w:before="40" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="185FA5"/></w:rPr><w:t xml:space="preserve">Recomendaci&#243;n: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="185FA5"/></w:rPr><w:t>${xmlEsc(a.recomendacion)}</w:t></w:r></w:p>`;
+          body += `<w:p><w:pPr><w:spacing w:before="40" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="185FA5"/></w:rPr><w:t xml:space="preserve">Recomendación: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="185FA5"/></w:rPr><w:t>${xmlEsc(a.recomendacion)}</w:t></w:r></w:p>`;
         }
       });
     } else {
@@ -175,7 +175,7 @@ serve(async (req) => {
     body += heading("iv) Variaciones de Capital", 2);
     if (variaciones.length > 0) {
       variaciones.forEach((v:any)=>{
-        body += para(`${v.fecha||""} &#8212; ${v.tipo||"Variaci&#243;n"}: ${v.monto||""} ${v.descripcion||""}`, false, 22);
+        body += para(`${v.fecha||""} — ${v.tipo||"Variación"}: ${v.monto||""} ${v.descripcion||""}`, false, 22);
       });
     } else {
       body += para(t.texto_variaciones || "No se detectaron variaciones de capital en el periodo revisado.", false, 22);
@@ -186,7 +186,7 @@ serve(async (req) => {
     body += heading("v) Poderes y facultades", 2);
     if (poderes.length > 0) {
       poderes.forEach((p:any)=>{
-        body += `<w:p><w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${xmlEsc((p.titular||"[titular]")+" &#8212; "+(p.tipo||"Poder")+(p.fecha?" ("+p.fecha+")":""))}</w:t></w:r></w:p>`;
+        body += `<w:p><w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${xmlEsc((p.titular||"[titular]")+" — "+(p.tipo||"Poder")+(p.fecha?" ("+p.fecha+")":""))}</w:t></w:r></w:p>`;
         if (p.facultades) body += para(p.facultades, false, 22);
       });
     } else {
@@ -196,7 +196,7 @@ serve(async (req) => {
 
     // Estructura actual
     body += heading("vi) Estructura accionaria y gobierno corporativo actual", 2);
-    body += para(t.texto_estructura_actual || `&#211;rgano de administraci&#243;n: ${estructura.organo_administracion||""}. Administrador: ${estructura.administrador||""}. Comisario: ${estructura.comisario||""}.`, false, 22);
+    body += para(t.texto_estructura_actual || `Órgano de administración: ${estructura.organo_administracion||""}. Administrador: ${estructura.administrador||""}. Comisario: ${estructura.comisario||""}.`, false, 22);
     if ((estructura.accionistas||[]).length > 0) {
       body += `<w:p/>`;
       body += `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr>`;
@@ -218,7 +218,7 @@ serve(async (req) => {
       body += para(t.texto_recomendaciones || d.recomendaciones, false, 22);
     }
     body += pageBreak();
-    body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="4A5C45"/></w:rPr><w:t>Mill&#225;n &amp; Mart&#237;nez Abogados</w:t></w:r></w:p>`;
+    body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="4A5C45"/></w:rPr><w:t>Millán & Martínez Abogados</w:t></w:r></w:p>`;
     body += `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="7A9070"/></w:rPr><w:t>panel.mymabogados.mx</w:t></w:r></w:p>`;
 
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`;
