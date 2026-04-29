@@ -6356,14 +6356,16 @@ function AuditoriaLegalTab({client}){
       } catch(e){ console.warn("No se pudo autenticar con Google:", e.message); }
       console.log("PDFs descargados:", pdfDocs.length, "de", docs.length);
 
+      const bodyPayload = JSON.stringify({
+        client_name: client.name,
+        docs: pdfDocs.length > 0 ? pdfDocs : docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,notas:d.notas||""})),
+        tiene_pdfs: pdfDocs.length > 0
+      });
+      console.log("Payload size:", (bodyPayload.length/1024/1024).toFixed(2)+"MB", "docs:", pdfDocs.length);
       const extractRes = await fetch(`${SUPABASE_URL}/functions/v1/extract-auditoria-docs`, {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${ANON_KEY}`},
-        body:JSON.stringify({
-          client_name: client.name,
-          docs: pdfDocs.length > 0 ? pdfDocs : docs.slice(0,8).map(d=>({nombre:d.nombre,tipo:d.tipo,notas:d.notas||""})),
-          tiene_pdfs: pdfDocs.length > 0
-        })
+        body:bodyPayload
       });
       const extractText = await extractRes.text();
       console.log("Extract response:", extractRes.status, extractText.slice(0,200));

@@ -92,6 +92,7 @@ Responde SOLO con este JSON (sin texto adicional):
   const d = await r.json();
   const text = d.content?.[0]?.text || "{}";
   const clean = text.replace(/```json|```/g, "").trim();
+  console.log("Claude text:", clean.slice(0,400));
   try { return JSON.parse(clean); }
   catch { return {}; }
 }
