@@ -6343,8 +6343,14 @@ function AuditoriaLegalTab({client}){
             const bytes = new Uint8Array(buf);
             let b64 = "";
             for(let i=0;i<bytes.length;i+=8192) b64 += String.fromCharCode(...bytes.slice(i,i+8192));
+            // Limitar a 2MB por PDF
+            if(buf.byteLength > 2*1024*1024){
+              console.warn("PDF muy grande, omitiendo:", doc.nombre, buf.byteLength+"b");
+              continue;
+            }
             pdfDocs.push({nombre:doc.nombre,tipo:doc.tipo,notas:doc.notas||"",base64:btoa(b64)});
             console.log("PDF descargado:", doc.nombre, buf.byteLength+"b");
+            if(pdfDocs.length >= 4) break; // max 4 PDFs
           } catch(e){ console.warn("Error descargando:", doc.nombre); }
         }
       } catch(e){ console.warn("No se pudo autenticar con Google:", e.message); }
